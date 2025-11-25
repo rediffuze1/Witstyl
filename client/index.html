@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SalonPilot</title>
+    
+    <!-- Script d'initialisation du thème pour éviter le flash rose -->
+    <script>
+      (function() {
+        try {
+          const LS_KEY = "salonpilot.theme.v1";
+          const DEFAULT_PRIMARY = "hsl(0 0% 35%)";
+          const raw = localStorage.getItem(LS_KEY);
+          let primary = DEFAULT_PRIMARY;
+          if (raw) {
+            const s = JSON.parse(raw);
+            if (s && s.primary) primary = s.primary;
+          }
+          document.documentElement.style.setProperty("--primary", primary);
+          // petit foreground par défaut pour éviter les contrastes foireux au boot
+          document.documentElement.style.setProperty("--primary-foreground", "hsl(220 13% 13%)");
+        } catch {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
@@ -11,14 +30,21 @@
     <script type="module" src="/src/main.tsx"></script>
 
     <!-- Debug Replit (Eruda) : protégé -->
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>
-      try {
-        if (document && document.body) {
-          eruda.init();
-        }
-      } catch (e) {
-        console.warn("Eruda non initialisé :", e);
+      // Only load Eruda in development
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+        script.onload = () => {
+          try {
+            if (window.eruda) {
+              eruda.init();
+            }
+          } catch (e) {
+            console.warn("Eruda non initialisé :", e);
+          }
+        };
+        document.head.appendChild(script);
       }
     </script>
   </body>

@@ -45,9 +45,9 @@ export default function TypingAnimation() {
   }, [displayText, isTyping, currentIndex]);
 
   return (
-    <p className="text-xl sm:text-2xl text-muted-foreground typing-text">
+    <p className="text-xl sm:text-2xl text-foreground font-medium typing-text min-h-[2rem] flex items-center justify-center">
       {displayText}
-      <span className="animate-pulse">|</span>
+      <span className="animate-pulse text-primary ml-1">|</span>
     </p>
   );
 }

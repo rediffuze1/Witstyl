@@ -20,7 +20,16 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port: 5173,
-    strictPort: true,
+    // En développement, Vite est intégré dans Express sur le port 5001
+    // Ce fichier de config est principalement pour le build
+    port: 5001,
+    strictPort: false, // Permettre à Express de gérer le port
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 });

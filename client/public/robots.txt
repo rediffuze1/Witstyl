@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://salonpilot.com/sitemap.xml
+
+
+
+
+
+
+
+

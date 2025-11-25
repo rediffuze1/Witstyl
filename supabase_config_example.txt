@@ -1,0 +1,51 @@
+# Configuration Supabase pour SalonPilot
+# Copiez ce fichier vers .env et remplissez avec vos vraies valeurs
+
+# =====================================================
+# CONFIGURATION SUPABASE
+# =====================================================
+
+# URL de votre projet Supabase
+# Format: https://your-project-id.supabase.co
+SUPABASE_URL=https://your-project-id.supabase.co
+
+# Clé anonyme de votre projet Supabase
+# Trouvée dans Settings > API > Project API keys
+SUPABASE_ANON_KEY=your-anon-key-here
+
+# Clé de service de votre projet Supabase (optionnel)
+# Pour les opérations admin
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# =====================================================
+# CONFIGURATION SERVEUR
+# =====================================================
+
+# Port du serveur
+PORT=5001
+
+# Environnement
+NODE_ENV=development
+
+# =====================================================
+# CONFIGURATION OPTIONNELLE
+# =====================================================
+
+# Configuration OpenAI (pour l'IA vocale)
+OPENAI_API_KEY=sk-proj-your-openai-key-here
+
+# Mode vocal (on/off)
+VOICE_MODE=off
+
+# Base de données (optionnel - sera remplacé par Supabase)
+DATABASE_URL=postgresql://postgres:password@localhost:5432/salonpilot
+
+# =====================================================
+# INSTRUCTIONS D'INSTALLATION
+# =====================================================
+
+# 1. Créez un projet Supabase sur https://supabase.com
+# 2. Exécutez le script supabase_tables_clients_owners.sql dans l'éditeur SQL
+# 3. Copiez SUPABASE_URL et SUPABASE_ANON_KEY depuis Settings > API
+# 4. Renommez ce fichier en .env
+# 5. Redémarrez le serveur avec npm run dev

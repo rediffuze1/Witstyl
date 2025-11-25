@@ -65,7 +65,7 @@ export const services = pgTable("services", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const stylists = pgTable("stylists", {
+export const stylistes = pgTable("stylistes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   salonId: varchar("salon_id").notNull().references(() => salons.id),
   firstName: varchar("first_name").notNull(),
@@ -75,6 +75,7 @@ export const stylists = pgTable("stylists", {
   photoUrl: varchar("photo_url"),
   specialties: text("specialties").array().default([]),
   isActive: boolean("is_active").default(true),
+  color: varchar("color"), // Couleur personnalisée pour le calendrier
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -85,8 +86,9 @@ export const clients = pgTable("clients", {
   lastName: varchar("last_name").notNull(),
   email: varchar("email").notNull(),
   phone: varchar("phone"),
-  notes: text("notes"),
-  preferredStylistId: varchar("preferred_stylist_id").references(() => stylists.id),
+  notes: text("notes"), // Notes internes (JSON pour sex, etc.)
+  ownerNotes: text("owner_notes"), // Notes privées visibles uniquement par le owner (post-it)
+  preferredStylistId: varchar("preferred_stylist_id").references(() => stylistes.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -95,7 +97,7 @@ export const appointments = pgTable("appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   salonId: varchar("salon_id").notNull().references(() => salons.id),
   clientId: varchar("client_id").notNull().references(() => clients.id),
-  stylistId: varchar("stylist_id").notNull().references(() => stylists.id),
+  stylistId: varchar("stylist_id").notNull().references(() => stylistes.id),
   serviceId: varchar("service_id").notNull().references(() => services.id),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
@@ -105,6 +107,9 @@ export const appointments = pgTable("appointments", {
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentStatus: varchar("payment_status").default("pending"), // pending, paid, refunded
   notes: text("notes"),
+  // Champs pour intégrations externes (déprécié, conservé pour compatibilité)
+  externalId: varchar("external_id").unique(), // ID de réservation externe (déprécié)
+  payload: jsonb("payload"), // Payload JSON brut du webhook pour traçabilité
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -120,7 +125,7 @@ export const salonHours = pgTable("salon_hours", {
 
 export const stylistSchedule = pgTable("stylist_schedule", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  stylistId: varchar("stylist_id").notNull().references(() => stylists.id),
+  stylistId: varchar("stylist_id").notNull().references(() => stylistes.id),
   dayOfWeek: integer("day_of_week").notNull(),
   startTime: time("start_time"),
   endTime: time("end_time"),
@@ -141,7 +146,7 @@ export const salonsRelations = relations(salons, ({ one, many }) => ({
     references: [users.id],
   }),
   services: many(services),
-  stylists: many(stylists),
+  stylistes: many(stylistes),
   appointments: many(appointments),
   hours: many(salonHours),
 }));
@@ -154,9 +159,9 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
   appointments: many(appointments),
 }));
 
-export const stylistsRelations = relations(stylists, ({ one, many }) => ({
+export const stylistesRelations = relations(stylistes, ({ one, many }) => ({
   salon: one(salons, {
-    fields: [stylists.salonId],
+    fields: [stylistes.salonId],
     references: [salons.id],
   }),
   appointments: many(appointments),
@@ -165,9 +170,9 @@ export const stylistsRelations = relations(stylists, ({ one, many }) => ({
 }));
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
-  preferredStylist: one(stylists, {
+  preferredStylist: one(stylistes, {
     fields: [clients.preferredStylistId],
-    references: [stylists.id],
+    references: [stylistes.id],
   }),
   appointments: many(appointments),
 }));
@@ -181,9 +186,9 @@ export const appointmentsRelations = relations(appointments, ({ one }) => ({
     fields: [appointments.clientId],
     references: [clients.id],
   }),
-  stylist: one(stylists, {
+  styliste: one(stylistes, {
     fields: [appointments.stylistId],
-    references: [stylists.id],
+    references: [stylistes.id],
   }),
   service: one(services, {
     fields: [appointments.serviceId],
@@ -199,9 +204,9 @@ export const salonHoursRelations = relations(salonHours, ({ one }) => ({
 }));
 
 export const stylistScheduleRelations = relations(stylistSchedule, ({ one }) => ({
-  stylist: one(stylists, {
+  styliste: one(stylistes, {
     fields: [stylistSchedule.stylistId],
-    references: [stylists.id],
+    references: [stylistes.id],
   }),
 }));
 
@@ -218,17 +223,23 @@ export const insertServiceSchema = createInsertSchema(services).omit({
   updatedAt: true,
 });
 
-export const insertStylistSchema = createInsertSchema(stylists).omit({
+export const insertStylistSchema = createInsertSchema(stylistes).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertClientSchema = createInsertSchema(clients).omit({
+// Créer le schéma de base avec tous les champs
+const baseClientSchema = createInsertSchema(clients).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
+
+// Étendre pour s'assurer que ownerNotes est inclus (même si createInsertSchema ne le reconnaît pas)
+export const insertClientSchema = baseClientSchema.extend({
+  ownerNotes: z.string().optional().default(""), // Permettre les chaînes vides avec valeur par défaut
+}).passthrough(); // Permettre les champs supplémentaires
 
 export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
@@ -243,8 +254,8 @@ export type Salon = typeof salons.$inferSelect;
 export type InsertSalon = z.infer<typeof insertSalonSchema>;
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
-export type Stylist = typeof stylists.$inferSelect;
-export type InsertStylist = z.infer<typeof insertStylistSchema>;
+export type Styliste = typeof stylistes.$inferSelect;
+export type InsertStyliste = z.infer<typeof insertStylistSchema>;
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Appointment = typeof appointments.$inferSelect;

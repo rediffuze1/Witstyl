@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "salon-pilot": {
+      "command": "node",
+      "args": ["server/mcp/index.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

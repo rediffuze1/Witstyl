@@ -4,11 +4,20 @@ import { useLocation } from "wouter";
 import { Calendar, Users, Scissors, BarChart, Settings } from "lucide-react";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const [, setLocation] = useLocation();
+  
+  // Debug pour voir les données utilisateur
+  console.log("Home - User data:", user);
+  console.log("Home - Loading:", isLoading);
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setLocation("/");
+    } catch (error) {
+      console.error("Erreur de déconnexion:", error);
+    }
   };
 
   return (
@@ -17,7 +26,7 @@ export default function Home() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Bienvenue, {user?.firstName || user?.email}
+              Bienvenue, {isLoading ? "..." : (user?.firstName || user?.email || "Utilisateur")}
             </h1>
             <p className="text-muted-foreground">Gérez votre salon avec SalonPilot</p>
           </div>
@@ -38,7 +47,7 @@ export default function Home() {
 
           <Button
             onClick={() => setLocation("/calendar")}
-            className="h-32 flex flex-col items-center justify-center space-y-2 bg-accent text-accent-foreground hover:bg-accent/90"
+            className="h-32 flex flex-col items-center justify-center space-y-2 bg-secondary text-secondary-foreground hover:bg-secondary/90"
             data-testid="button-calendar"
           >
             <Calendar className="h-8 w-8" />
@@ -47,7 +56,7 @@ export default function Home() {
 
           <Button
             onClick={() => setLocation("/services")}
-            className="h-32 flex flex-col items-center justify-center space-y-2 bg-secondary text-secondary-foreground hover:bg-secondary/90"
+            className="h-32 flex flex-col items-center justify-center space-y-2 bg-accent text-accent-foreground hover:bg-accent/90"
             data-testid="button-services"
           >
             <Scissors className="h-8 w-8" />
@@ -55,12 +64,12 @@ export default function Home() {
           </Button>
 
           <Button
-            onClick={() => setLocation("/stylists")}
+            onClick={() => setLocation("/stylistes")}
             className="h-32 flex flex-col items-center justify-center space-y-2 bg-muted text-muted-foreground hover:bg-muted/80"
-            data-testid="button-stylists"
+            data-testid="button-stylistes"
           >
             <Users className="h-8 w-8" />
-            <span className="text-lg font-semibold">Stylistes</span>
+            <span className="text-lg font-semibold">Coiffeur·euses</span>
           </Button>
 
           <Button
@@ -73,6 +82,7 @@ export default function Home() {
           </Button>
 
           <Button
+            onClick={() => setLocation("/settings")}
             variant="outline"
             className="h-32 flex flex-col items-center justify-center space-y-2"
             data-testid="button-settings"

@@ -1,0 +1,15 @@
+
+> rest-express@1.0.0 dev:client
+> vite --port 5001
+
+
+  VITE v5.4.20  ready in 150 ms
+
+  ➜  Local:   http://localhost:5001/
+  ➜  Network: use --host to expose
+12:52:47 PM [vite] http proxy error: /api/salons/salon-c152118c-478b-497b-98db-db37a4c58898/stylistes
+Error: getaddrinfo ENOTFOUND localhost
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+12:55:11 PM [vite] http proxy error: /api/clients
+Error: getaddrinfo ENOTFOUND localhost
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)

@@ -3,6 +3,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Animations pour l'interface vocale */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* Animations pour le dropdown des spécialités */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.2s ease-out;
+}
+
 :root {
   --background: hsl(0, 0%, 100%);
   --foreground: hsl(220, 13%, 13%);
@@ -10,44 +42,44 @@
   --card-foreground: hsl(220, 13%, 13%);
   --popover: hsl(0, 0%, 100%);
   --popover-foreground: hsl(220, 13%, 13%);
-  --primary: hsl(326, 100%, 61%);
+  --primary: hsl(0, 0%, 35%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(338, 100%, 89%);
-  --secondary-foreground: hsl(220, 13%, 13%);
+  --secondary: hsl(0, 0%, 45%);
+  --secondary-foreground: hsl(0, 0%, 100%);
   --muted: hsl(220, 14%, 96%);
   --muted-foreground: hsl(220, 13%, 45%);
-  --accent: hsl(351, 100%, 76%);
+  --accent: hsl(0, 0%, 25%);
   --accent-foreground: hsl(0, 0%, 100%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 100%);
   --border: hsl(220, 13%, 91%);
   --input: hsl(220, 13%, 91%);
-  --ring: hsl(326, 100%, 61%);
-  --chart-1: hsl(326, 100%, 61%);
-  --chart-2: hsl(351, 100%, 76%);
+  --ring: hsl(0, 0%, 35%);
+  --chart-1: hsl(0, 0%, 35%);
+  --chart-2: hsl(0, 0%, 25%);
   --chart-3: hsl(338, 100%, 89%);
   --chart-4: hsl(220, 13%, 45%);
   --chart-5: hsl(220, 13%, 13%);
   --sidebar: hsl(0, 0%, 100%);
   --sidebar-foreground: hsl(220, 13%, 13%);
-  --sidebar-primary: hsl(326, 100%, 61%);
+  --sidebar-primary: hsl(0, 0%, 35%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(338, 100%, 89%);
-  --sidebar-accent-foreground: hsl(220, 13%, 13%);
+  --sidebar-accent: hsl(0, 0%, 45%);
+  --sidebar-accent-foreground: hsl(0, 0%, 100%);
   --sidebar-border: hsl(220, 13%, 91%);
-  --sidebar-ring: hsl(326, 100%, 61%);
+  --sidebar-ring: hsl(0, 0%, 35%);
   --font-sans: Inter;
   --font-serif: Architects Daughter;
   --font-mono: Architects Daughter;
   --radius: 12px;
-  --shadow-2xs: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00), 0px 1px 2px -1px hsl(326, 100%, 61%, 0.00);
-  --shadow: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00), 0px 1px 2px -1px hsl(326, 100%, 61%, 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00), 0px 2px 4px -1px hsl(326, 100%, 61%, 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00), 0px 4px 6px -1px hsl(326, 100%, 61%, 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00), 0px 8px 10px -1px hsl(326, 100%, 61%, 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(326, 100%, 61%, 0.00);
+  --shadow-2xs: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-xs: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-sm: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 1px 2px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 1px 2px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-md: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 2px 4px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-lg: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 4px 6px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-xl: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 8px 10px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-2xl: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 }
@@ -59,21 +91,21 @@
   --card-foreground: hsl(0, 0%, 85.0980%);
   --popover: hsl(0, 0%, 0%);
   --popover-foreground: hsl(200, 6.6667%, 91.1765%);
-  --primary: hsl(326, 100%, 61%);
+  --primary: hsl(0, 0%, 35%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(338, 100%, 89%);
-  --secondary-foreground: hsl(220, 13%, 13%);
+  --secondary: hsl(0, 0%, 45%);
+  --secondary-foreground: hsl(0, 0%, 100%);
   --muted: hsl(0, 0%, 9.4118%);
   --muted-foreground: hsl(210, 3.3898%, 46.2745%);
-  --accent: hsl(351, 100%, 76%);
+  --accent: hsl(0, 0%, 25%);
   --accent-foreground: hsl(0, 0%, 100%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 100%);
   --border: hsl(210, 5.2632%, 14.9020%);
   --input: hsl(207.6923, 27.6596%, 18.4314%);
-  --ring: hsl(326, 100%, 61%);
+  --ring: hsl(0, 0%, 35%);
   --radius: 1.3rem;
-  --shadow: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 1px 2px -1px color-mix(in srgb, var(--primary) 0%, transparent);
   --chart-1: hsl(203.8863 88.2845% 53.1373%);
   --chart-2: hsl(159.7826 100% 36.0784%);
   --chart-3: hsl(42.0290 92.8251% 56.2745%);
@@ -83,18 +115,18 @@
   --spacing: 0.25rem;
   --font-mono: Menlo, monospace;
   --font-sans: Open Sans, sans-serif;
-  --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 2px 4px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-lg: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 4px 6px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-md: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 2px 4px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-sm: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 1px 2px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-xl: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent), 0px 8px 10px -1px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-xs: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent);
   --font-serif: Georgia, serif;
-  --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --sidebar-ring: hsl(202.8169 89.1213% 53.1373%);
+  --shadow-2xl: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent);
+  --shadow-2xs: 0px 2px 0px 0px color-mix(in srgb, var(--primary) 0%, transparent);
+  --sidebar-ring: var(--primary);
   --sidebar-accent: hsl(205.7143 70% 7.8431%);
   --sidebar-border: hsl(205.7143 15.7895% 26.0784%);
-  --sidebar-primary: hsl(202.8169 89.1213% 53.1373%);
+  --sidebar-primary: var(--primary);
   --tracking-normal: 0em;
   --sidebar-foreground: hsl(0 0% 85.0980%);
   --sidebar-accent-foreground: hsl(203.7736 87.6033% 52.5490%);
@@ -106,8 +138,164 @@
     @apply border-border;
   }
 
-  body {
+  html, body {
     @apply font-sans antialiased bg-background text-foreground;
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+/* Masquer l'outline de focus sur les h1 pour éviter le carré bleu au chargement */
+h1:focus-visible {
+  outline: none;
+}
+
+h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+  /* Ombres discrètes pour les éléments interactifs */
+  button, .btn, [role="button"] {
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 8%, transparent);
+    transition: all 0.4s ease;
+  }
+
+  button:hover, .btn:hover, [role="button"]:hover {
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 15%, transparent);
+  }
+
+  /* Boutons de navigation spécifiques */
+  nav button:not(.nav-link-simple), header button:not(.nav-link-simple), [class*="nav"] button:not(.nav-link-simple) {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border: none;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+    /* Assurer que l'arrière-plan est identique au header */
+    background-color: rgba(255, 255, 255, 0.8) !important;
+  }
+
+  /* Liens de navigation simples (sans fond) */
+  .nav-link-simple {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    position: static !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  .nav-link-simple::before {
+    display: none !important;
+  }
+
+  .nav-link-simple:hover {
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  nav button::before, header button::before, [class*="nav"] button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 20%, transparent), transparent);
+    transition: left 0.5s ease;
+  }
+
+  nav button:hover::before, header button:hover::before, [class*="nav"] button:hover::before {
+    left: 100%;
+  }
+
+  nav button:hover, header button:hover, [class*="nav"] button:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 25%, transparent);
+  }
+
+  /* Boutons actifs dans la navigation */
+  nav button[data-state="active"], header button[data-state="active"], [class*="nav"] button[data-state="active"],
+  nav button.bg-primary, header button.bg-primary, [class*="nav"] button.bg-primary {
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
+    color: white;
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  nav button[data-state="active"]:hover, header button[data-state="active"]:hover, [class*="nav"] button[data-state="active"]:hover,
+  nav button.bg-primary:hover, header button.bg-primary:hover, [class*="nav"] button.bg-primary:hover {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 80%, var(--accent)), var(--primary));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px color-mix(in srgb, var(--primary) 40%, transparent);
+  }
+
+  /* Icônes avec couleur principale */
+  .text-primary svg, svg.text-primary {
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--accent)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Éléments de navigation avec couleur principale */
+  nav .text-primary, header .text-primary {
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 75%, var(--accent)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Cartes et conteneurs */
+  .card, [class*="card"] {
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 6%, transparent);
+    transition: all 0.4s ease;
+  }
+
+  .card:hover, [class*="card"]:hover {
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+
+  /* Inputs et formulaires */
+  input, textarea, select {
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--primary) 5%, transparent);
+    transition: all 0.4s ease;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+
+  /* Navigation et header */
+  header, nav, [class*="nav"] {
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--primary) 8%, transparent);
+  }
+
+  /* Logo avec dégradé léger */
+  .w-8.h-8.bg-gradient-to-br {
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent))) !important;
+  }
+
+  /* Éléments avec couleur principale pure */
+  .bg-primary {
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 85%, var(--accent))) !important;
+  }
+
+  /* Boutons avec couleur principale */
+  button.bg-primary, .btn-primary {
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent))) !important;
+  }
+
+  /* Textes avec couleur principale */
+  .text-primary {
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--accent)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 
@@ -121,37 +309,109 @@
 .glassmorphism-card {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 62, 181, 0.2);
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 8%, transparent);
+  transition: all 0.4s ease;
+}
+
+.glassmorphism-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
 /* Button styles */
 .btn-primary {
-  background: linear-gradient(135deg, hsl(326, 100%, 61%), hsl(351, 100%, 76%));
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  transition: all 0.4s ease;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 20%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(255, 62, 181, 0.3);
+  box-shadow: 0 8px 25px color-mix(in srgb, var(--primary) 35%, transparent);
+  background: linear-gradient(135deg, var(--accent), var(--primary));
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 62, 181, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
   transition: all 0.3s ease;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 10%, transparent);
+  position: relative;
+  overflow: hidden;
+  color: white !important; /* Texte blanc comme le bouton primary */
+}
+
+.btn-secondary * {
+  color: white !important; /* Appliquer la couleur blanche à tous les enfants */
+}
+
+.btn-secondary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 10%, transparent), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-secondary:hover::before {
+  left: 100%;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 1);
-  border-color: rgba(255, 62, 181, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(255, 62, 181, 0.15);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* Bouton secondaire pour thème clair (texte foncé) */
+.btn-secondary-light {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 10%, transparent);
+  position: relative;
+  overflow: hidden;
+  color: hsl(var(--foreground)) !important; /* Texte foncé pour thème clair */
+}
+
+.btn-secondary-light * {
+  color: hsl(var(--foreground)) !important; /* Appliquer la couleur foncée à tous les enfants */
+}
+
+.btn-secondary-light:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 /* Organic shapes */
 .organic-shape {
-  background: linear-gradient(135deg, rgba(255, 62, 181, 0.1), rgba(255, 199, 230, 0.15));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), color-mix(in srgb, var(--accent) 15%, transparent));
   border-radius: 50% 60% 70% 40%;
 }
 
@@ -181,7 +441,7 @@
 
 @keyframes blink {
   from, to { border-color: transparent; }
-  50% { border-color: hsl(326, 100%, 61%); }
+  50% { border-color: var(--primary); }
 }
 
 @keyframes fadeInUp {
@@ -222,6 +482,54 @@
   animation: fadeInUp 0.6s ease-out;
 }
 
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 8s ease infinite;
+}
+
+@keyframes pastel-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pastel-gradient-reverse {
+  0% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-pastel-gradient {
+  background-size: 200% 200%;
+  animation: pastel-gradient 15s linear infinite;
+}
+
+.animate-pastel-gradient-reverse {
+  background-size: 200% 200%;
+  animation: pastel-gradient-reverse 18s linear infinite;
+}
+
 .animate-pulse-ring {
   animation: pulse-ring 2s ease-out infinite;
 }
@@ -240,6 +548,8 @@
 /* Voice interface styles */
 .voice-pulse {
   position: relative;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 25%, transparent);
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
 }
 
 .voice-pulse::before,
@@ -251,11 +561,183 @@
   right: 0;
   bottom: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, hsl(326, 100%, 61%), hsl(351, 100%, 76%));
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
   opacity: 0.3;
   animation: pulse-ring 2s ease-out infinite;
 }
 
 .voice-pulse::after {
   animation-delay: 1s;
+}
+
+/* Chatbot flottant */
+.fixed {
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* Bouton du chatbot flottant */
+.fixed button {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
+}
+
+/* Éléments spéciaux avec ombres renforcées */
+.animate-float, .animate-float-delayed {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* Stats cards du dashboard */
+.bg-white\/50 {
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--primary) 10%, transparent);
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.3));
+}
+
+.bg-white\/50:hover {
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 18%, transparent);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.5));
+}
+
+/* Icônes dans les cartes de stats */
+.bg-primary\/10 {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), color-mix(in srgb, var(--primary) 5%, transparent));
+}
+
+/* Textes avec couleur primaire dans les stats */
+.text-primary {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--accent)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Ombres pour les éléments de réservation */
+.cursor-pointer {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 8%, transparent);
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6));
+  position: relative;
+  overflow: hidden;
+}
+
+.cursor-pointer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 15%, transparent), transparent);
+  transition: left 0.3s ease;
+}
+
+.cursor-pointer:hover::before {
+  left: 100%;
+}
+
+.cursor-pointer:hover {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 15%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, rgba(255, 255, 255, 0.9)), color-mix(in srgb, var(--primary) 5%, rgba(255, 255, 255, 0.7)));
+}
+
+/* Progress bar et étapes */
+.w-8.h-8.rounded-full {
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 12%, transparent);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6));
+  transition: all 0.3s ease;
+}
+
+.w-8.h-8.rounded-full.bg-primary {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.w-8.h-8.rounded-full:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* Calendrier et créneaux horaires */
+.grid.grid-cols-3 button {
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--primary) 8%, transparent);
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+  position: relative;
+  overflow: hidden;
+}
+
+.grid.grid-cols-3 button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 12%, transparent), transparent);
+  transition: left 0.3s ease;
+}
+
+.grid.grid-cols-3 button:hover::before {
+  left: 100%;
+}
+
+.grid.grid-cols-3 button:hover {
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--primary) 15%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, rgba(255, 255, 255, 0.95)), color-mix(in srgb, var(--primary) 4%, rgba(255, 255, 255, 0.8)));
+}
+
+/* Boutons sélectionnés */
+.grid.grid-cols-3 button.bg-primary,
+.grid.grid-cols-3 button[data-state="active"] {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
+  color: white;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.grid.grid-cols-3 button.bg-primary:hover,
+.grid.grid-cols-3 button[data-state="active"]:hover {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 80%, var(--accent)), var(--primary));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+/* Messages du chatbot */
+.max-w-xs.p-3.rounded-2xl {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+/* Messages utilisateur du chatbot */
+.max-w-xs.p-3.rounded-2xl.bg-primary {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
+}
+
+/* Messages utilisateur du chatbot */
+.max-w-xs.p-3.rounded-2xl.bg-primary-foreground {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, var(--accent)));
+}
+
+/* Navigation mobile */
+.md\\:hidden .flex.justify-around {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+/* Backdrop glass utility */
+.backdrop-glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.dark .backdrop-glass {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

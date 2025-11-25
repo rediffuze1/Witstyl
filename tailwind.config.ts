@@ -94,7 +94,7 @@ export default {
         },
         blink: {
           'from, to': { 'border-color': 'transparent' },
-          '50%': { 'border-color': 'hsl(326, 100%, 61%)' },
+          '50%': { 'border-color': 'var(--primary)' },
         },
         fadeInUp: {
           from: {

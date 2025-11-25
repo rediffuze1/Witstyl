@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { salons, services, stylists, clients, appointments, users } from "@shared/schema";
+import { salons, services, stylistes, clients, appointments, users } from "@shared/schema";
 
 async function seed() {
   try {
@@ -94,7 +94,7 @@ async function seed() {
     await db.insert(services).values(serviceData);
     console.log("Created demo services:", serviceData.length);
 
-    // Create demo stylists
+    // Create demo stylistes
     const stylistData = [
       {
         id: "stylist-1",
@@ -128,8 +128,8 @@ async function seed() {
       },
     ];
 
-    await db.insert(stylists).values(stylistData);
-    console.log("Created demo stylists:", stylistData.length);
+    await db.insert(stylistes).values(stylistData);
+    console.log("Created demo stylistes:", stylistData.length);
 
     // Create demo clients
     const clientData = [

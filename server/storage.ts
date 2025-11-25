@@ -2,7 +2,7 @@ import {
   users,
   salons,
   services,
-  stylists,
+  stylistes,
   clients,
   appointments,
   salonHours,
@@ -13,8 +13,8 @@ import {
   type InsertSalon,
   type Service,
   type InsertService,
-  type Stylist,
-  type InsertStylist,
+  type Styliste,
+  type InsertStyliste,
   type Client,
   type InsertClient,
   type Appointment,
@@ -29,6 +29,7 @@ export interface IStorage {
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<UpsertUser>): Promise<User>;
   
   // Salon operations
   getSalonByUserId(userId: string): Promise<Salon | undefined>;
@@ -43,10 +44,10 @@ export interface IStorage {
   deleteService(id: string): Promise<void>;
   
   // Stylist operations
-  getStylistsBySalonId(salonId: string): Promise<Stylist[]>;
-  getStylist(id: string): Promise<Stylist | undefined>;
-  createStylist(stylist: InsertStylist): Promise<Stylist>;
-  updateStylist(id: string, stylist: Partial<InsertStylist>): Promise<Stylist>;
+  getStylistsBySalonId(salonId: string): Promise<Styliste[]>;
+  getStylist(id: string): Promise<Styliste | undefined>;
+  createStylist(stylist: InsertStyliste): Promise<Styliste>;
+  updateStylist(id: string, stylist: Partial<InsertStyliste>): Promise<Styliste>;
   deleteStylist(id: string): Promise<void>;
   
   // Client operations
@@ -63,6 +64,7 @@ export interface IStorage {
   updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
   deleteAppointment(id: string): Promise<void>;
   getAppointmentsByStylistId(stylistId: string, startDate?: Date, endDate?: Date): Promise<Appointment[]>;
+  getAppointmentsByClientId(clientId: string): Promise<Appointment[]>;
   
   // Availability checking
   checkStylistAvailability(stylistId: string, startTime: Date, endTime: Date): Promise<boolean>;
@@ -87,6 +89,15 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         },
       })
+      .returning();
+    return user;
+  }
+
+  async updateUser(id: string, userData: Partial<UpsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...userData, updatedAt: new Date() })
+      .where(eq(users.id, id))
       .returning();
     return user;
   }
@@ -140,31 +151,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Stylist operations
-  async getStylistsBySalonId(salonId: string): Promise<Stylist[]> {
-    return await db.select().from(stylists).where(eq(stylists.salonId, salonId)).orderBy(asc(stylists.firstName));
+  async getStylistsBySalonId(salonId: string): Promise<Styliste[]> {
+    return await db.select().from(stylistes).where(eq(stylistes.salonId, salonId)).orderBy(asc(stylistes.firstName));
   }
 
-  async getStylist(id: string): Promise<Stylist | undefined> {
-    const [stylist] = await db.select().from(stylists).where(eq(stylists.id, id));
+  async getStylist(id: string): Promise<Styliste | undefined> {
+    const [stylist] = await db.select().from(stylistes).where(eq(stylistes.id, id));
     return stylist;
   }
 
-  async createStylist(stylist: InsertStylist): Promise<Stylist> {
-    const [newStylist] = await db.insert(stylists).values(stylist).returning();
+  async createStylist(stylist: InsertStyliste): Promise<Styliste> {
+    const [newStylist] = await db.insert(stylistes).values(stylist).returning();
     return newStylist;
   }
 
-  async updateStylist(id: string, stylist: Partial<InsertStylist>): Promise<Stylist> {
+  async updateStylist(id: string, stylist: Partial<InsertStyliste>): Promise<Styliste> {
     const [updatedStylist] = await db
-      .update(stylists)
+      .update(stylistes)
       .set({ ...stylist, updatedAt: new Date() })
-      .where(eq(stylists.id, id))
+      .where(eq(stylistes.id, id))
       .returning();
     return updatedStylist;
   }
 
   async deleteStylist(id: string): Promise<void> {
-    await db.delete(stylists).where(eq(stylists.id, id));
+    await db.delete(stylistes).where(eq(stylistes.id, id));
   }
 
   // Client operations
@@ -274,7 +285,7 @@ export class DatabaseStorage implements IStorage {
     endOfDay.setHours(18, 0, 0, 0); // 6 PM
     
     const slots: Date[] = [];
-    const slotInterval = 30; // 30-minute intervals
+    const slotInterval = 15; // 15-minute intervals (quart d'heure)
     
     for (let time = new Date(startOfDay); time < endOfDay; time.setMinutes(time.getMinutes() + slotInterval)) {
       const slotEnd = new Date(time);
@@ -289,6 +300,16 @@ export class DatabaseStorage implements IStorage {
     }
     
     return slots;
+  }
+
+  async getAppointmentsByClientId(clientId: string): Promise<Appointment[]> {
+    const clientAppointments = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.clientId, clientId))
+      .orderBy(desc(appointments.startTime));
+    
+    return clientAppointments;
   }
 }
 
