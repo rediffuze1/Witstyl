@@ -8,7 +8,10 @@ import { buildNotificationContext } from './core/notifications/utils.js';
 import { getValidIntervalsForDay, isSlotValid, formatIntervals } from './utils/bookingValidation.js';
 
 // Vérification des variables d'environnement au démarrage
-printEnvStatus();
+// En mode Vercel, on skip cette vérification pour éviter les erreurs au démarrage
+if (!process.env.VERCEL) {
+  printEnvStatus();
+}
 
 // Extension du type Session pour inclure les données utilisateur et client
 declare module 'express-session' {
@@ -1536,13 +1539,24 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   
   try {
+    // Vérifier que les variables d'environnement Supabase sont configurées
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      console.error('[salon/login] ❌ Variables d\'environnement Supabase manquantes');
+      return res.status(500).json({
+        success: false,
+        code: 'CONFIGURATION_ERROR',
+        message: 'Configuration serveur incomplète. Veuillez contacter le support.',
+      });
+    }
+
     const { email, password } = req.body;
     
     // Validation des données d'entrée
     if (!email || !password) {
       return res.status(400).json({ 
         success: false,
-        message: "Email et mot de passe requis" 
+        code: 'MISSING_CREDENTIALS',
+        message: 'Email et mot de passe requis',
       });
     }
     
@@ -1550,7 +1564,46 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
     const normalizedEmail = email ? email.trim().toLowerCase() : email;
     console.log('🔍 Debug /api/salon/login - Attempting login for:', email, '→', normalizedEmail);
     
-    const result = await SalonAuthService.loginOwner(normalizedEmail, password);
+    // Appeler le service d'authentification
+    let result;
+    try {
+      result = await SalonAuthService.loginOwner(normalizedEmail, password);
+    } catch (authError: any) {
+      // Gérer les erreurs d'authentification avec des codes spécifiques
+      const errorMessage = authError.message || 'Erreur de connexion';
+      
+      if (errorMessage.includes('Email ou mot de passe incorrect')) {
+        return res.status(401).json({
+          success: false,
+          code: 'INVALID_CREDENTIALS',
+          message: 'Email ou mot de passe incorrect.',
+        });
+      }
+      
+      if (errorMessage.includes('email n\'a pas été confirmé')) {
+        return res.status(403).json({
+          success: false,
+          code: 'EMAIL_NOT_CONFIRMED',
+          message: 'Votre email n\'a pas été confirmé. Vérifiez votre boîte mail.',
+        });
+      }
+      
+      // Autres erreurs d'authentification
+      console.error('[salon/login] Erreur d\'authentification:', authError);
+      return res.status(401).json({
+        success: false,
+        code: 'AUTH_ERROR',
+        message: errorMessage,
+      });
+    }
+    
+    if (!result || !result.user) {
+      return res.status(401).json({
+        success: false,
+        code: 'AUTH_ERROR',
+        message: 'Erreur de connexion: Utilisateur non trouvé',
+      });
+    }
     
     // Récupérer le salonId depuis result.salon ou depuis la DB si absent
     let salonId = result.salon?.id;
@@ -1577,6 +1630,7 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
         }
       } catch (error) {
         console.error('[salon/login] Erreur lors de la récupération salon:', error);
+        // Ne pas échouer le login si on ne peut pas récupérer le salon
       }
     }
     
@@ -1588,29 +1642,47 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
     }
     
     // Créer la session utilisateur avec le salonId normalisé
-    req.session!.user = {
+    if (!req.session) {
+      console.error('[salon/login] ❌ Session non disponible');
+      return res.status(500).json({
+        success: false,
+        code: 'SESSION_ERROR',
+        message: 'Erreur de session. Veuillez réessayer.',
+      });
+    }
+    
+    req.session.user = {
       id: result.user.id,
-      email: result.user.email || '',
+      email: result.user.email || normalizedEmail,
       firstName: result.user.firstName || '',
       lastName: result.user.lastName || '',
       phone: result.user.phone,
-      salonId: normalizedSalonId || undefined // UUID brut sans préfixe
+      salonId: normalizedSalonId || undefined, // UUID brut sans préfixe
     };
     
     console.log('[salon/login] ✅ SalonId attaché à la session:', normalizedSalonId || 'undefined');
     
     // Sauvegarder explicitement la session AVANT de répondre
-    await new Promise<void>((resolve, reject) => {
-      req.session!.save((err) => {
-        if (err) {
-          console.error("[salon/login] Erreur lors de la sauvegarde de la session:", err);
-          reject(err);
-        } else {
-          console.log("[salon/login] ✅ Session sauvegardée pour user:", result.user.id);
-          resolve();
-        }
+    try {
+      await new Promise<void>((resolve, reject) => {
+        req.session!.save((err) => {
+          if (err) {
+            console.error("[salon/login] Erreur lors de la sauvegarde de la session:", err);
+            reject(err);
+          } else {
+            console.log("[salon/login] ✅ Session sauvegardée pour user:", result.user.id);
+            resolve();
+          }
+        });
       });
-    });
+    } catch (sessionError: any) {
+      console.error('[salon/login] Erreur lors de la sauvegarde de la session:', sessionError);
+      return res.status(500).json({
+        success: false,
+        code: 'SESSION_SAVE_ERROR',
+        message: 'Erreur lors de la sauvegarde de la session. Veuillez réessayer.',
+      });
+    }
     
     console.log('✅ Debug /api/salon/login - Session created and saved:', req.sessionID);
     console.log('✅ Debug /api/salon/login - User session:', req.session?.user);
@@ -1618,14 +1690,18 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
     return res.json({
       success: true,
       user: result.user,
-      salon: result.salon
+      salon: result.salon || null,
     });
   } catch (error: any) {
-    console.error("❌ Error logging in salon owner:", error);
-    // S'assurer qu'on renvoie toujours du JSON même en cas d'erreur
-    return res.status(401).json({ 
+    // Catch toutes les erreurs non prévues
+    console.error("❌ Error logging in salon owner (unexpected):", error);
+    console.error("❌ Error stack:", error.stack);
+    
+    // S'assurer qu'on renvoie toujours du JSON même en cas d'erreur inattendue
+    return res.status(500).json({ 
       success: false,
-      message: error.message || "Login failed" 
+      code: 'SERVER_ERROR',
+      message: 'Une erreur interne est survenue. Veuillez réessayer plus tard.',
     });
   }
 });
@@ -6181,7 +6257,9 @@ app.use((req, res, next) => {
   next();
 });
 
-const server = createServer(app);
+// Créer le serveur HTTP uniquement si on n'est pas sur Vercel
+// Sur Vercel, on n'a pas besoin d'un serveur HTTP car Vercel gère le routing
+const server = process.env.VERCEL ? null : createServer(app);
 
 // Configuration des cron jobs pour les notifications intelligentes
 // (Optionnel: peut être désactivé si vous utilisez Vercel Cron ou cron système)
@@ -6228,9 +6306,16 @@ const server = createServer(app);
 });
 
 // Configuration des fichiers statiques
-if (process.env.NODE_ENV === 'production') {
+// Sur Vercel, on ne configure pas les fichiers statiques ni le serveur HTTP
+if (process.env.VERCEL) {
+  // Sur Vercel, on ne fait rien ici - Vercel gère le routing
+  console.log('[SERVER] ✅ Application Express configurée pour Vercel serverless');
+} else if (process.env.NODE_ENV === 'production') {
   serveStatic(app);
 } else {
+  if (!server) {
+    throw new Error('Server HTTP non initialisé');
+  }
   setupVite(app, server).then(() => {
     const port = parseInt(process.env.PORT || '5001', 10);
     const host = process.env.HOST || '0.0.0.0';
@@ -6258,7 +6343,7 @@ export default app;
 
 // Démarrage du serveur uniquement si on n'est pas sur Vercel
 // Vercel détecte automatiquement la présence de VERCEL dans les variables d'environnement
-if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL && server) {
   const port = parseInt(process.env.PORT || '5001', 10);
   const host = process.env.HOST || '0.0.0.0';
   server.listen(port, host, () => {

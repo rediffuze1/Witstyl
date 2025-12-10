@@ -89,10 +89,18 @@ export function useAuth() {
       if (!response.ok) {
         try {
           const errorData = await response.json();
-          throw new Error(errorData.message || "Erreur de connexion");
-        } catch (parseError) {
+          // Utiliser le message d'erreur du serveur avec le code si disponible
+          const errorMessage = errorData.message || "Erreur de connexion";
+          const error = new Error(errorMessage) as any;
+          error.code = errorData.code || 'UNKNOWN_ERROR';
+          error.status = response.status;
+          throw error;
+        } catch (parseError: any) {
           // Si le parsing JSON échoue même avec content-type JSON, c'est une erreur serveur
-          throw new Error(`Erreur de connexion (${response.status}): ${response.statusText}`);
+          const error = new Error(`Erreur de connexion (${response.status}): ${response.statusText}`) as any;
+          error.code = 'PARSE_ERROR';
+          error.status = response.status;
+          throw error;
         }
       }
 

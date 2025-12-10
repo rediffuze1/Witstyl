@@ -1,31 +1,83 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// Configuration Supabase côté serveur
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Configuration Supabase côté serveur - Lazy initialization pour éviter les erreurs au top-level
+let supabaseUrl: string | undefined;
+let supabaseAnonKey: string | undefined;
+let supabaseServiceRoleKey: string | undefined;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('SUPABASE_URL et SUPABASE_ANON_KEY doivent être configurés dans .env');
-}
-
-if (!supabaseServiceRoleKey) {
-  console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY manquant : certaines opérations serveur seront limitées');
-}
-
-// Client Supabase anonyme (pour les opérations publiques)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false
+// Fonction pour initialiser et vérifier les variables d'environnement
+function ensureSupabaseConfig() {
+  if (!supabaseUrl) {
+    supabaseUrl = process.env.SUPABASE_URL;
   }
+  if (!supabaseAnonKey) {
+    supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  }
+  if (!supabaseServiceRoleKey) {
+    supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const missing = [];
+    if (!supabaseUrl) missing.push('SUPABASE_URL');
+    if (!supabaseAnonKey) missing.push('SUPABASE_ANON_KEY');
+    throw new Error(
+      `Variables d'environnement Supabase manquantes: ${missing.join(', ')}. ` +
+      `Vérifiez votre configuration dans Vercel Dashboard > Settings > Environment Variables.`
+    );
+  }
+
+  if (!supabaseServiceRoleKey) {
+    console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY manquant : certaines opérations serveur seront limitées');
+  }
+
+  return {
+    supabaseUrl,
+    supabaseAnonKey,
+    supabaseServiceRoleKey: supabaseServiceRoleKey || supabaseAnonKey,
+  };
+}
+
+// Clients Supabase - Initialisation lazy
+let _supabase: SupabaseClient | null = null;
+let _supabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseClient(): SupabaseClient {
+  if (!_supabase) {
+    const config = ensureSupabaseConfig();
+    _supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+      },
+    });
+  }
+  return _supabase;
+}
+
+function getSupabaseAdminClient(): SupabaseClient {
+  if (!_supabaseAdmin) {
+    const config = ensureSupabaseConfig();
+    _supabaseAdmin = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+  return _supabaseAdmin;
+}
+
+// Export des clients (lazy)
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return getSupabaseClient()[prop as keyof SupabaseClient];
+  },
 });
 
-// Client Supabase avec service role (pour les opérations admin)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false
-  }
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return getSupabaseAdminClient()[prop as keyof SupabaseClient];
+  },
 });
 
 // Types pour l'authentification côté serveur
@@ -69,16 +121,18 @@ export class SalonAuthService {
     salonDescription?: string;
   }) {
     try {
+      const adminClient = getSupabaseAdminClient();
+
       // 1. Créer l'utilisateur avec Supabase Auth
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
         email: ownerData.email,
         password: ownerData.password,
         user_metadata: {
           first_name: ownerData.firstName,
           last_name: ownerData.lastName,
-          phone: ownerData.phone
+          phone: ownerData.phone,
         },
-        email_confirm: true // Auto-confirmer l'email pour le développement
+        email_confirm: true, // Auto-confirmer l'email pour le développement
       });
 
       if (authError) {
@@ -86,7 +140,7 @@ export class SalonAuthService {
       }
 
       if (!authData.user) {
-        throw new Error('Erreur d\'authentification: Utilisateur non créé');
+        throw new Error("Erreur d'authentification: Utilisateur non créé");
       }
 
       // Normaliser l'email en minuscules
@@ -94,7 +148,7 @@ export class SalonAuthService {
       console.log('[SalonAuthService] Email normalisé pour inscription:', ownerData.email, '→', normalizedEmail);
 
       // 2. Créer l'entrée utilisateur dans la table users (email en minuscules)
-      const { error: userError } = await supabaseAdmin
+      const { error: userError } = await adminClient
         .from('users')
         .insert({
           id: authData.user.id,
@@ -102,16 +156,16 @@ export class SalonAuthService {
           password_hash: 'supabase_auth', // Le hash est géré par Supabase Auth
           first_name: ownerData.firstName,
           last_name: ownerData.lastName,
-          phone: ownerData.phone
+          phone: ownerData.phone,
         });
 
       if (userError) {
-        console.error('Erreur lors de la création de l\'utilisateur:', userError);
+        console.error("Erreur lors de la création de l'utilisateur:", userError);
         // Ne pas échouer si l'utilisateur existe déjà
       }
 
       // 3. Créer le salon
-      const { data: salonData, error: salonError } = await supabaseAdmin
+      const { data: salonData, error: salonError } = await adminClient
         .from('salons')
         .insert({
           id: `salon-${authData.user.id}`,
@@ -120,7 +174,7 @@ export class SalonAuthService {
           address: ownerData.salonAddress,
           phone: ownerData.salonPhone,
           email: ownerData.salonEmail,
-          description: ownerData.salonDescription
+          description: ownerData.salonDescription,
         })
         .select()
         .single();
@@ -137,13 +191,12 @@ export class SalonAuthService {
           email: authData.user.email,
           firstName: ownerData.firstName,
           lastName: ownerData.lastName,
-          phone: ownerData.phone
+          phone: ownerData.phone,
         },
-        salon: salonData
+        salon: salonData,
       };
-
     } catch (error: any) {
-      console.error('Erreur lors de l\'inscription:', error);
+      console.error("Erreur lors de l'inscription:", error);
       throw new Error(`Erreur d'authentification: ${error.message}`);
     }
   }
@@ -151,16 +204,25 @@ export class SalonAuthService {
   // Connexion d'un propriétaire de salon
   static async loginOwner(email: string, password: string) {
     try {
+      const adminClient = getSupabaseAdminClient();
+
       // Normaliser l'email en minuscules avant la connexion
       const normalizedEmail = this.normalizeEmail(email);
       console.log('[SalonAuthService] Email normalisé pour login:', email, '→', normalizedEmail);
-      
-      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+
+      const { data, error } = await adminClient.auth.signInWithPassword({
         email: normalizedEmail,
-        password
+        password,
       });
 
       if (error) {
+        // Messages d'erreur plus clairs selon le type d'erreur
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Email ou mot de passe incorrect.');
+        }
+        if (error.message.includes('Email not confirmed')) {
+          throw new Error('Votre email n\'a pas été confirmé. Vérifiez votre boîte mail.');
+        }
         throw new Error(`Erreur de connexion: ${error.message}`);
       }
 
@@ -168,60 +230,59 @@ export class SalonAuthService {
         throw new Error('Erreur de connexion: Utilisateur non trouvé');
       }
 
-      // Récupérer les informations du salon
-      const { data: salonData, error: salonError } = await supabaseAdmin
+      // Récupérer les informations du salon (avec maybeSingle pour éviter l'erreur si aucun salon)
+      const { data: salonData, error: salonError } = await adminClient
         .from('salons')
         .select('*')
         .eq('user_id', data.user.id)
-        .single();
+        .maybeSingle();
 
-      if (salonError) {
-        console.warn('Salon non trouvé pour l\'utilisateur:', salonError);
+      if (salonError && salonError.code !== 'PGRST116') {
+        // PGRST116 = no rows returned, ce qui est OK
+        console.warn('[SalonAuthService] Erreur lors de la récupération du salon:', salonError);
       }
 
       return {
         success: true,
         user: {
           id: data.user.id,
-          email: data.user.email,
+          email: data.user.email || normalizedEmail,
           firstName: data.user.user_metadata?.first_name || '',
           lastName: data.user.user_metadata?.last_name || '',
-          phone: data.user.user_metadata?.phone || ''
+          phone: data.user.user_metadata?.phone || '',
         },
-        salon: salonData,
-        session: data.session
+        salon: salonData || null,
+        session: data.session,
       };
-
     } catch (error: any) {
-      console.error('Erreur lors de la connexion:', error);
-      throw new Error(`Erreur de connexion: ${error.message}`);
+      console.error('[SalonAuthService] Erreur lors de la connexion:', error);
+      // Propager l'erreur avec un message clair
+      if (error.message) {
+        throw error;
+      }
+      throw new Error(`Erreur de connexion: ${error.message || 'Une erreur inattendue est survenue'}`);
     }
   }
 
   // Obtenir l'utilisateur actuel
   static async getCurrentUser(sessionToken?: string): Promise<AuthUser | null> {
     try {
+      const config = ensureSupabaseConfig();
       let user;
-      
+
       if (sessionToken) {
         // Créer un client Supabase avec le token de session
-        // supabaseAnonKey est vérifié au début du fichier (ligne 8-10), donc il ne peut pas être undefined ici
-        if (!supabaseAnonKey) {
-          console.error('SUPABASE_ANON_KEY manquant pour getCurrentUser');
-          return null;
-        }
-        // Utiliser non-null assertion car on vient de vérifier
-        const supabaseWithToken = createClient(supabaseUrl!, supabaseAnonKey, {
+        const supabaseWithToken = createClient(config.supabaseUrl, config.supabaseAnonKey, {
           global: {
             headers: {
-              Authorization: `Bearer ${sessionToken}`
-            }
+              Authorization: `Bearer ${sessionToken}`,
+            },
           },
           auth: {
-            persistSession: false
-          }
+            persistSession: false,
+          },
         });
-        
+
         const { data, error } = await supabaseWithToken.auth.getUser();
         if (error || !data.user) {
           console.error('Erreur getCurrentUser avec token:', error);
@@ -230,7 +291,8 @@ export class SalonAuthService {
         user = data.user;
       } else {
         // Utiliser la session actuelle
-        const { data: { user: currentUser }, error } = await supabaseAdmin.auth.getUser();
+        const adminClient = getSupabaseAdminClient();
+        const { data: { user: currentUser }, error } = await adminClient.auth.getUser();
         if (error || !currentUser) return null;
         user = currentUser;
       }
@@ -241,9 +303,8 @@ export class SalonAuthService {
         firstName: user.user_metadata?.first_name || '',
         lastName: user.user_metadata?.last_name || '',
         phone: user.user_metadata?.phone || '',
-        profileImageUrl: user.user_metadata?.profile_image_url
+        profileImageUrl: user.user_metadata?.profile_image_url,
       };
-
     } catch (error: any) {
       console.error('Erreur lors de la récupération utilisateur:', error);
       return null;
@@ -253,12 +314,13 @@ export class SalonAuthService {
   // Déconnexion
   static async logout() {
     try {
-      const { error } = await supabaseAdmin.auth.signOut();
+      const adminClient = getSupabaseAdminClient();
+      const { error } = await adminClient.auth.signOut();
       if (error) {
-        console.error('Erreur lors de la déconnexion:', error);
+        console.error("Erreur lors de la déconnexion:", error);
       }
     } catch (error: any) {
-      console.error('Erreur lors de la déconnexion:', error);
+      console.error("Erreur lors de la déconnexion:", error);
     }
   }
 }
@@ -282,11 +344,9 @@ export const dbUtils = {
   // Vérifier la connexion à la base de données
   async checkConnection(): Promise<boolean> {
     try {
-      const { data, error } = await supabaseAdmin
-        .from('pg_catalog.pg_tables')
-        .select('*')
-        .limit(1);
-      
+      const adminClient = getSupabaseAdminClient();
+      const { error } = await adminClient.from('users').select('id').limit(1);
+
       return !error;
     } catch (error) {
       console.error('Erreur de connexion à la base de données:', error);
@@ -297,14 +357,15 @@ export const dbUtils = {
   // Obtenir les statistiques de la base de données
   async getStats() {
     try {
+      const adminClient = getSupabaseAdminClient();
       const tables = ['users', 'salons', 'services', 'stylistes', 'clients', 'appointments'];
       const stats: Record<string, number> = {};
 
       for (const table of tables) {
-        const { count, error } = await supabaseAdmin
+        const { count, error } = await adminClient
           .from(table)
           .select('*', { count: 'exact', head: true });
-        
+
         stats[table] = error ? 0 : count || 0;
       }
 
@@ -313,5 +374,5 @@ export const dbUtils = {
       console.error('Erreur lors de la récupération des statistiques:', error);
       return {};
     }
-  }
+  },
 };
