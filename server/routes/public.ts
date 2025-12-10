@@ -154,12 +154,19 @@ publicRouter.get("/health/openai", async (req, res) => {
 
 // Route publique pour récupérer les informations du salon unique (horaires + contact)
 publicRouter.get("/salon", async (req, res) => {
+  // S'assurer que la réponse est toujours en JSON
+  res.setHeader('Content-Type', 'application/json');
+  
   try {
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      return res.status(500).json({ error: "Configuration Supabase manquante" });
+      console.error('[GET /api/public/salon] Configuration Supabase manquante');
+      return res.status(500).json({ 
+        error: "Configuration Supabase manquante",
+        message: "Les variables d'environnement SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont requises"
+      });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -277,13 +284,21 @@ publicRouter.get("/salon", async (req, res) => {
     
     res.json(response);
   } catch (error: any) {
-    console.error('[GET /api/public/salon] Erreur:', error);
-    res.status(500).json({ error: "Impossible de charger les informations du salon" });
+    console.error('[GET /api/public/salon] Erreur inattendue:', error);
+    console.error('[GET /api/public/salon] Stack:', error.stack);
+    // Toujours renvoyer du JSON même en cas d'erreur
+    return res.status(500).json({ 
+      error: "Impossible de charger les informations du salon",
+      message: "Une erreur interne est survenue"
+    });
   }
 });
 
 // Route publique pour récupérer les stylistes du salon unique
 publicRouter.get("/salon/stylistes", async (req, res) => {
+  // S'assurer que la réponse est toujours en JSON
+  res.setHeader('Content-Type', 'application/json');
+  
   console.log('[GET /api/public/salon/stylistes] Route appelée');
   try {
     const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -291,7 +306,10 @@ publicRouter.get("/salon/stylistes", async (req, res) => {
     
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
       console.error('[GET /api/public/salon/stylistes] Configuration Supabase manquante');
-      return res.status(500).json({ error: "Configuration Supabase manquante" });
+      return res.status(500).json({ 
+        error: "Configuration Supabase manquante",
+        message: "Les variables d'environnement SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont requises"
+      });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -380,8 +398,10 @@ publicRouter.get("/salon/stylistes", async (req, res) => {
     
     res.json(result);
   } catch (error: any) {
-    console.error('[GET /api/public/salon/stylistes] Exception:', error);
-    res.json([]);
+    console.error('[GET /api/public/salon/stylistes] Exception inattendue:', error);
+    console.error('[GET /api/public/salon/stylistes] Stack:', error.stack);
+    // Retourner une liste vide plutôt qu'une erreur pour ne pas casser le frontend
+    return res.json([]);
   }
 });
 

@@ -1058,7 +1058,20 @@ log("Starting with Supabase authentication integration");
 
 // Routes d'authentification pour les propriétaires de salon
 app.get('/api/auth/user', async (req, res) => {
+  // S'assurer que la réponse est toujours en JSON
+  res.setHeader('Content-Type', 'application/json');
+  
   try {
+    // Vérifier que les variables d'environnement Supabase sont configurées
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      console.error('[GET /api/auth/user] ❌ Variables d\'environnement Supabase manquantes');
+      return res.status(200).json({
+        authenticated: false,
+        user: null,
+        userType: null,
+      });
+    }
+
     // Debug: vérifier la session
     const hasSession = !!req.session;
     const sessionId = req.sessionID;
@@ -1085,55 +1098,65 @@ app.get('/api/auth/user', async (req, res) => {
 
     // Si c'est une session client
     if (clientSession) {
-      console.log('[GET /api/auth/user] Session client détectée:', clientSession.clientId);
-      // Récupérer les données client depuis Supabase
-      const { data: client, error } = await supabaseAdmin
-        .from('clients')
-        .select('*')
-        .eq('id', clientSession.clientId)
-        .single();
+      try {
+        console.log('[GET /api/auth/user] Session client détectée:', clientSession.clientId);
+        // Récupérer les données client depuis Supabase
+        const { data: client, error } = await supabaseAdmin
+          .from('clients')
+          .select('*')
+          .eq('id', clientSession.clientId)
+          .single();
 
-      if (error || !client) {
-        console.error('[GET /api/auth/user] Client non trouvé en base:', clientSession.clientId, error);
-        return res.status(200).json({ 
+        if (error || !client) {
+          console.error('[GET /api/auth/user] Client non trouvé en base:', clientSession.clientId, error);
+          return res.status(200).json({ 
+            authenticated: false,
+            user: null,
+            userType: null
+          });
+        }
+
+        console.log('[GET /api/auth/user] Client trouvé, retour des données');
+        return res.json({
+          authenticated: true,
+          userType: 'client',
+          user: {
+            id: client.id,
+            email: client.email,
+            firstName: client.first_name,
+            lastName: client.last_name,
+            phone: client.phone
+          },
+          profile: {
+            id: client.id,
+            firstName: client.first_name,
+            lastName: client.last_name,
+            email: client.email,
+            phone: client.phone,
+            notes: client.notes,
+            preferredStylistId: client.preferred_stylist_id,
+            sex: client.sex || null
+          }
+        });
+      } catch (clientError: any) {
+        console.error('[GET /api/auth/user] Erreur lors de la récupération client:', clientError);
+        return res.status(200).json({
           authenticated: false,
           user: null,
-          userType: null
+          userType: null,
         });
       }
-
-      console.log('[GET /api/auth/user] Client trouvé, retour des données');
-      return res.json({
-        authenticated: true,
-        userType: 'client',
-        user: {
-          id: client.id,
-          email: client.email,
-          firstName: client.first_name,
-          lastName: client.last_name,
-          phone: client.phone
-        },
-        profile: {
-          id: client.id,
-          firstName: client.first_name,
-          lastName: client.last_name,
-          email: client.email,
-          phone: client.phone,
-          notes: client.notes,
-          preferredStylistId: client.preferred_stylist_id,
-          sex: client.sex || null
-        }
-      });
     }
 
     // Si c'est une session propriétaire de salon
     if (userSession) {
-      // Récupérer les données utilisateur depuis Supabase
-      const { data: user, error } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('id', userSession.id)
-        .single();
+      try {
+        // Récupérer les données utilisateur depuis Supabase
+        const { data: user, error } = await supabaseAdmin
+          .from('users')
+          .select('*')
+          .eq('id', userSession.id)
+          .single();
 
       if (error || !user) {
         console.log('Utilisateur non trouvé en base:', userSession.id);
@@ -1287,10 +1310,27 @@ app.get('/api/auth/user', async (req, res) => {
           phone: user.phone || ''
         }
       });
+      } catch (userError: any) {
+        console.error('[GET /api/auth/user] Erreur lors de la récupération utilisateur:', userError);
+        return res.status(200).json({
+          authenticated: false,
+          user: null,
+          userType: null,
+        });
+      }
     }
+
+    // Si on arrive ici, c'est qu'il y a une session mais qu'on n'a pas pu la traiter
+    return res.status(200).json({
+      authenticated: false,
+      user: null,
+      userType: null,
+    });
   } catch (error: any) {
-    console.error("Erreur récupération utilisateur:", error);
-    res.status(200).json({ 
+    console.error("[GET /api/auth/user] Erreur inattendue:", error);
+    console.error("[GET /api/auth/user] Stack:", error.stack);
+    // Toujours renvoyer du JSON, même en cas d'erreur
+    return res.status(200).json({ 
       authenticated: false,
       user: null,
       userType: null
