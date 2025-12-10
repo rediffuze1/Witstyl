@@ -51,11 +51,22 @@ declare global {
 }
 
 import express, { type Request, Response, NextFunction } from "express";
-import { setupVite, serveStatic, log } from "./vite";
 import { createServer, type Server } from "http";
 import path from "path";
 // @ts-ignore - Import d'un fichier JS depuis TS
 import { hasOpenAI } from "./config-direct";
+
+// Fonction de logging (déplacée depuis vite.ts pour éviter l'import statique)
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
 import { SalonAuthService, ClientAuthService, supabaseAdmin } from "./supabaseService";
 import { healthRouter } from "./routes/health.js";
 import { setupClientAuth } from "./clientAuth.js";
@@ -6351,16 +6362,29 @@ if (process.env.VERCEL) {
   // Sur Vercel, on ne fait rien ici - Vercel gère le routing
   console.log('[SERVER] ✅ Application Express configurée pour Vercel serverless');
 } else if (process.env.NODE_ENV === 'production') {
-  serveStatic(app);
+  // Import dynamique de serveStatic uniquement en production (pas sur Vercel)
+  import('./vite.js')
+    .then(({ serveStatic }) => {
+      serveStatic(app);
+    })
+    .catch((err) => {
+      console.error('[SERVER] ❌ Erreur lors du chargement de serveStatic:', err);
+      throw err;
+    });
 } else {
+  // Import dynamique de setupVite uniquement en développement
   if (!server) {
     throw new Error('Server HTTP non initialisé');
   }
-  setupVite(app, server).then(() => {
-    const port = parseInt(process.env.PORT || '5001', 10);
-    const host = process.env.HOST || '0.0.0.0';
-    server.listen(port, host, () => {
-      log(`serving on ${host}:${port}`);
+  import('./vite.js')
+    .then(({ setupVite }) => {
+      return setupVite(app, server);
+    })
+    .then(() => {
+      const port = parseInt(process.env.PORT || '5001', 10);
+      const host = process.env.HOST || '0.0.0.0';
+      server.listen(port, host, () => {
+        log(`serving on ${host}:${port}`);
         console.log('[SERVER] ✅ Routes salon/hours enregistrées:');
         console.log('[SERVER] ✅ GET /api/salons/:salonId/hours');
         console.log('[SERVER] ✅ PUT /api/salons/:salonId/hours');
@@ -6373,8 +6397,12 @@ if (process.env.VERCEL) {
         console.log('[SERVER] ✅ POST /api/owner/notifications/test-confirmation-sms');
         console.log('[SERVER] ✅ POST /api/owner/notifications/test-reminder-sms');
         console.log('[SERVER] ✅ POST /api/notifications/resend/webhook');
+      });
+    })
+    .catch((err) => {
+      console.error('[SERVER] ❌ Erreur lors du chargement de setupVite:', err);
+      throw err;
     });
-  });
 }
 
 // Export de l'app Express pour Vercel (serverless)
