@@ -124,10 +124,10 @@ Dans votre crontab (`crontab -e`) :
 
 ```bash
 # Vérifier emails non ouverts (toutes les heures)
-0 * * * * cd /path/to/SalonPilot && npx tsx server/cron/check-email-opened-and-send-sms.ts
+0 * * * * cd /path/to/Witstyl && npx tsx server/cron/check-email-opened-and-send-sms.ts
 
 # Envoyer rappels SMS (toutes les heures)
-0 * * * * cd /path/to/SalonPilot && npx tsx server/cron/send-reminder-sms.ts
+0 * * * * cd /path/to/Witstyl && npx tsx server/cron/send-reminder-sms.ts
 ```
 
 ### Option 3 : Cron Jobs Node.js (Actuel)

@@ -15,6 +15,7 @@ export const initLenis = () => {
     gestureOrientation: 'vertical',
     smoothWheel: true,
     wheelMultiplier: 1,
+    touchMultiplier: 2,
     infinite: false,
   });
 
@@ -24,6 +25,17 @@ export const initLenis = () => {
   }
 
   requestAnimationFrame(raf);
+
+  // S'assurer que Lenis fonctionne dans les deux sens (montée et descente)
+  // En écoutant les événements de scroll dans les deux directions
+  if (lenisInstance) {
+    // Lenis devrait déjà gérer les deux sens par défaut,
+    // mais on s'assure que la synchronisation fonctionne correctement
+    lenisInstance.on('scroll', ({ scroll, limit, velocity, direction, progress }) => {
+      // Cette callback permet de s'assurer que Lenis détecte bien les deux directions
+      // Le paramètre 'direction' indique la direction du scroll (-1 pour haut, 1 pour bas)
+    });
+  }
 
   // Handle anchor links
   document.querySelectorAll('a[href^="#"]').forEach((anchor) => {

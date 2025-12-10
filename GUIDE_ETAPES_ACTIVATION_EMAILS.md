@@ -72,7 +72,7 @@ Activer l'envoi réel des emails via Resend (au lieu du mode DRY RUN).
 
 2. **Naviguer vers le projet** :
    ```bash
-   cd "/Users/pierre/Downloads/App/V1/Transfert vers cursor/SalonPilot"
+   cd "/Users/pierre/Downloads/App/V1/Transfert vers cursor/Witstyl"
    ```
 
 3. **Arrêter le serveur** :
@@ -100,7 +100,7 @@ Après avoir lancé `npm run dev`, vous devriez voir dans le terminal :
 [Notifications] 📱 SMS: ⚠️  DRY RUN (log uniquement)
 [Notifications] 📧 Email: ✅ ENVOI RÉEL
 [Notifications] 🔑 RESEND_API_KEY: ✅ Définie (re_JCiGcc...)
-[Notifications] 📧 RESEND_FROM: SalonPilot <noreply@salonpilot.ch>
+[Notifications] 📧 RESEND_FROM: Witstyl <noreply@witstyl.ch>
 [Notifications] 🔧 EMAIL_DRY_RUN: false
 ═══════════════════════════════════════════════════════════════
 ```
@@ -156,7 +156,7 @@ Vous devriez voir :
 [Resend] 📧 ENVOI RÉEL D'EMAIL
 ═══════════════════════════════════════════════════════════════
 [Resend] To: votre-email@example.com
-[Resend] From: SalonPilot <noreply@salonpilot.ch>
+[Resend] From: Witstyl <noreply@witstyl.ch>
 [Resend] Subject: [TEST] ...
 [Resend] Payload complet: {...}
 [Resend] Appel à Resend API...
@@ -245,7 +245,7 @@ Cochez chaque étape au fur et à mesure :
 1. Vérifiez que vous êtes dans le bon dossier :
    ```bash
    pwd
-   # Doit afficher : /Users/pierre/Downloads/App/V1/Transfert vers cursor/SalonPilot
+   # Doit afficher : /Users/pierre/Downloads/App/V1/Transfert vers cursor/Witstyl
    ```
 
 2. Vérifiez que Node.js est installé :

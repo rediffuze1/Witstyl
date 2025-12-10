@@ -164,7 +164,7 @@ export default function Voice() {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                 <Scissors className="text-white text-sm" />
               </div>
-              <span className="text-xl font-bold">SalonPilot</span>
+              <span className="text-xl font-bold">Witstyl</span>
             </button>
             <Button
               variant="ghost"

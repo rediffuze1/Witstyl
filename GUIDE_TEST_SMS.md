@@ -26,7 +26,7 @@ curl -X POST http://localhost:5001/api/owner/notifications/send-test-sms \
   -H "Cookie: connect.sid=VOTRE_SESSION_ID" \
   -d '{
     "to": "+41791234567",
-    "message": "Test SMS depuis SalonPilot - ClickSend"
+    "message": "Test SMS depuis Witstyl - ClickSend"
   }'
 ```
 
@@ -40,7 +40,7 @@ curl -X POST http://localhost:5001/api/owner/notifications/send-test-sms \
   "metadata": {
     "dryRun": true,
     "to": "+41791234567",
-    "from": "SalonPilot"
+    "from": "Witstyl"
   }
 }
 ```
@@ -48,7 +48,7 @@ curl -X POST http://localhost:5001/api/owner/notifications/send-test-sms \
 **Note :** Si `SMS_DRY_RUN=true`, le SMS sera loggé mais pas envoyé. Vous verrez dans les logs :
 ```
 [ClickSendSms] [DRY RUN] Envoi SMS vers +41791234567
-[ClickSendSms] [DRY RUN] Message: Test SMS depuis SalonPilot - ClickSend
+[ClickSendSms] [DRY RUN] Message: Test SMS depuis Witstyl - ClickSend
 ```
 
 ---
@@ -70,7 +70,7 @@ import { notificationService } from './server/core/notifications/index.js';
 async function testSms() {
   const result = await notificationService.sendSms({
     to: '+41791234567',
-    message: 'Test SMS depuis SalonPilot - ClickSend'
+    message: 'Test SMS depuis Witstyl - ClickSend'
   });
 
   console.log('Résultat:', result);
@@ -170,14 +170,14 @@ Après chaque test, vérifiez les logs du serveur :
 ```
 [ClickSendSms] [DRY RUN] Envoi SMS vers +41791234567
 [ClickSendSms] [DRY RUN] Message: Votre message ici
-[ClickSendSms] [DRY RUN] Depuis: SalonPilot
+[ClickSendSms] [DRY RUN] Depuis: Witstyl
 ```
 
 ### En mode réel (`SMS_DRY_RUN=false`) :
 
 ```
 [ClickSendSms] 📱 Envoi SMS vers +41791234567
-[ClickSendSms] 📱 Depuis: SalonPilot
+[ClickSendSms] 📱 Depuis: Witstyl
 [ClickSendSms] ✅ SMS envoyé avec succès
 [ClickSendSms] 📋 Réponse ClickSend: {...}
 ```
@@ -209,7 +209,7 @@ import 'dotenv/config';
 import { notificationService } from '../server/core/notifications/index.js';
 
 const testPhone = process.argv[2] || '+41791234567';
-const testMessage = process.argv[3] || 'Test SMS depuis SalonPilot';
+const testMessage = process.argv[3] || 'Test SMS depuis Witstyl';
 
 async function main() {
   console.log('');
@@ -260,7 +260,7 @@ tsx scripts/test-sms-quick.ts
 tsx scripts/test-sms-quick.ts +41791234567 "Mon message de test"
 
 # Test avec votre numéro et message personnalisé
-tsx scripts/test-sms-quick.ts +41791234567 "Test depuis SalonPilot"
+tsx scripts/test-sms-quick.ts +41791234567 "Test depuis Witstyl"
 ```
 
 ---

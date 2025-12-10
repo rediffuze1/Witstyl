@@ -179,7 +179,7 @@ export default function ClientLogin() {
                 <User className="h-10 w-10 text-white" />
               </div>
               <div>
-                <h2 className="text-4xl font-bold mb-4">SalonPilot</h2>
+                <h2 className="text-4xl font-bold mb-4">Witstyl</h2>
                 <p className="text-lg text-blue-100 max-w-sm">
                   Your salon's co-pilot for seamless booking and management.
                 </p>

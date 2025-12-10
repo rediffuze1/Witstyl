@@ -43,7 +43,7 @@ export default function Navigation() {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center flex-shrink-0">
                 <Scissors className="text-white text-sm" />
               </div>
-              <span className="text-xl font-bold text-foreground whitespace-nowrap">SalonPilot</span>
+              <span className="text-xl font-bold text-foreground whitespace-nowrap">Witstyl</span>
             </div>
             
             {/* Show current page indicator on mobile */}

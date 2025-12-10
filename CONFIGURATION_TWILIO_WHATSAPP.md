@@ -91,7 +91,7 @@ Un **Messaging Service** permet de gérer plusieurs numéros et d'avoir une meil
 **Étapes :**
 
 1. Dans la console Twilio, allez dans **Messaging** → **Services** → **Create Messaging Service**
-2. Donnez un nom (ex: "SalonPilot WhatsApp")
+2. Donnez un nom (ex: "Witstyl WhatsApp")
 3. Ajoutez votre numéro WhatsApp au service
 4. Copiez le **Messaging Service SID** (commence par `MG...`)
 5. Dans votre `.env`, ajoutez :

@@ -1,4 +1,4 @@
-# Système de Notifications SalonPilot
+# Système de Notifications Witstyl
 
 ## Architecture
 
@@ -63,12 +63,12 @@ Ajoutez ces variables dans votre fichier `.env` :
 ```env
 # SMSup (SMS)
 SMSUP_API_TOKEN=your-smsup-api-token
-SMSUP_SENDER=SalonPilot
+SMSUP_SENDER=Witstyl
 SMSUP_API_URL=https://api.smsup.ch/send  # Optionnel
 
 # Resend (Email)
 RESEND_API_KEY=re_your-resend-api-key-here
-RESEND_FROM=SalonPilot <noreply@salonpilot.ch>
+RESEND_FROM=Witstyl <noreply@witstyl.ch>
 
 # Mode dry run (true/false)
 # Si true : les notifications sont loggées dans la console mais pas réellement envoyées
@@ -166,7 +166,7 @@ export class TwilioSmsProvider implements SmsProvider {
 import { SmsUpProvider } from '../../infrastructure/sms/SmsUpProvider';
 const smsProvider = new SmsUpProvider({
   token: process.env.SMSUP_API_TOKEN!,
-  sender: process.env.SMSUP_SENDER || 'SalonPilot',
+  sender: process.env.SMSUP_SENDER || 'Witstyl',
   dryRun: process.env.SMS_DRY_RUN === 'true',
 });
 

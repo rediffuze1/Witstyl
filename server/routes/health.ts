@@ -7,7 +7,7 @@ healthRouter.get('/', (_req, res) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
-    service: 'SalonPilot API'
+    service: 'Witstyl API'
   });
 });
 

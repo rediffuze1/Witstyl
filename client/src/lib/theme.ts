@@ -6,7 +6,7 @@ type ThemeState = {
   version: number;            // pour migrations si besoin
 };
 
-const LS_KEY = "salonpilot.theme.v1";
+const LS_KEY = "witstyl.theme.v1";
 const DEFAULT_THEME: ThemeState = {
   // Gris foncé (R:90 G:90 B:90)
   primary: "hsl(0 0% 35%)", // gris foncé

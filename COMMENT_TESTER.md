@@ -42,12 +42,12 @@ Dans le terminal où vous avez lancé `npm run dev`, vous devriez voir au démar
 [POST /api/appointments] 📧 Envoi des notifications de confirmation...
 [SmsUp] [DRY RUN] SMS qui serait envoyé:
 [SmsUp] [DRY RUN]   To: +41791234567
-[SmsUp] [DRY RUN]   Message: Votre rendez-vous chez SalonPilot est confirmé le...
+[SmsUp] [DRY RUN]   Message: Votre rendez-vous chez Witstyl est confirmé le...
 [SmsUp] [DRY RUN]   Payload: { ... }
 [Resend] [DRY RUN] Email qui serait envoyé:
 [Resend] [DRY RUN]   To: client@example.com
-[Resend] [DRY RUN]   From: SalonPilot <noreply@salonpilot.ch>
-[Resend] [DRY RUN]   Subject: Votre rendez-vous est confirmé - SalonPilot
+[Resend] [DRY RUN]   From: Witstyl <noreply@witstyl.ch>
+[Resend] [DRY RUN]   Subject: Votre rendez-vous est confirmé - Witstyl
 [Resend] [DRY RUN]   HTML (premiers 200 caractères): ...
 [POST /api/appointments] ✅ Notifications envoyées avec succès
 ```

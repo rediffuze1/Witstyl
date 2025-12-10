@@ -1,6 +1,6 @@
 # Guide de Configuration et Test des Notifications
 
-Ce document explique comment configurer et tester le système de notifications (SMS et Email) de SalonPilot.
+Ce document explique comment configurer et tester le système de notifications (SMS et Email) de Witstyl.
 
 ## Architecture
 
@@ -48,12 +48,12 @@ Ajoutez ces variables dans votre fichier `.env` :
 ```bash
 # SMS Provider (SMSup)
 SMSUP_API_TOKEN=your-smsup-api-token
-SMSUP_SENDER=SalonPilot
+SMSUP_SENDER=Witstyl
 SMSUP_API_URL=https://api.smsup.ch/send  # Optionnel
 
 # Email Provider (Resend)
 RESEND_API_KEY=re_your-resend-api-key-here
-RESEND_FROM=SalonPilot <noreply@salonpilot.ch>
+RESEND_FROM=Witstyl <noreply@witstyl.ch>
 
 # Mode de test (dry-run) - INDÉPENDANTS pour SMS et Email
 SMS_DRY_RUN=true   # true = SMS loggés uniquement (défaut: true)

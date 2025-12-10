@@ -2,7 +2,7 @@
 
 ## Vue d'ensemble
 
-Ce document explique comment fonctionne la persistance des templates de notifications (email et SMS) dans SalonPilot, et comment garantir que les modifications sont correctement sauvegardées en base de données.
+Ce document explique comment fonctionne la persistance des templates de notifications (email et SMS) dans Witstyl, et comment garantir que les modifications sont correctement sauvegardées en base de données.
 
 ## Architecture
 

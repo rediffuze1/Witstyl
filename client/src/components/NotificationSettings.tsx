@@ -190,7 +190,7 @@ export default function NotificationSettings() {
     mutationFn: async (phone: string) => {
       const response = await apiRequest('POST', '/api/owner/notifications/send-test-sms', { 
         to: phone,
-        message: 'Test SMS depuis SalonPilot - Vérification de la configuration'
+        message: 'Test SMS depuis Witstyl - Vérification de la configuration'
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));

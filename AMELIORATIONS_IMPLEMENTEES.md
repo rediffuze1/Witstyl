@@ -1,8 +1,8 @@
-# 🚀 Améliorations Implémentées - SalonPilot
+# 🚀 Améliorations Implémentées - Witstyl
 
 ## 📋 Résumé
 
-Ce document récapitule toutes les améliorations apportées au projet SalonPilot pour :
+Ce document récapitule toutes les améliorations apportées au projet Witstyl pour :
 1. ✅ Audit & mise en route locale propre
 2. ✅ Correction des erreurs 401 / Auth Supabase
 3. ✅ Suppression du flicker lors des transitions
@@ -238,8 +238,8 @@ Le composant était déjà bien conçu avec :
 ### Installation
 ```bash
 # Cloner le repo (si nécessaire)
-git clone https://github.com/rediffuze1/SalonPilot.git
-cd SalonPilot
+git clone https://github.com/rediffuze1/Witstyl.git
+cd Witstyl
 
 # Installer les dépendances
 npm install

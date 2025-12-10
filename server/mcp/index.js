@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Serveur MCP pour SalonPilot
+// Serveur MCP pour Witstyl
 // Ce serveur expose des outils pour interagir avec Supabase et gérer les données du salon
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';

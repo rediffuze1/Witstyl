@@ -1,4 +1,4 @@
-# Guide de Tests - SalonPilot
+# Guide de Tests - Witstyl
 
 ## 🧪 Tests des Notifications (Mode Dry Run)
 
@@ -31,13 +31,13 @@
    ```
    [SmsUp] [DRY RUN] SMS qui serait envoyé:
    [SmsUp] [DRY RUN]   To: +41791234567
-   [SmsUp] [DRY RUN]   Message: Votre rendez-vous chez SalonPilot est confirmé le...
+   [SmsUp] [DRY RUN]   Message: Votre rendez-vous chez Witstyl est confirmé le...
    [SmsUp] [DRY RUN]   Payload: { ... }
    
    [Resend] [DRY RUN] Email qui serait envoyé:
    [Resend] [DRY RUN]   To: client@example.com
-   [Resend] [DRY RUN]   From: SalonPilot <noreply@salonpilot.ch>
-   [Resend] [DRY RUN]   Subject: Votre rendez-vous est confirmé - SalonPilot
+   [Resend] [DRY RUN]   From: Witstyl <noreply@witstyl.ch>
+   [Resend] [DRY RUN]   Subject: Votre rendez-vous est confirmé - Witstyl
    [Resend] [DRY RUN]   HTML (premiers 200 caractères): ...
    ```
 
@@ -56,7 +56,7 @@
    Vous devriez voir :
    ```
    [Resend] [DRY RUN] Email qui serait envoyé:
-   [Resend] [DRY RUN]   Subject: Modification de votre rendez-vous - SalonPilot
+   [Resend] [DRY RUN]   Subject: Modification de votre rendez-vous - Witstyl
    ```
 
 ### Test 3 : Annuler un rendez-vous
@@ -70,7 +70,7 @@
    Vous devoriez voir :
    ```
    [Resend] [DRY RUN] Email qui serait envoyé:
-   [Resend] [DRY RUN]   Subject: Annulation de votre rendez-vous - SalonPilot
+   [Resend] [DRY RUN]   Subject: Annulation de votre rendez-vous - Witstyl
    ```
 
 ---

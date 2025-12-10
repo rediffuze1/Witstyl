@@ -6,7 +6,7 @@
 
 ## 🎯 Objectif
 
-Vérifier que le système de notifications de SalonPilot utilise **strictement** les templates configurés dans l'interface manager et non des templates codés en dur.
+Vérifier que le système de notifications de Witstyl utilise **strictement** les templates configurés dans l'interface manager et non des templates codés en dur.
 
 ## ✅ Résultats de l'Audit
 

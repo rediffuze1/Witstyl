@@ -1,6 +1,6 @@
 # Guide : Intégration ClickSend SMS
 
-Ce guide explique comment configurer et utiliser ClickSend comme provider SMS dans SalonPilot.
+Ce guide explique comment configurer et utiliser ClickSend comme provider SMS dans Witstyl.
 
 ## 📝 Configuration
 
@@ -22,8 +22,8 @@ SMS_PROVIDER=clicksend
 CLICKSEND_USERNAME=your-username
 CLICKSEND_API_KEY=your-api-key
 
-# Sender ID alphanumérique ou numéro (ex: "SalonPilot" ou "+41791234567")
-CLICKSEND_SMS_FROM=SalonPilot
+# Sender ID alphanumérique ou numéro (ex: "Witstyl" ou "+41791234567")
+CLICKSEND_SMS_FROM=Witstyl
 
 # Mode dry-run (true pour tester sans envoyer réellement)
 SMS_DRY_RUN=false
@@ -32,7 +32,7 @@ SMS_DRY_RUN=false
 ### 3. Format du Sender ID
 
 Le `CLICKSEND_SMS_FROM` peut être :
-- **Sender ID alphanumérique** : `SalonPilot` (max 11 caractères, lettres et chiffres)
+- **Sender ID alphanumérique** : `Witstyl` (max 11 caractères, lettres et chiffres)
 - **Numéro de téléphone** : `+41791234567` (format E.164)
 
 **Note** : Les Sender ID alphanumériques peuvent ne pas être disponibles dans tous les pays. Vérifiez la documentation ClickSend pour votre région.
@@ -56,7 +56,7 @@ Content-Type: application/json
 ```json
 {
   "to": "+41791234567",
-  "message": "Message de test depuis SalonPilot"
+  "message": "Message de test depuis Witstyl"
 }
 ```
 
@@ -65,12 +65,12 @@ Content-Type: application/json
 {
   "success": true,
   "to": "+41791234567",
-  "message": "Message de test depuis SalonPilot",
+  "message": "Message de test depuis Witstyl",
   "metadata": {
     "messageId": "...",
     "status": "...",
     "to": "+41791234567",
-    "from": "SalonPilot"
+    "from": "Witstyl"
   }
 }
 ```
@@ -94,7 +94,7 @@ curl -X POST http://localhost:5001/api/owner/notifications/send-test-sms \
   -H "Cookie: connect.sid=your-session-cookie" \
   -d '{
     "to": "+41791234567",
-    "message": "Test SMS ClickSend depuis SalonPilot"
+    "message": "Test SMS ClickSend depuis Witstyl"
   }'
 ```
 
@@ -111,7 +111,7 @@ const response = await fetch('/api/owner/notifications/send-test-sms', {
   credentials: 'include', // Pour inclure les cookies de session
   body: JSON.stringify({
     to: '+41791234567',
-    message: 'Test SMS ClickSend depuis SalonPilot',
+    message: 'Test SMS ClickSend depuis Witstyl',
   }),
 });
 

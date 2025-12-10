@@ -225,7 +225,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
       
+      // Vérifier le content-type avant de parser le JSON
+      const contentType = response.headers.get("content-type") ?? "";
+      
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error('[AuthContext] loginOwner - Réponse non-JSON reçue:', {
+          status: response.status,
+          statusText: response.statusText,
+          contentType,
+          text: text.substring(0, 200),
+        });
+        setIsHydrating(false);
+        return false;
+      }
+      
       if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          console.error('[AuthContext] loginOwner - Erreur:', errorData.message || 'Erreur de connexion');
+        } catch (parseError) {
+          console.error('[AuthContext] loginOwner - Erreur parsing JSON:', parseError);
+        }
+        setIsHydrating(false);
+        return false;
+      }
+      
+      // Parser la réponse JSON
+      try {
+        await response.json();
+      } catch (parseError) {
+        console.error('[AuthContext] loginOwner - Erreur parsing réponse:', parseError);
         setIsHydrating(false);
         return false;
       }

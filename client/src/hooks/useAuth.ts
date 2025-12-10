@@ -21,10 +21,29 @@ export function useAuth() {
         credentials: "include",
       });
       
+      // Vérifier le content-type avant de parser le JSON
+      const contentType = response.headers.get("content-type") ?? "";
+      
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("[useAuth] Réponse non-JSON pour /api/auth/user:", {
+          status: response.status,
+          statusText: response.statusText,
+          contentType,
+          text: text.substring(0, 200),
+        });
+        // Pour /api/auth/user, si ce n'est pas du JSON, on considère que l'utilisateur n'est pas authentifié
+        return { authenticated: false, user: null };
+      }
+      
       if (!response.ok) {
         // Seulement logger les vraies erreurs (réseau, 5xx)
         if (response.status >= 500) {
           console.error("Erreur serveur lors de la récupération utilisateur:", response.status);
+        }
+        // Pour les erreurs 4xx, on considère que l'utilisateur n'est pas authentifié
+        if (response.status === 401 || response.status === 403) {
+          return { authenticated: false, user: null };
         }
         throw new Error("Erreur de récupération utilisateur");
       }
@@ -51,9 +70,30 @@ export function useAuth() {
         body: JSON.stringify(credentials),
       });
 
+      // Vérifier le content-type avant de parser le JSON
+      const contentType = response.headers.get("content-type") ?? "";
+      
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("[useAuth] Réponse non-JSON reçue:", {
+          status: response.status,
+          statusText: response.statusText,
+          contentType,
+          text: text.substring(0, 200),
+        });
+        throw new Error(
+          text || `Erreur serveur (${response.status}): La réponse n'est pas au format JSON`
+        );
+      }
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Erreur de connexion");
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Erreur de connexion");
+        } catch (parseError) {
+          // Si le parsing JSON échoue même avec content-type JSON, c'est une erreur serveur
+          throw new Error(`Erreur de connexion (${response.status}): ${response.statusText}`);
+        }
       }
 
       const data = await response.json();
@@ -94,8 +134,28 @@ export function useAuth() {
         credentials: "include",
       });
 
+      // Vérifier le content-type avant de parser le JSON
+      const contentType = response.headers.get("content-type") ?? "";
+      
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("[useAuth] Réponse non-JSON pour /api/logout:", {
+          status: response.status,
+          statusText: response.statusText,
+          contentType,
+          text: text.substring(0, 200),
+        });
+        // Pour logout, même si ce n'est pas du JSON, on considère que c'est OK
+        return { success: true };
+      }
+
       if (!response.ok) {
-        throw new Error("Erreur de déconnexion");
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Erreur de déconnexion");
+        } catch (parseError) {
+          throw new Error(`Erreur de déconnexion (${response.status}): ${response.statusText}`);
+        }
       }
 
       return response.json();

@@ -85,7 +85,7 @@ export default function Hero() {
                 className="mt-6 text-base sm:text-lg max-w-2xl leading-relaxed"
                 style={{ color: 'var(--lp-text-muted)' }}
               >
-                SalonPilot synchronise les réservations, les rappels SMS et la relation client dans une expérience glassmorphism inspirée de ton dashboard.
+                Witstyl synchronise les réservations, les rappels SMS et la relation client dans une expérience glassmorphism inspirée de ton dashboard.
                 Moins de no-show, plus de créneaux remplis.
               </motion.p>
             </div>

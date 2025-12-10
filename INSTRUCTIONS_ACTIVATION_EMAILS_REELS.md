@@ -48,7 +48,7 @@ SMS_DRY_RUN=true      # SMS en mode test (défaut)
 ```bash
 # Resend Configuration
 RESEND_API_KEY=re_your-api-key-here
-RESEND_FROM=SalonPilot <noreply@salonpilot.ch>
+RESEND_FROM=Witstyl <noreply@witstyl.ch>
 
 # SMS Configuration (dry run pour l'instant)
 SMS_DRY_RUN=true

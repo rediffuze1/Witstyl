@@ -85,7 +85,7 @@ export default function ClientResetPassword() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center mb-4">
             <Scissors className="w-8 h-8 text-primary mr-2" />
-            <h1 className="text-2xl font-bold">SalonPilot</h1>
+            <h1 className="text-2xl font-bold">Witstyl</h1>
           </div>
           <CardTitle className="text-xl">Réinitialiser le mot de passe</CardTitle>
           <p className="text-muted-foreground text-sm">

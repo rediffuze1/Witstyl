@@ -60,14 +60,14 @@ Puis :
 **En mode DRY RUN (`SMS_DRY_RUN=true`) :**
 ```
 [ClickSend] [DRY RUN] Envoi SMS vers +41791234567
-[ClickSend] [DRY RUN] Message: Test SMS depuis SalonPilot
-[ClickSend] [DRY RUN] Depuis: SalonPilot
+[ClickSend] [DRY RUN] Message: Test SMS depuis Witstyl
+[ClickSend] [DRY RUN] Depuis: Witstyl
 ```
 
 **En mode réel (`SMS_DRY_RUN=false`) :**
 ```
 [ClickSend] 📱 Envoi SMS vers +41791234567
-[ClickSend] 📱 Depuis: SalonPilot
+[ClickSend] 📱 Depuis: Witstyl
 [ClickSend] ✅ SMS envoyé avec succès
 ```
 
@@ -129,7 +129,7 @@ Vous devriez voir :
 ═══════════════════════════════════════════════════════════════
 [POST /api/owner/notifications/send-test-sms] req.body: {
   "to": "+41791234567",
-  "message": "Test SMS depuis SalonPilot - Vérification de la configuration"
+  "message": "Test SMS depuis Witstyl - Vérification de la configuration"
 }
 [POST /api/owner/notifications/send-test-sms] 📱 Préparation de l'envoi SMS
 [ClickSend] [DRY RUN] Envoi SMS vers +41791234567
@@ -200,20 +200,20 @@ Vous devriez voir les logs dans le terminal du serveur.
 ═══════════════════════════════════════════════════════════════
 [POST /api/owner/notifications/send-test-sms] req.body: {
   "to": "+41791234567",
-  "message": "Test SMS depuis SalonPilot"
+  "message": "Test SMS depuis Witstyl"
 }
 [POST /api/owner/notifications/send-test-sms] 📱 Préparation de l'envoi SMS
 [POST /api/owner/notifications/send-test-sms] 📱 To: +41791234567
-[POST /api/owner/notifications/send-test-sms] 📱 Message: Test SMS depuis SalonPilot
+[POST /api/owner/notifications/send-test-sms] 📱 Message: Test SMS depuis Witstyl
 [ClickSend] [DRY RUN] Envoi SMS vers +41791234567
-[ClickSend] [DRY RUN] Message: Test SMS depuis SalonPilot
-[ClickSend] [DRY RUN] Depuis: SalonPilot
+[ClickSend] [DRY RUN] Message: Test SMS depuis Witstyl
+[ClickSend] [DRY RUN] Depuis: Witstyl
 [POST /api/owner/notifications/send-test-sms] 📊 Résultat: {
   "success": true,
   "metadata": {
     "dryRun": true,
     "to": "+41791234567",
-    "from": "SalonPilot"
+    "from": "Witstyl"
   }
 }
 [POST /api/owner/notifications/send-test-sms] ✅ SMS envoyé avec succès à +41791234567

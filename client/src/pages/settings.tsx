@@ -222,7 +222,7 @@ function SettingsPage() {
   // Écouter les changements de thème depuis d'autres onglets (une seule fois)
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "salonpilot.theme.v1" && e.newValue) {
+      if (e.key === "witstyl.theme.v1" && e.newValue) {
         try {
           const s = JSON.parse(e.newValue);
           if (s?.primary) setPrimaryColor(s.primary);

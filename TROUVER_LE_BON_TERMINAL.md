@@ -68,12 +68,12 @@ Quand vous créez un rendez-vous, vous devriez voir dans le **terminal du serveu
 [POST /api/appointments] 📧 Téléphone: 079 2222222
 [SmsUp] [DRY RUN] SMS qui serait envoyé:
 [SmsUp] [DRY RUN]   To: +41791234567
-[SmsUp] [DRY RUN]   Message: Votre rendez-vous chez SalonPilot est confirmé le...
+[SmsUp] [DRY RUN]   Message: Votre rendez-vous chez Witstyl est confirmé le...
 [SmsUp] [DRY RUN]   Payload: { ... }
 [Resend] [DRY RUN] Email qui serait envoyé:
 [Resend] [DRY RUN]   To: colette@gmail.com
-[Resend] [DRY RUN]   From: SalonPilot <noreply@salonpilot.ch>
-[Resend] [DRY RUN]   Subject: Votre rendez-vous est confirmé - SalonPilot
+[Resend] [DRY RUN]   From: Witstyl <noreply@witstyl.ch>
+[Resend] [DRY RUN]   Subject: Votre rendez-vous est confirmé - Witstyl
 [Resend] [DRY RUN]   HTML (premiers 200 caractères): ...
 [POST /api/appointments] ✅ Notifications envoyées avec succès
 ═══════════════════════════════════════════════════════════════
@@ -116,7 +116,7 @@ Pour être sûr de voir les logs, créez un terminal dédié :
 1. **Dans Cursor**, ouvrez un nouveau terminal (Terminal → New Terminal)
 2. **Tapez** :
    ```bash
-   cd /Users/pierre/Downloads/App/V1/Transfert\ vers\ cursor/SalonPilot
+   cd /Users/pierre/Downloads/App/V1/Transfert\ vers\ cursor/Witstyl
    npm run dev
    ```
 3. **Gardez ce terminal ouvert et visible**

@@ -12,7 +12,7 @@ Vous avez sélectionné un styliste spécifique lors de l'ajout d'une date de fe
 
 1. Allez sur [https://supabase.com/dashboard](https://supabase.com/dashboard)
 2. Connectez-vous à votre compte
-3. Sélectionnez votre projet SalonPilot
+3. Sélectionnez votre projet Witstyl
 
 ### Étape 2 : Ouvrir le SQL Editor
 
@@ -42,7 +42,7 @@ WHERE stylist_id IS NOT NULL;
 
 ### Étape 5 : Vérifier
 
-1. Retournez dans votre application SalonPilot
+1. Retournez dans votre application Witstyl
 2. Rechargez la page des horaires (F5)
 3. Ajoutez une nouvelle date de fermeture avec un styliste spécifique
 4. Le badge devrait maintenant afficher "Styliste: [Nom du styliste]" au lieu de "Salon entier"

@@ -8,7 +8,7 @@ Dans `.env` :
 
 ```bash
 SMSUP_API_TOKEN=xxxxxxxxxxxxxxxxxxxx
-SMSUP_SENDER=SalonPilot-Test        # 11 caractères max
+SMSUP_SENDER=Witstyl-Test        # 11 caractères max
 SMS_DRY_RUN=false                   # mettre à false pour un envoi réel
 # SMSUP_API_URL=https://api.smsup.ch/send  # optionnel
 ```
@@ -85,7 +85,7 @@ Au démarrage, la console doit afficher :
   - **Solution** :
     1. Connectez-vous au **dashboard SMSup**
     2. Allez dans l'onglet **"Expéditeurs"** ou **"Senders"**
-    3. **Validez/Approuvez** l'expéditeur (ex: "SalonPilot")
+    3. **Validez/Approuvez** l'expéditeur (ex: "Witstyl")
     4. Vérifiez le ticket dans l'historique
   - **Après validation** :
     - Le SMS en attente partira automatiquement (5-15 min)

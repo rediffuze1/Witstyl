@@ -1,11 +1,11 @@
-# Tests SMSup (SalonPilot)
+# Tests SMSup (Witstyl)
 
 ## 1. Préparation
 
 ```bash
 # .env
 SMSUP_API_TOKEN=your-token
-SMSUP_SENDER=SalonPilot-Test
+SMSUP_SENDER=Witstyl-Test
 SMS_DRY_RUN=false         # pour envoyer réellement
 # SMSUP_API_URL=https://api.smsup.ch/send  # Optionnel
 
@@ -17,7 +17,7 @@ Vérifiez dans les logs :
 ```
 [Notifications] 📱 SMS: ✅ ENVOI RÉEL
 [Notifications] 🔑 SMSUP_API_TOKEN: ✅ Défini (xxxx…)
-[Notifications] 📱 SMSUP_SENDER: SalonPilot-Test
+[Notifications] 📱 SMSUP_SENDER: Witstyl-Test
 ```
 
 ## 2. Test direct (script CLI)

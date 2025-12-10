@@ -9,7 +9,7 @@ Aucun SMS n'est envoyé malgré la configuration `SMS_DRY_RUN=false` et la prés
 ### 1. Configuration des Variables d'Environnement
 - ✅ `SMS_DRY_RUN=false` est bien configuré dans `.env`
 - ✅ `SMSUP_API_TOKEN` est défini
-- ✅ `SMSUP_SENDER=SalonPilot-Pierre` est configuré
+- ✅ `SMSUP_SENDER=Witstyl-Pierre` est configuré
 - ✅ Le serveur a été redémarré
 
 ### 2. Settings de Notifications

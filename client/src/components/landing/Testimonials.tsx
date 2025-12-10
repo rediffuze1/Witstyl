@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 const testimonials = [
   {
     quote:
-      "SalonPilot a transformé la gestion de mon salon. Les clients adorent la réservation en 3 clics et l'IA répond à toutes leurs questions 24/7.",
+      "Witstyl a transformé la gestion de mon salon. Les clients adorent la réservation en 3 clics et l'IA répond à toutes leurs questions 24/7.",
     author: 'Marie Dubois',
     role: 'Propriétaire, Salon Élégance',
   },

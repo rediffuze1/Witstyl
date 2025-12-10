@@ -153,7 +153,7 @@ describe('buildConfirmationSms', () => {
     const ctx: AppointmentSmsContext = {
       clientFirstName: 'Alexandrine-Marguerite-Victoire',
       serviceName: 'Coupe',
-      salonName: 'SalonPilot',
+      salonName: 'Witstyl',
       appointmentWeekday: 'mardi',
       appointmentDate: '2 decembre 2025',
       appointmentTime: '17:30',

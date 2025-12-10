@@ -9,7 +9,7 @@ Assurez-vous que `.env` contient :
 ```bash
 # SMSup
 SMSUP_API_TOKEN=votre-token-api
-SMSUP_SENDER=SalonPilot-Pierre   # 11 caractères maximum
+SMSUP_SENDER=Witstyl-Pierre   # 11 caractères maximum
 # SMSUP_API_URL=https://api.smsup.ch/send   # Optionnel
 
 # Mode réel
@@ -26,7 +26,7 @@ SMS_DRY_RUN=false   # true = logs uniquement / false = envoi réel
 ═══════════════════════════════════════════════════════════════
 [Notifications] 📱 SMS: ✅ ENVOI RÉEL
 [Notifications] 🔑 SMSUP_API_TOKEN: ✅ Défini (xxxx…)
-[Notifications] 📱 SMSUP_SENDER: SalonPilot-Pierre
+[Notifications] 📱 SMSUP_SENDER: Witstyl-Pierre
 [Notifications] 🔧 SMS_DRY_RUN: false
 ═══════════════════════════════════════════════════════════════
 ```

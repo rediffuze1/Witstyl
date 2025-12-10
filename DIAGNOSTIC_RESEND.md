@@ -26,7 +26,7 @@ Identifier pourquoi les emails ne sont pas envoyés via Resend, même si la conf
 [Resend] 📧 ENVOI RÉEL D'EMAIL
 ═══════════════════════════════════════════════════════════════
 [Resend] To: veignatpierre@gmail.com
-[Resend] From: SalonPilot <noreply@salonpilot.ch>
+[Resend] From: Witstyl <noreply@witstyl.ch>
 [Resend] Subject: [TEST] ...
 [Resend] Payload complet: {...}
 [Resend] Appel à Resend API...
@@ -81,15 +81,15 @@ Le script affichera l'erreur exacte de Resend.
 ```
 ❌ ERREUR DE RESEND:
 {
-  "message": "The domain salonpilot.ch is not verified"
+  "message": "The domain witstyl.ch is not verified"
 }
 ```
 
-**Cause** : Le domaine `salonpilot.ch` n'est pas vérifié dans Resend.
+**Cause** : Le domaine `witstyl.ch` n'est pas vérifié dans Resend.
 
 **Solution** :
 1. Aller sur https://resend.com/domains
-2. Vérifier le domaine `salonpilot.ch`
+2. Vérifier le domaine `witstyl.ch`
 3. Si le domaine n'existe pas, l'ajouter et suivre les instructions de vérification DNS
 4. OU utiliser un domaine déjà vérifié (ex: `onboarding@resend.dev` pour les tests)
 
@@ -119,7 +119,7 @@ Le script affichera l'erreur exacte de Resend.
 }
 ```
 
-**Cause** : L'adresse `noreply@salonpilot.ch` n'est pas autorisée.
+**Cause** : L'adresse `noreply@witstyl.ch` n'est pas autorisée.
 
 **Solution** :
 1. Utiliser un domaine vérifié
@@ -137,7 +137,7 @@ Le script affichera l'erreur exacte de Resend.
 
 3. **Vérifier les domaines** :
    - Aller sur https://resend.com/domains
-   - Vérifier que `salonpilot.ch` est listé et vérifié
+   - Vérifier que `witstyl.ch` est listé et vérifié
    - Si non vérifié → Suivre les instructions de vérification DNS
 
 ---
@@ -152,14 +152,14 @@ Le script affichera l'erreur exacte de Resend.
 
 1. **Option A : Vérifier le domaine** (recommandé pour production)
    - Aller sur https://resend.com/domains
-   - Ajouter `salonpilot.ch`
+   - Ajouter `witstyl.ch`
    - Suivre les instructions DNS
    - Attendre la vérification (peut prendre quelques minutes)
 
 2. **Option B : Utiliser le domaine de test Resend** (pour tests rapides)
    - Modifier `.env` :
      ```bash
-     RESEND_FROM=SalonPilot <onboarding@resend.dev>
+     RESEND_FROM=Witstyl <onboarding@resend.dev>
      ```
    - Redémarrer le serveur
    - Tester à nouveau

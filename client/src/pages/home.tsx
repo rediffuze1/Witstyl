@@ -28,7 +28,7 @@ export default function Home() {
             <h1 className="text-3xl font-bold text-foreground">
               Bienvenue, {isLoading ? "..." : (user?.firstName || user?.email || "Utilisateur")}
             </h1>
-            <p className="text-muted-foreground">Gérez votre salon avec SalonPilot</p>
+            <p className="text-muted-foreground">Gérez votre salon avec Witstyl</p>
           </div>
           <Button onClick={handleLogout} variant="outline" data-testid="button-logout">
             Déconnexion

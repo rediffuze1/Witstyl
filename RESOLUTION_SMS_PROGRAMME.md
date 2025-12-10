@@ -5,20 +5,20 @@
 Vos SMS apparaissent dans le dashboard SMSup avec le statut **"Programmé" (Scheduled)** mais ne sont pas envoyés. Cela signifie que :
 
 1. ✅ L'API SMSup accepte vos requêtes (ticket créé, crédit débité)
-2. ❌ L'expéditeur "SalonPilot" n'est pas validé/approuvé
+2. ❌ L'expéditeur "Witstyl" n'est pas validé/approuvé
 3. ⏳ Les SMS restent en attente jusqu'à validation de l'expéditeur
 
 ## Solutions possibles
 
 ### Solution 1 : Utiliser un numéro de téléphone comme expéditeur (RECOMMANDÉ)
 
-Au lieu d'utiliser un nom d'expéditeur ("SalonPilot"), utilisez un numéro de téléphone suisse. Les numéros sont généralement validés automatiquement.
+Au lieu d'utiliser un nom d'expéditeur ("Witstyl"), utilisez un numéro de téléphone suisse. Les numéros sont généralement validés automatiquement.
 
 **Modification dans `.env` :**
 
 ```bash
 # Au lieu de :
-SMSUP_SENDER=SalonPilot
+SMSUP_SENDER=Witstyl
 
 # Utilisez votre numéro de téléphone (format suisse) :
 SMSUP_SENDER=+41791338240
@@ -30,10 +30,10 @@ SMSUP_SENDER=41791338240
 
 ### Solution 2 : Contacter le support SMSup
 
-Si vous devez absolument utiliser "SalonPilot" comme expéditeur :
+Si vous devez absolument utiliser "Witstyl" comme expéditeur :
 
 1. **Contactez le support SMSup** via leur site web ou email
-2. **Demandez la validation de l'expéditeur "SalonPilot"**
+2. **Demandez la validation de l'expéditeur "Witstyl"**
 3. **Fournissez les informations nécessaires** (votre compte, numéro de téléphone, etc.)
 
 ### Solution 3 : Chercher dans d'autres sections du dashboard

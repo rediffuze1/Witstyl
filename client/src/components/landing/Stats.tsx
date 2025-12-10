@@ -86,7 +86,7 @@ function OfferCard() {
             onClick={() => setLocation('/salon-login')}
             className="mt-6 w-full brand-button"
           >
-            Tester SalonPilot
+            Tester Witstyl
           </button>
         </div>
       </div>

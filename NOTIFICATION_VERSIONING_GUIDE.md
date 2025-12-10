@@ -1,6 +1,6 @@
 # Guide du versioning des templates de notifications
 
-Ce document décrit le système de versioning des templates de notifications dans SalonPilot.
+Ce document décrit le système de versioning des templates de notifications dans Witstyl.
 
 ## 📋 Vue d'ensemble
 

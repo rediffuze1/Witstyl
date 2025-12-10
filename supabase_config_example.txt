@@ -1,4 +1,4 @@
-# Configuration Supabase pour SalonPilot
+# Configuration Supabase pour Witstyl
 # Copiez ce fichier vers .env et remplissez avec vos vraies valeurs
 
 # =====================================================
@@ -38,7 +38,7 @@ OPENAI_API_KEY=sk-proj-your-openai-key-here
 VOICE_MODE=off
 
 # Base de données (optionnel - sera remplacé par Supabase)
-DATABASE_URL=postgresql://postgres:password@localhost:5432/salonpilot
+DATABASE_URL=postgresql://postgres:password@localhost:5432/witstyl
 
 # =====================================================
 # INSTRUCTIONS D'INSTALLATION

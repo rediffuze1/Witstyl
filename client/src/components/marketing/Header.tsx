@@ -118,7 +118,7 @@ export default function Header() {
                   className="text-lg font-bold leading-tight transition-colors"
                   style={{ color: 'hsl(var(--text-main))' }}
                 >
-                  SalonPilot
+                  Witstyl
                 </span>
                 <span
                   className="text-xs leading-tight transition-colors"
@@ -258,7 +258,7 @@ export default function Header() {
                     </div>
                     <div>
                       <div className="text-lg font-bold" style={{ color: 'hsl(var(--text-main))' }}>
-                        SalonPilot
+                        Witstyl
                       </div>
                       <div className="text-xs" style={{ color: 'hsl(var(--text-muted))' }}>
                         {salonName}

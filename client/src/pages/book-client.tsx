@@ -520,7 +520,7 @@ export default function BookClient() {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
                 <Scissors className="text-white text-sm" />
               </div>
-              <span className="text-xl font-bold text-foreground">SalonPilot</span>
+              <span className="text-xl font-bold text-foreground">Witstyl</span>
             </div>
             <Button
               variant="ghost"

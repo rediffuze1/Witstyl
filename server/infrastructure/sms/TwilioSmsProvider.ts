@@ -14,7 +14,7 @@ import { SmsProvider } from '../../core/notifications/types';
 type TwilioSmsProviderConfig = {
   accountSid?: string;
   authToken?: string;
-  from?: string; // Numéro Twilio au format +14155238886 OU Sender ID alphanumérique (ex: "SalonPilot")
+  from?: string; // Numéro Twilio au format +14155238886 OU Sender ID alphanumérique (ex: "Witstyl")
   messagingServiceSid?: string; // Optionnel : utilisez un Messaging Service SID si vous en avez un
   dryRun?: boolean;
 };

@@ -1,14 +1,14 @@
 # Guide : Utiliser un Sender ID Alphanumérique (Nom) avec Twilio
 
-Ce guide explique comment utiliser un nom (ex: "SalonPilot") au lieu d'un numéro de téléphone comme expéditeur SMS avec Twilio.
+Ce guide explique comment utiliser un nom (ex: "Witstyl") au lieu d'un numéro de téléphone comme expéditeur SMS avec Twilio.
 
 ## 📝 Qu'est-ce qu'un Sender ID Alphanumérique ?
 
-Un **Sender ID alphanumérique** permet d'envoyer des SMS avec un nom personnalisé (ex: "SalonPilot") au lieu d'un numéro de téléphone. Cela renforce la reconnaissance de votre marque.
+Un **Sender ID alphanumérique** permet d'envoyer des SMS avec un nom personnalisé (ex: "Witstyl") au lieu d'un numéro de téléphone. Cela renforce la reconnaissance de votre marque.
 
 **Exemple :**
 - ❌ Avec numéro : `+14155238886`
-- ✅ Avec Sender ID : `SalonPilot`
+- ✅ Avec Sender ID : `Witstyl`
 
 ## ⚠️ Limitations Importantes
 
@@ -50,7 +50,7 @@ Avant de configurer, vérifiez si les Sender ID sont supportés dans les pays o�
 
 ```bash
 # Utiliser un Sender ID alphanumérique (nom)
-TWILIO_SMS_FROM=SalonPilot
+TWILIO_SMS_FROM=Witstyl
 
 # OU utiliser un numéro Twilio (si Sender ID non disponible)
 # TWILIO_SMS_FROM=+14155238886
@@ -60,7 +60,7 @@ TWILIO_SMS_FROM=SalonPilot
 - Maximum **11 caractères**
 - Lettres et chiffres uniquement (pas de caractères spéciaux)
 - Doit contenir **au moins une lettre**
-- Exemples valides : `SalonPilot`, `SalonPilot1`, `SALON123`
+- Exemples valides : `Witstyl`, `Witstyl1`, `SALON123`
 
 ### 3. Enregistrer le Sender ID (si requis)
 
@@ -68,7 +68,7 @@ Pour certains pays, vous devez enregistrer le Sender ID :
 
 1. Console Twilio → **Messaging** → **Settings** → **Sender IDs**
 2. Cliquez sur **"Register Sender ID"**
-3. Entrez votre Sender ID (ex: "SalonPilot")
+3. Entrez votre Sender ID (ex: "Witstyl")
 4. Sélectionnez le pays
 5. Suivez le processus d'enregistrement
 6. Attendez l'approbation (peut prendre plusieurs jours)
@@ -78,7 +78,7 @@ Pour certains pays, vous devez enregistrer le Sender ID :
 ### 1. Configuration
 
 ```bash
-TWILIO_SMS_FROM=SalonPilot
+TWILIO_SMS_FROM=Witstyl
 SMS_DRY_RUN=false
 ```
 
@@ -90,7 +90,7 @@ npx tsx scripts/test-twilio-sms.ts +41791234567
 
 ### 3. Vérifier la réception
 
-Le SMS devrait arriver avec "SalonPilot" comme expéditeur au lieu d'un numéro.
+Le SMS devrait arriver avec "Witstyl" comme expéditeur au lieu d'un numéro.
 
 ## 🆘 Erreurs Courantes
 
@@ -139,7 +139,7 @@ TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 | Fonctionnalité | Sender ID Alphanumérique | Numéro Twilio |
 |----------------|-------------------------|---------------|
-| **Format** | `SalonPilot` | `+14155238886` |
+| **Format** | `Witstyl` | `+14155238886` |
 | **Disponibilité** | Limité par pays | Tous les pays |
 | **Reconnaissance marque** | ✅ Excellente | ⚠️ Moins visible |
 | **Réponses possibles** | ❌ Non | ✅ Oui |
@@ -152,7 +152,7 @@ Pour basculer, changez simplement `TWILIO_SMS_FROM` :
 
 ```bash
 # Sender ID alphanumérique
-TWILIO_SMS_FROM=SalonPilot
+TWILIO_SMS_FROM=Witstyl
 
 # Numéro Twilio
 TWILIO_SMS_FROM=+14155238886

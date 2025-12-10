@@ -35,7 +35,7 @@
 
 D'après le fichier `.env` :
 - ✅ `RESEND_API_KEY` : **Définie** (`re_JCiGcc16_FTW96mmFUZZ4giipEKbedGNf`)
-- ✅ `RESEND_FROM` : **Définie** (`SalonPilot <noreply@salonpilot.ch>`)
+- ✅ `RESEND_FROM` : **Définie** (`Witstyl <noreply@witstyl.ch>`)
 - ⚠️ `EMAIL_DRY_RUN` : **Non définie**
 - ❌ `NOTIFICATIONS_DRY_RUN` : **Définie à `true`** ← **PROBLÈME IDENTIFIÉ !**
 
@@ -86,7 +86,7 @@ Vous devriez voir dans les logs :
 [Notifications] 📱 SMS: ⚠️  DRY RUN (log uniquement)
 [Notifications] 📧 Email: ✅ ENVOI RÉEL
 [Notifications] 🔑 RESEND_API_KEY: ✅ Définie (re_JCiGcc...)
-[Notifications] 📧 RESEND_FROM: SalonPilot <noreply@salonpilot.ch>
+[Notifications] 📧 RESEND_FROM: Witstyl <noreply@witstyl.ch>
 [Notifications] 🔧 EMAIL_DRY_RUN: non défini (défaut: false)
 ```
 
@@ -107,7 +107,7 @@ Vous devriez voir :
 [Resend] 📧 ENVOI RÉEL D'EMAIL
 ═══════════════════════════════════════════════════════════════
 [Resend] To: votre-email@example.com
-[Resend] From: SalonPilot <noreply@salonpilot.ch>
+[Resend] From: Witstyl <noreply@witstyl.ch>
 [Resend] Subject: [TEST] ...
 [Resend] Payload complet: {...}
 [Resend] Appel à Resend API...
@@ -141,11 +141,11 @@ Et dans la réponse HTTP (500) :
 
 ### 1. Domaine Non Vérifié dans Resend
 
-Si `noreply@salonpilot.ch` n'est pas vérifié dans Resend :
+Si `noreply@witstyl.ch` n'est pas vérifié dans Resend :
 - Resend renverra une erreur 422
 - L'erreur sera visible dans les logs et la réponse HTTP
 
-**Solution** : Vérifier le domaine `salonpilot.ch` dans le dashboard Resend, ou utiliser un domaine vérifié.
+**Solution** : Vérifier le domaine `witstyl.ch` dans le dashboard Resend, ou utiliser un domaine vérifié.
 
 ### 2. Clé API Invalide
 
@@ -170,7 +170,7 @@ Ajoutez dans votre `.env` :
 ```bash
 # Resend Configuration
 RESEND_API_KEY=re_your-api-key-here
-RESEND_FROM=SalonPilot <noreply@salonpilot.ch>
+RESEND_FROM=Witstyl <noreply@witstyl.ch>
 
 # Email Dry Run (optionnel)
 # EMAIL_DRY_RUN=false  # false = envoi réel (défaut)

@@ -14,7 +14,7 @@ import { SmsProvider } from '../../core/notifications/types';
 type ClickSendSmsProviderConfig = {
   username?: string;
   apiKey?: string;
-  from?: string; // Sender ID alphanumérique ou numéro (ex: "SalonPilot" ou "+41791234567")
+  from?: string; // Sender ID alphanumérique ou numéro (ex: "Witstyl" ou "+41791234567")
   dryRun?: boolean;
 };
 

@@ -6,8 +6,8 @@ import type { CalendarEvent, CalendarEventId, CalendarSettings, DEFAULT_SETTINGS
 import type { CalendarRepo } from './repo';
 import { DEFAULT_SETTINGS as defaultSettings } from './types';
 
-const STORAGE_KEY_EVENTS = 'salonpilot.calendar.v1.events';
-const STORAGE_KEY_SETTINGS = 'salonpilot.calendar.v1.settings';
+const STORAGE_KEY_EVENTS = 'witstyl.calendar.v1.events';
+const STORAGE_KEY_SETTINGS = 'witstyl.calendar.v1.settings';
 
 function generateId(): string {
   return `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

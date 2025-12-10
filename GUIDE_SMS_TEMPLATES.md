@@ -66,7 +66,7 @@ Bonjour {prénom}, votre RDV chez {salon} est confirme le {date} a {heure}. A bi
 
 **Exemple de sortie :**
 ```
-Bonjour Pierre, votre RDV chez SalonPilot est confirme le 02.12 a 17:30. A bientot !
+Bonjour Pierre, votre RDV chez Witstyl est confirme le 02.12 a 17:30. A bientot !
 ```
 
 **Longueur typique :** ~80-100 caractères (reste sous 160 même avec noms longs)
@@ -82,7 +82,7 @@ Rappel RDV: demain a {heure} chez {salon}. Si vous ne pouvez pas venir, merci de
 
 **Exemple de sortie :**
 ```
-Rappel RDV: demain a 17:30 chez SalonPilot. Si vous ne pouvez pas venir, merci de nous appeler.
+Rappel RDV: demain a 17:30 chez Witstyl. Si vous ne pouvez pas venir, merci de nous appeler.
 ```
 
 **Longueur typique :** ~90-110 caractères
@@ -197,7 +197,7 @@ Quand un SMS de confirmation ou de rappel est envoyé :
 
 **Exemple réel :**
 ```
-Bonjour Pierre, votre RDV chez SalonPilot est confirme le 02.12 a 17:30. A bientot !
+Bonjour Pierre, votre RDV chez Witstyl est confirme le 02.12 a 17:30. A bientot !
 ```
 → 88 caractères, 1 segment, sans accents ✅
 

@@ -111,7 +111,7 @@ export default function FloatingChatbot() {
         if (!hasWelcomed && conversation.length === 0) {
           const welcomeMessage: ChatMessage = {
             type: 'ai',
-            message: "👋 Salut ! Je suis votre assistant personnel SalonPilot. Je suis là pour vous simplifier la vie ! 😊\n\nJe peux vous aider à :\n✨ Réserver un rendez-vous en quelques secondes\n📅 Vérifier nos horaires d'ouverture\n💇 Découvrir nos services et tarifs\n💬 Répondre à toutes vos questions\n\nAlors, par quoi commençons-nous ?",
+            message: "👋 Salut ! Je suis votre assistant personnel Witstyl. Je suis là pour vous simplifier la vie ! 😊\n\nJe peux vous aider à :\n✨ Réserver un rendez-vous en quelques secondes\n📅 Vérifier nos horaires d'ouverture\n💇 Découvrir nos services et tarifs\n💬 Répondre à toutes vos questions\n\nAlors, par quoi commençons-nous ?",
             timestamp: new Date()
           };
           setConversation([welcomeMessage]);
@@ -215,7 +215,7 @@ export default function FloatingChatbot() {
     if (nextState && !hasWelcomed && conversation.length === 0) {
       const welcomeMessage: ChatMessage = {
         type: 'ai',
-        message: "👋 Salut ! Je suis votre assistant personnel SalonPilot. Je suis là pour vous simplifier la vie ! 😊\n\nJe peux vous aider à :\n✨ Réserver un rendez-vous en quelques secondes\n📅 Vérifier nos horaires d'ouverture\n💇 Découvrir nos services et tarifs\n💬 Répondre à toutes vos questions\n\nAlors, par quoi commençons-nous ?",
+        message: "👋 Salut ! Je suis votre assistant personnel Witstyl. Je suis là pour vous simplifier la vie ! 😊\n\nJe peux vous aider à :\n✨ Réserver un rendez-vous en quelques secondes\n📅 Vérifier nos horaires d'ouverture\n💇 Découvrir nos services et tarifs\n💬 Répondre à toutes vos questions\n\nAlors, par quoi commençons-nous ?",
         timestamp: new Date()
       };
       setConversation([welcomeMessage]);
@@ -331,7 +331,7 @@ export default function FloatingChatbot() {
                     </div>
                     <p className="font-semibold text-foreground mb-2">Bonjour 👋</p>
                     <p className="text-sm text-foreground mb-1">Je suis Salomé</p>
-                    <p className="text-xs text-muted-foreground">Votre assistante SalonPilot</p>
+                    <p className="text-xs text-muted-foreground">Votre assistante Witstyl</p>
                     <p className="text-xs mt-3 text-muted-foreground">Comment puis-je vous aider aujourd'hui ?</p>
                   </div>
                 ) : (

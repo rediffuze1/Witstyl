@@ -1,6 +1,6 @@
-# Guide de Contribution - SalonPilot
+# Guide de Contribution - Witstyl
 
-Ce guide vous aidera à configurer et démarrer le projet SalonPilot en local.
+Ce guide vous aidera à configurer et démarrer le projet Witstyl en local.
 
 ## 📋 Prérequis
 
@@ -13,8 +13,8 @@ Ce guide vous aidera à configurer et démarrer le projet SalonPilot en local.
 ### 1. Cloner le repository
 
 ```bash
-git clone https://github.com/rediffuze1/SalonPilot.git
-cd SalonPilot
+git clone https://github.com/rediffuze1/Witstyl.git
+cd Witstyl
 ```
 
 ### 2. Installer les dépendances
@@ -178,7 +178,7 @@ Le composant `PageTransition` a été optimisé pour éviter le flicker. Si vous
 ## 📁 Structure du projet
 
 ```
-SalonPilot/
+Witstyl/
 ├── client/              # Application React/Vite
 │   ├── src/
 │   │   ├── components/  # Composants réutilisables

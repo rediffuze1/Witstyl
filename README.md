@@ -1,4 +1,4 @@
-# SalonPilot
+# Witstyl
 
 Application web de prise de rendez-vous pour salons de coiffure.
 
@@ -33,7 +33,7 @@ L'application sera accessible sur http://localhost:5001/
 ## 📁 Structure
 
 ```
-SalonPilot/
+Witstyl/
 ├── client/          # Application React/Vite
 ├── server/          # Serveur Express
 ├── shared/          # Code partagé
@@ -63,7 +63,7 @@ Le calendrier interne permet de gérer les rendez-vous directement dans l'applic
 
 ### Persistance
 
-Actuellement, les données sont stockées dans le `localStorage` du navigateur (clé: `salonpilot.calendar.v1`).
+Actuellement, les données sont stockées dans le `localStorage` du navigateur (clé: `witstyl.calendar.v1`).
 
 ### Migration vers Supabase
 

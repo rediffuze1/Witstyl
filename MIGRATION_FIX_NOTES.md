@@ -11,7 +11,7 @@ DETAIL: Key columns "salon_id" and "id" are of incompatible types: uuid and text
 
 ## Cause
 
-Le schéma existant de SalonPilot utilise `TEXT` pour les identifiants de salon, comme défini dans `sql/schema.sql` :
+Le schéma existant de Witstyl utilise `TEXT` pour les identifiants de salon, comme défini dans `sql/schema.sql` :
 
 ```sql
 CREATE TABLE IF NOT EXISTS salons (
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS notification_settings (
 
 ## Notes importantes
 
-- Le projet SalonPilot est **mono-salon** mais utilise quand même `salon_id` pour la flexibilité future
+- Le projet Witstyl est **mono-salon** mais utilise quand même `salon_id` pour la flexibilité future
 - Le type `TEXT` est utilisé pour les identifiants dans ce projet (pas `UUID`)
 - La contrainte `UNIQUE(salon_id)` garantit qu'il n'y a qu'une seule ligne de settings par salon
 

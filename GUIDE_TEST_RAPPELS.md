@@ -1,6 +1,6 @@
 # Guide pour Tester les Rappels de Rendez-vous
 
-Ce guide explique comment tester le système de rappels automatiques de SalonPilot.
+Ce guide explique comment tester le système de rappels automatiques de Witstyl.
 
 ## 📋 Prérequis
 
@@ -19,7 +19,7 @@ SMS_DRY_RUN=true
 # Pour envoyer de VRAIS SMS (une fois que tout fonctionne)
 # SMS_DRY_RUN=false
 # SMSUP_API_TOKEN=votre_token_ici
-# SMSUP_SENDER=SalonPilot
+# SMSUP_SENDER=Witstyl
 ```
 
 ### 2. Configurer le délai de rappel
@@ -97,7 +97,7 @@ Dans `.env` :
 ```bash
 SMS_DRY_RUN=false
 SMSUP_API_TOKEN=votre_token_api_smsup
-SMSUP_SENDER=SalonPilot
+SMSUP_SENDER=Witstyl
 ```
 
 **Redémarrer le serveur** après modification :
@@ -213,7 +213,7 @@ Le SMS est en attente de validation dans SMSup :
 
 1. Connectez-vous au **dashboard SMSup**
 2. Allez dans **"Expéditeurs"** ou **"Senders"**
-3. **Validez** l'expéditeur (ex: "SalonPilot")
+3. **Validez** l'expéditeur (ex: "Witstyl")
 4. Le SMS partira automatiquement après validation
 
 ## 🔄 Automatisation (Production)

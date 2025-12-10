@@ -155,7 +155,7 @@ export default function SalonRegister() {
             <div className="space-y-6">
               <div className="text-center">
                 <h1 className="text-3xl font-bold text-slate-800 mb-2">Create Account</h1>
-                <p className="text-slate-600">Join SalonPilot and start managing your salon.</p>
+                <p className="text-slate-600">Join Witstyl and start managing your salon.</p>
               </div>
               
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -373,7 +373,7 @@ export default function SalonRegister() {
                 <Scissors className="h-10 w-10 text-white" />
               </div>
               <div>
-                <h2 className="text-4xl font-bold mb-4">SalonPilot</h2>
+                <h2 className="text-4xl font-bold mb-4">Witstyl</h2>
                 <p className="text-lg text-purple-100 max-w-sm">
                   Your salon's co-pilot for seamless booking and management.
                 </p>

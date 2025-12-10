@@ -22,7 +22,7 @@ export default function CTA() {
           </Reveal>
           <Reveal delay={0.1}>
             <p className="text-lg sm:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-              Rejoignez les centaines de salons qui font confiance à SalonPilot pour gérer leurs
+              Rejoignez les centaines de salons qui font confiance à Witstyl pour gérer leurs
               rendez-vous
             </p>
           </Reveal>

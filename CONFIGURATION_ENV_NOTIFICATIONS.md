@@ -12,7 +12,7 @@ SUPABASE_SERVICE_ROLE_KEY=votre-service-role-key  # ⚠️ Important pour les cr
 ### Resend (pour les emails)
 ```bash
 RESEND_API_KEY=re_votre-cle-api
-RESEND_FROM=SalonPilot <noreply@salonpilot.ch>
+RESEND_FROM=Witstyl <noreply@witstyl.ch>
 ```
 
 ## 🔧 Variables SMS (à configurer selon votre provider)
@@ -26,7 +26,7 @@ SMS_PROVIDER=clicksend
 # ClickSend credentials
 CLICKSEND_USERNAME=votre-username-clicksend
 CLICKSEND_API_KEY=votre-api-key-clicksend
-CLICKSEND_SMS_FROM=SalonPilot  # Sender ID alphanumérique (max 11 chars) ou numéro (+41791234567)
+CLICKSEND_SMS_FROM=Witstyl  # Sender ID alphanumérique (max 11 chars) ou numéro (+41791234567)
 
 # Mode dry-run (pour tester sans envoyer de vrais SMS)
 SMS_DRY_RUN=true  # Mettez à false pour envoyer de vrais SMS
@@ -78,7 +78,7 @@ SMS_PROVIDER=smsup
 
 # SMSup credentials
 SMSUP_API_TOKEN=votre-token-api
-SMSUP_SENDER=SalonPilot
+SMSUP_SENDER=Witstyl
 
 # Mode dry-run
 SMS_DRY_RUN=true  # Mettez à false pour envoyer de vrais SMS
@@ -118,7 +118,7 @@ SUPABASE_SERVICE_ROLE_KEY=votre-service-role-key
 # RESEND (pour les emails)
 # =====================================================
 RESEND_API_KEY=re_votre-cle-api
-RESEND_FROM=SalonPilot <noreply@salonpilot.ch>
+RESEND_FROM=Witstyl <noreply@witstyl.ch>
 
 # =====================================================
 # CLICKSEND (pour les SMS)
@@ -126,7 +126,7 @@ RESEND_FROM=SalonPilot <noreply@salonpilot.ch>
 SMS_PROVIDER=clicksend
 CLICKSEND_USERNAME=votre-username
 CLICKSEND_API_KEY=votre-api-key
-CLICKSEND_SMS_FROM=SalonPilot
+CLICKSEND_SMS_FROM=Witstyl
 
 # =====================================================
 # MODES DE TEST
@@ -171,7 +171,7 @@ curl -X POST http://localhost:5001/api/owner/notifications/send-test-sms \
   -H "Cookie: connect.sid=your-session" \
   -d '{
     "to": "+41791234567",
-    "message": "Test SMS depuis SalonPilot"
+    "message": "Test SMS depuis Witstyl"
   }'
 ```
 

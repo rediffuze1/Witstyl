@@ -1,6 +1,6 @@
 # Guide : Notifications Optimisées Email + SMS
 
-Ce guide explique la logique de notifications optimisées pour les rendez-vous SalonPilot.
+Ce guide explique la logique de notifications optimisées pour les rendez-vous Witstyl.
 
 ## 🎯 Règles Métier
 

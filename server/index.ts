@@ -429,7 +429,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-  // Configuration CORS pour développement local
+  // Configuration CORS pour développement local et production
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
@@ -439,11 +439,25 @@ app.use(express.urlencoded({ extended: false }));
       'https://localhost:5001',
       'https://localhost:5173',
       'https://localhost:3000',
+      'https://witstyl.vercel.app', // Production Vercel
+      'https://*.vercel.app', // Tous les sous-domaines Vercel
     ];
     
     // Ajouter l'URL de Replit si elle existe
     if (process.env.REPLIT_URL) {
       allowedOrigins.push(process.env.REPLIT_URL);
+    }
+    
+    // En production, accepter toutes les origines Vercel
+    if (process.env.NODE_ENV === 'production' && origin && origin.includes('vercel.app')) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+      }
+      return next();
     }
     
     if (origin && allowedOrigins.includes(origin)) {
@@ -466,7 +480,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // 👉 Middleware de session pour l'authentification client
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'salonpilot-secret-key',
+  secret: process.env.SESSION_SECRET || 'witstyl-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -1518,8 +1532,20 @@ app.post('/api/salon/register', express.json(), async (req, res) => {
 });
 
 app.post('/api/salon/login', express.json(), async (req, res) => {
+  // S'assurer que la réponse est toujours en JSON
+  res.setHeader('Content-Type', 'application/json');
+  
   try {
     const { email, password } = req.body;
+    
+    // Validation des données d'entrée
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Email et mot de passe requis" 
+      });
+    }
+    
     // Normaliser l'email en minuscules
     const normalizedEmail = email ? email.trim().toLowerCase() : email;
     console.log('🔍 Debug /api/salon/login - Attempting login for:', email, '→', normalizedEmail);
@@ -1589,14 +1615,18 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
     console.log('✅ Debug /api/salon/login - Session created and saved:', req.sessionID);
     console.log('✅ Debug /api/salon/login - User session:', req.session?.user);
     
-    res.json({
+    return res.json({
       success: true,
       user: result.user,
       salon: result.salon
     });
   } catch (error: any) {
     console.error("❌ Error logging in salon owner:", error);
-    res.status(401).json({ message: error.message || "Login failed" });
+    // S'assurer qu'on renvoie toujours du JSON même en cas d'erreur
+    return res.status(401).json({ 
+      success: false,
+      message: error.message || "Login failed" 
+    });
   }
 });
 
@@ -6091,6 +6121,20 @@ app.use((req, res, next) => {
     console.warn('[404 Middleware] Path:', req.path);
     console.warn('[404 Middleware] Base URL:', req.baseUrl);
     
+    // Si c'est une requête vers /api/salon/login, c'est un problème grave
+    if (req.method === 'POST' && req.path === '/api/salon/login') {
+      console.error('[404 Middleware] ❌❌❌ CRITIQUE: Requête POST /api/salon/login non interceptée!');
+      console.error('[404 Middleware] ❌ La route devrait être définie à la ligne 1534');
+      console.error('[404 Middleware] ❌ Vérifiez que le serveur s\'est bien rechargé');
+      console.error('[404 Middleware] ❌ Environnement:', process.env.NODE_ENV);
+      console.error('[404 Middleware] ❌ Vercel:', process.env.VERCEL);
+      return res.status(404).json({ 
+        success: false,
+        error: "Route /api/salon/login non trouvée",
+        message: "La route de login n'a pas été trouvée. Vérifiez la configuration du serveur."
+      });
+    }
+    
     // Si c'est une requête vers /api/auth/verify-salon, c'est un problème grave
     if (req.method === 'POST' && req.path === '/api/auth/verify-salon') {
       console.error('[404 Middleware] ❌❌❌ CRITIQUE: Requête POST /api/auth/verify-salon non interceptée!');
@@ -6208,7 +6252,13 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-if (process.env.NODE_ENV === 'production') {
+// Export de l'app Express pour Vercel (serverless)
+// Vercel utilisera cet export comme handler
+export default app;
+
+// Démarrage du serveur uniquement si on n'est pas sur Vercel
+// Vercel détecte automatiquement la présence de VERCEL dans les variables d'environnement
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const port = parseInt(process.env.PORT || '5001', 10);
   const host = process.env.HOST || '0.0.0.0';
   server.listen(port, host, () => {

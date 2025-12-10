@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://salonpilot.com/sitemap.xml
+Sitemap: https://witstyl.com/sitemap.xml
 
 
 

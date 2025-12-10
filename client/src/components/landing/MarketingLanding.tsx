@@ -95,7 +95,7 @@ function HeroSection() {
               </h1>
               <p className="text-lg sm:text-xl text-slate-600 max-w-2xl leading-relaxed">
                 Centralise les rendez-vous, les plannings et les rappels en quelques clics.
-                SalonPilot synchronise ton agenda, ton équipe et tes clients, sans prise de tête.
+                Witstyl synchronise ton agenda, ton équipe et tes clients, sans prise de tête.
               </p>
             </div>
 
@@ -567,7 +567,7 @@ function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const faqs = [
-    "Est-ce que SalonPilot remplace mon agenda actuel ?",
+    "Est-ce que Witstyl remplace mon agenda actuel ?",
     "Comment fonctionnent les rappels SMS ?",
     "Puis-je importer mes anciens rendez-vous ?",
     "Y a-t-il un engagement de durée ?",
@@ -582,7 +582,7 @@ function FAQSection() {
             Questions fréquentes
           </h2>
           <p className="text-lg text-slate-600">
-            Toutes les réponses aux questions que se posent les salons qui passent sur SalonPilot.
+            Toutes les réponses aux questions que se posent les salons qui passent sur Witstyl.
           </p>
         </div>
 
@@ -673,7 +673,7 @@ function ContactSection() {
         <div className="max-w-3xl mx-auto grid gap-8 md:grid-cols-[0.8fr_1.2fr]">
           <div className="space-y-4 text-sm text-slate-600">
             <div>
-              <span className="font-medium text-slate-900">Email :</span> contact@salonpilot.app
+              <span className="font-medium text-slate-900">Email :</span> contact@witstyl.app
             </div>
             <div>
               <span className="font-medium text-slate-900">Téléphone :</span> +41 79 000 00 00
@@ -697,7 +697,7 @@ function FooterSection() {
     <footer className="border-t border-slate-200 bg-white py-8">
       <Container>
         <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-slate-600">
-          <span>© {new Date().getFullYear()} SalonPilot. Tous droits réservés.</span>
+          <span>© {new Date().getFullYear()} Witstyl. Tous droits réservés.</span>
           <div className="flex gap-6">
             <a href="#" className="hover:text-slate-900 transition-colors">
               Conditions

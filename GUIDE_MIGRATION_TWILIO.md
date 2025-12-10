@@ -149,7 +149,7 @@ Si vous devez revenir à SMSup temporairement :
 ```bash
 SMS_PROVIDER=smsup
 SMSUP_API_TOKEN=your_token
-SMSUP_SENDER=SalonPilot
+SMSUP_SENDER=Witstyl
 ```
 
 ## ⚠️ Points Importants
@@ -211,7 +211,7 @@ const provider = new TwilioWhatsAppProvider({
 
 const result = await provider.sendSms({
   to: '+4179XXXXXXX', // Votre numéro de test
-  message: 'Test WhatsApp depuis SalonPilot',
+  message: 'Test WhatsApp depuis Witstyl',
 });
 
 console.log('Résultat:', result);

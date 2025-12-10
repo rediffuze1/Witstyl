@@ -5,7 +5,7 @@ Version: 1.0
 
 ## 📋 Résumé Exécutif
 
-Cet audit vérifie que le système de notifications de SalonPilot utilise **strictement** les templates configurés dans l'interface manager et non des templates codés en dur.
+Cet audit vérifie que le système de notifications de Witstyl utilise **strictement** les templates configurés dans l'interface manager et non des templates codés en dur.
 
 ## ✅ État des Vérifications
 

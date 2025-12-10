@@ -34,7 +34,7 @@ export default function ClientNavigation() {
               <Scissors className="text-white text-lg" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">SalonPilot</h1>
+              <h1 className="text-xl font-bold text-foreground">Witstyl</h1>
               <p className="text-xs text-muted-foreground">Espace Client</p>
             </div>
           </div>

@@ -4,10 +4,10 @@ import { Scissors, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 
 const footerLinks = {
   social: [
-    { label: 'Facebook', icon: Facebook, href: 'https://www.facebook.com/salonpilot' },
-    { label: 'Twitter', icon: Twitter, href: 'https://www.twitter.com/salonpilot' },
-    { label: 'Instagram', icon: Instagram, href: 'https://www.instagram.com/salonpilot' },
-    { label: 'LinkedIn', icon: Linkedin, href: 'https://www.linkedin.com/company/salonpilot' },
+    { label: 'Facebook', icon: Facebook, href: 'https://www.facebook.com/witstyl' },
+    { label: 'Twitter', icon: Twitter, href: 'https://www.twitter.com/witstyl' },
+    { label: 'Instagram', icon: Instagram, href: 'https://www.instagram.com/witstyl' },
+    { label: 'LinkedIn', icon: Linkedin, href: 'https://www.linkedin.com/company/witstyl' },
   ],
 };
 
@@ -27,7 +27,7 @@ export default function Footer() {
                 >
                   <Scissors className="text-white text-sm" />
                 </div>
-                <span className="text-xl font-bold" style={{ color: 'var(--lp-text-main)' }}>SalonPilot</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--lp-text-main)' }}>Witstyl</span>
               </div>
               <p className="mb-6 max-w-md leading-relaxed" style={{ color: 'var(--lp-text-muted)' }}>
                 La plateforme de réservation intelligente qui révolutionne la gestion des salons de
@@ -53,7 +53,7 @@ export default function Footer() {
         </div>
         <div className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--lp-border-soft)' }}>
           <p className="text-center text-sm" style={{ color: 'var(--lp-text-subtle)' }}>
-            © {new Date().getFullYear()} SalonPilot. Tous droits réservés.
+            © {new Date().getFullYear()} Witstyl. Tous droits réservés.
           </p>
         </div>
       </Container>

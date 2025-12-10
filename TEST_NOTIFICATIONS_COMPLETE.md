@@ -52,7 +52,7 @@ Les logs suivants apparaissent correctement au démarrage :
    - Un client qui a un email ET un téléphone
    - Un service
    - Un styliste (ou "sans préférence")
-3. **Regarder le terminal du serveur** (ou `/tmp/salonpilot-server.log`)
+3. **Regarder le terminal du serveur** (ou `/tmp/witstyl-server.log`)
 
 ### Logs Attendus
 
@@ -90,7 +90,7 @@ Vous devriez voir dans les logs :
 
 ### Voir les logs en temps réel
 ```bash
-tail -f /tmp/salonpilot-server.log
+tail -f /tmp/witstyl-server.log
 ```
 
 ### Vérifier que le serveur tourne
@@ -100,12 +100,12 @@ lsof -ti:5001
 
 ### Arrêter le serveur
 ```bash
-kill $(cat /tmp/salonpilot-server.pid)
+kill $(cat /tmp/witstyl-server.pid)
 ```
 
 ### Redémarrer le serveur
 ```bash
-kill $(cat /tmp/salonpilot-server.pid) 2>/dev/null
+kill $(cat /tmp/witstyl-server.pid) 2>/dev/null
 npm run dev
 ```
 

@@ -18,12 +18,12 @@ const faqs = [
   {
     question: 'Comment fonctionnent les rappels automatiques ?',
     answer:
-      'SalonPilot envoie automatiquement des rappels par SMS et/ou email à vos clients avant leur rendez-vous. Vous pouvez personnaliser le délai (24h, 48h avant) et le contenu des messages.',
+      'Witstyl envoie automatiquement des rappels par SMS et/ou email à vos clients avant leur rendez-vous. Vous pouvez personnaliser le délai (24h, 48h avant) et le contenu des messages.',
   },
   {
-    question: 'Puis-je essayer SalonPilot gratuitement ?',
+    question: 'Puis-je essayer Witstyl gratuitement ?',
     answer:
-      'Absolument ! Nous offrons un essai gratuit de 14 jours, sans carte bancaire requise. Vous pouvez tester toutes les fonctionnalités et voir comment SalonPilot transforme la gestion de votre salon.',
+      'Absolument ! Nous offrons un essai gratuit de 14 jours, sans carte bancaire requise. Vous pouvez tester toutes les fonctionnalités et voir comment Witstyl transforme la gestion de votre salon.',
   },
   {
     question: 'Mes données sont-elles sécurisées ?',
@@ -53,7 +53,7 @@ export default function FAQ() {
               Questions fréquentes
             </h2>
             <p className="text-lg sm:text-xl max-w-2xl mx-auto" style={{ color: 'var(--lp-text-muted)' }}>
-              Tout ce que vous devez savoir sur SalonPilot
+              Tout ce que vous devez savoir sur Witstyl
             </p>
           </div>
         </Reveal>

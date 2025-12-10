@@ -40,7 +40,7 @@
 
 #### ❌ Si erreur "domain not verified" :
 ```
-❌ ERREUR: The domain salonpilot.ch is not verified
+❌ ERREUR: The domain witstyl.ch is not verified
 ```
 
 **Solution** :
@@ -62,7 +62,7 @@ Si le domaine n'est pas vérifié, utilisez le domaine de test Resend :
 
 1. **Modifier `.env`** :
    ```bash
-   RESEND_FROM=SalonPilot <onboarding@resend.dev>
+   RESEND_FROM=Witstyl <onboarding@resend.dev>
    ```
 
 2. **Redémarrer le serveur** :
@@ -87,7 +87,7 @@ Si le domaine n'est pas vérifié, utilisez le domaine de test Resend :
 ### Vérifier les Domaines
 
 1. Aller sur https://resend.com/domains
-2. Vérifier que `salonpilot.ch` est listé et vérifié
+2. Vérifier que `witstyl.ch` est listé et vérifié
 3. Si non → Ajouter et suivre les instructions DNS
 
 ---

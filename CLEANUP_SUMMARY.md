@@ -44,7 +44,7 @@
 ## 📁 Structure finale
 
 ```
-SalonPilot/
+Witstyl/
 ├── client/              # Application React
 ├── server/              # Serveur Express
 ├── shared/              # Code partagé

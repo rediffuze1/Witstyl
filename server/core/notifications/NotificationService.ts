@@ -372,7 +372,7 @@ export class NotificationService {
   <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1b1b1b;">
     <h2 style="color:#6b4dff;">💡 Rendez-vous annulé</h2>
     <p>Bonjour ${ctx.managerName || 'Manager'},</p>
-    <p>Un rendez-vous a été annulé sur SalonPilot.</p>
+    <p>Un rendez-vous a été annulé sur Witstyl.</p>
     <div style="background:#f7f5ff;border-radius:12px;padding:16px;border:1px solid #e4ddff;">
       <p><strong>Client :</strong> ${ctx.clientName}</p>
       <p><strong>Service :</strong> ${ctx.serviceName}</p>
@@ -387,7 +387,7 @@ export class NotificationService {
       }
     </div>
     <p>Salon : <strong>${ctx.salonName}</strong></p>
-    <p style="color:#7a7a7a;">Cet email est généré automatiquement par SalonPilot.</p>
+    <p style="color:#7a7a7a;">Cet email est généré automatiquement par Witstyl.</p>
   </body>
 </html>
     `.trim();

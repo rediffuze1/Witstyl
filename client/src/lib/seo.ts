@@ -1,10 +1,10 @@
-// Métadonnées SEO pour SalonPilot
+// Métadonnées SEO pour Witstyl
 export const siteMetadata = {
-  title: 'SalonPilot — Logiciel de prise de rendez-vous pour coiffeurs (IA + rappels SMS)',
+  title: 'Witstyl — Logiciel de prise de rendez-vous pour coiffeurs (IA + rappels SMS)',
   description:
-    'Réservation en 3 clics, réceptionniste IA 24/7, tableau de bord client — essayez gratuitement. Simplifiez la gestion de votre salon avec SalonPilot.',
-  url: 'https://salonpilot.com',
-  siteName: 'SalonPilot',
+    'Réservation en 3 clics, réceptionniste IA 24/7, tableau de bord client — essayez gratuitement. Simplifiez la gestion de votre salon avec Witstyl.',
+  url: 'https://witstyl.vercel.app',
+  siteName: 'Witstyl',
   locale: 'fr_FR',
   type: 'website',
   image: '/og-image.jpg',
@@ -15,15 +15,15 @@ export const siteMetadata = {
 export const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'SalonPilot',
-  url: 'https://salonpilot.com',
-  logo: 'https://salonpilot.com/logo.png',
+  name: 'Witstyl',
+  url: 'https://witstyl.vercel.app',
+  logo: 'https://witstyl.vercel.app/logo.png',
   description:
-    'SalonPilot est une plateforme de gestion de rendez-vous pour salons de coiffure avec réceptionniste IA et système de rappels automatiques.',
+    'Witstyl est une plateforme de gestion de rendez-vous pour salons de coiffure avec réceptionniste IA et système de rappels automatiques.',
   sameAs: [
-    'https://www.facebook.com/salonpilot',
-    'https://www.twitter.com/salonpilot',
-    'https://www.linkedin.com/company/salonpilot',
+    'https://www.facebook.com/witstyl',
+    'https://www.twitter.com/witstyl',
+    'https://www.linkedin.com/company/witstyl',
   ],
 };
 
@@ -31,15 +31,15 @@ export const organizationSchema = {
 export const websiteSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'SalonPilot',
-  url: 'https://salonpilot.com',
+  name: 'Witstyl',
+  url: 'https://witstyl.vercel.app',
   description:
     'Plateforme de gestion de rendez-vous pour salons de coiffure avec réceptionniste IA 24/7',
   potentialAction: {
     '@type': 'SearchAction',
     target: {
       '@type': 'EntryPoint',
-      urlTemplate: 'https://salonpilot.com/search?q={search_term_string}',
+      urlTemplate: 'https://witstyl.vercel.app/search?q={search_term_string}',
     },
     'query-input': 'required name=search_term_string',
   },
@@ -49,7 +49,7 @@ export const websiteSchema = {
 export const softwareApplicationSchema = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'SalonPilot',
+  name: 'Witstyl',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   description:
@@ -84,25 +84,25 @@ export const breadcrumbSchema = {
       '@type': 'ListItem',
       position: 1,
       name: 'Accueil',
-      item: 'https://salonpilot.com',
+      item: 'https://witstyl.com',
     },
     {
       '@type': 'ListItem',
       position: 2,
       name: 'Fonctionnalités',
-      item: 'https://salonpilot.com#features',
+      item: 'https://witstyl.com#features',
     },
     {
       '@type': 'ListItem',
       position: 3,
       name: 'Tarifs',
-      item: 'https://salonpilot.com#pricing',
+      item: 'https://witstyl.com#pricing',
     },
     {
       '@type': 'ListItem',
       position: 4,
       name: 'Contact',
-      item: 'https://salonpilot.com#contact',
+      item: 'https://witstyl.com#contact',
     },
   ],
 };
@@ -114,10 +114,10 @@ export const faqSchema = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Comment réserver un rendez-vous avec SalonPilot ?',
+      name: 'Comment réserver un rendez-vous avec Witstyl ?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Avec SalonPilot, la réservation se fait en seulement 3 clics : choisissez votre service, sélectionnez un créneau disponible, et validez votre rendez-vous. C\'est simple, rapide et sécurisé.',
+        text: 'Avec Witstyl, la réservation se fait en seulement 3 clics : choisissez votre service, sélectionnez un créneau disponible, et validez votre rendez-vous. C\'est simple, rapide et sécurisé.',
       },
     },
     {
@@ -133,7 +133,7 @@ export const faqSchema = {
       name: 'Comment fonctionnent les rappels automatiques ?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'SalonPilot envoie automatiquement des rappels par SMS et/ou email avant votre rendez-vous. Vous pouvez personnaliser le délai des rappels (24h, 48h avant, etc.) dans votre tableau de bord client.',
+        text: 'Witstyl envoie automatiquement des rappels par SMS et/ou email avant votre rendez-vous. Vous pouvez personnaliser le délai des rappels (24h, 48h avant, etc.) dans votre tableau de bord client.',
       },
     },
     {
@@ -146,10 +146,10 @@ export const faqSchema = {
     },
     {
       '@type': 'Question',
-      name: 'SalonPilot est-il sécurisé ?',
+      name: 'Witstyl est-il sécurisé ?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Absolument. SalonPilot utilise des protocoles de sécurité avancés pour protéger vos données personnelles et vos informations de paiement. Tous les paiements sont traités de manière sécurisée.',
+        text: 'Absolument. Witstyl utilise des protocoles de sécurité avancés pour protéger vos données personnelles et vos informations de paiement. Tous les paiements sont traités de manière sécurisée.',
       },
     },
   ],

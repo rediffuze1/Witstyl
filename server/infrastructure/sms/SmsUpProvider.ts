@@ -215,7 +215,7 @@ export class SmsUpProvider implements SmsProvider {
     params.set('text', text);
     if (sender) {
       // Nettoyer le sender : retirer le + si c'est un numéro (les senders ne doivent pas avoir de +)
-      // Les senders peuvent être des noms (ex: "SalonPilot") ou des numéros sans préfixe (ex: "41791338240")
+      // Les senders peuvent être des noms (ex: "Witstyl") ou des numéros sans préfixe (ex: "41791338240")
       const cleanedSender = sender.startsWith('+') ? sender.substring(1) : sender;
       params.set('sender', cleanedSender);
     }
