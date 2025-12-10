@@ -62,7 +62,7 @@ function ClientAppointments() {
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>('upcoming');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   
@@ -188,8 +188,16 @@ function ClientAppointments() {
         break;
     }
 
-    // Sort by date (upcoming first)
-    filtered.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    // Sort by date
+    // For upcoming: earliest first
+    // For past: most recent first (oldest at bottom)
+    if (statusFilter === 'past') {
+      // Past appointments: most recent first, oldest at bottom
+      filtered.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+    } else {
+      // Upcoming and other filters: earliest first
+      filtered.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    }
 
     setFilteredAppointments(filtered);
   };

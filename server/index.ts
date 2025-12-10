@@ -1,9 +1,10 @@
 import 'dotenv/config';
+import { randomUUID } from 'crypto';
 import { printEnvStatus } from './env-check.js';
 import { normalizeClosedDateRecord } from './utils/closed-dates.js';
 import { notificationService } from './core/notifications/index.js';
+import { cancelAppointment } from './core/appointments/AppointmentService.js';
 import { buildNotificationContext } from './core/notifications/utils.js';
-import { createClient } from '@supabase/supabase-js';
 import { getValidIntervalsForDay, isSlotValid, formatIntervals } from './utils/bookingValidation.js';
 
 // Vérification des variables d'environnement au démarrage
@@ -60,6 +61,7 @@ import publicRouter from "./routes/public.js";
 import salonsRouter from "./routes/salons.js";
 // @ts-ignore - voice-agent.js est un fichier JS avec export default router
 import voiceTextRouter from "./routes/voice-agent.js";
+import resendWebhookRouter from "./routes/resend-webhook.js";
 import { createClient } from '@supabase/supabase-js';
 
 type StylistRow = {
@@ -975,6 +977,24 @@ console.log('[SERVER] ✅ Routes publiques disponibles: GET /api/public/salon, G
 // Route directe pour /api/voice-agent (compatibilité avec le frontend)
 // @ts-ignore - voiceTextRouter est un router Express exporté depuis un fichier JS
 app.use("/api/voice-agent", voiceTextRouter);
+
+// Route webhook Resend pour les événements email
+app.use("/api/notifications/resend", resendWebhookRouter);
+console.log('[SERVER] ✅ Router /api/notifications/resend monté');
+console.log('[SERVER] ✅ Route webhook disponible: POST /api/notifications/resend/webhook');
+
+// Route de développement : Simuler l'ouverture d'email (pour tester sans webhook)
+(async () => {
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const devSimulateRouter = await import('./routes/dev-simulate-email-opened.js');
+      app.use("/api/dev", devSimulateRouter.default);
+      console.log('[SERVER] ✅ Route dev disponible: POST /api/dev/simulate-email-opened');
+    } catch (error: any) {
+      console.warn('[SERVER] ⚠️  Impossible de charger la route dev simulate:', error.message);
+    }
+  }
+})();
 console.log('[SERVER] ✅ Route /api/voice-agent montée directement');
 
 
@@ -3832,26 +3852,46 @@ const buildNormalizedClientInfo = (
 ): NormalizedClientInfo | null => {
   const normalized: NormalizedClientInfo = {};
 
+  console.log('[buildNormalizedClientInfo] 📞 TRACE DU NUMÉRO:');
+  console.log('[buildNormalizedClientInfo] 📞   rawClientInfo?.phone:', rawClientInfo?.phone || '(vide ou undefined)');
+  console.log('[buildNormalizedClientInfo] 📞   sessionClient?.phone:', sessionClient?.phone || '(vide ou undefined)');
+  console.log('[buildNormalizedClientInfo] 📞   rawClientInfo?.phone ?? sessionClient?.phone:', (rawClientInfo?.phone ?? sessionClient?.phone) || '(vide)');
+
   const applyValue = (
     field: keyof NormalizedClientInfo,
     value?: string | null,
     options?: { lowerCase?: boolean }
   ) => {
-    if (typeof value !== 'string') return;
+    if (typeof value !== 'string') {
+      console.log(`[buildNormalizedClientInfo] 📞   applyValue(${field}): valeur n'est pas une string, type:`, typeof value);
+      return;
+    }
     const trimmed = value.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      console.log(`[buildNormalizedClientInfo] 📞   applyValue(${field}): valeur vide après trim`);
+      return;
+    }
     normalized[field] = options?.lowerCase ? trimmed.toLowerCase() : trimmed;
+    console.log(`[buildNormalizedClientInfo] 📞   applyValue(${field}): valeur assignée:`, normalized[field]);
   };
 
   applyValue('firstName', rawClientInfo?.firstName ?? sessionClient?.firstName);
   applyValue('lastName', rawClientInfo?.lastName ?? sessionClient?.lastName);
   applyValue('email', rawClientInfo?.email ?? sessionClient?.email, { lowerCase: true });
-  applyValue('phone', rawClientInfo?.phone);
+  applyValue('phone', rawClientInfo?.phone ?? sessionClient?.phone);
+
+  console.log('[buildNormalizedClientInfo] 📞   normalized.phone (final):', normalized.phone || '(vide)');
+  console.log('[buildNormalizedClientInfo] 📞   normalized (complet):', JSON.stringify(normalized, null, 2));
 
   return Object.keys(normalized).length > 0 ? normalized : null;
 };
 
 app.post('/api/appointments', express.json(), async (req, res) => {
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('[POST /api/appointments] 🆕 CRÉATION D\'UN NOUVEAU RENDEZ-VOUS');
+  console.log('═══════════════════════════════════════════════════════════════');
+  
   const body = req.body || {};
   const rawClientInfo = body.clientInfo && typeof body.clientInfo === 'object' ? body.clientInfo : null;
   
@@ -4254,26 +4294,30 @@ app.post('/api/appointments', express.json(), async (req, res) => {
         try {
           // Essayer avec les variants d'ID du styliste
           const stylistIdVariantsForSchedule = getStylistIdVariants(normalizedFinalStylistId);
+          console.log(`[POST /api/appointments] 🔍 Recherche horaires styliste pour jour ${dayOfWeek} (${['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][dayOfWeek]})`);
+          console.log(`[POST /api/appointments] 🔍 normalizedFinalStylistId: ${normalizedFinalStylistId}`);
+          console.log(`[POST /api/appointments] 🔍 Variants d'ID à tester:`, stylistIdVariantsForSchedule);
           let schedulesFound = false;
           
           for (const variantId of stylistIdVariantsForSchedule) {
             if (!variantId) continue;
             
+            console.log(`[POST /api/appointments] 🔍 Test avec variant ID: ${variantId}`);
             const { data: schedules, error: scheduleError } = await supabase
               .from('stylist_schedule')
               .select('day_of_week, start_time, end_time, is_available')
               .eq('stylist_id', variantId)
               .eq('day_of_week', dayOfWeek);
             
-            if (schedules && schedules.length > 0 && !scheduleError) {
+            if (scheduleError && scheduleError.code !== 'PGRST116' && scheduleError.code !== '42P01') {
+              console.error(`[POST /api/appointments] ⚠️ Erreur avec variant ${variantId}:`, scheduleError);
+            } else if (schedules && schedules.length > 0) {
               stylistSchedules = schedules;
               schedulesFound = true;
               console.log(`[POST /api/appointments] ✅ Horaires styliste trouvés avec variant ID: ${variantId}`, stylistSchedules);
               break;
-            }
-            
-            if (scheduleError && scheduleError.code !== 'PGRST116' && scheduleError.code !== '42P01') {
-              console.error(`[POST /api/appointments] ⚠️ Erreur avec variant ${variantId}:`, scheduleError);
+            } else {
+              console.log(`[POST /api/appointments] ⚠️ Aucun horaire trouvé avec variant ${variantId} pour le jour ${dayOfWeek}`);
             }
           }
           
@@ -4281,24 +4325,53 @@ app.post('/api/appointments', express.json(), async (req, res) => {
             // Vérifier si le styliste a des horaires pour d'autres jours (pour savoir s'il devrait en avoir)
             // Si oui, cela signifie qu'il a des horaires spécifiques mais pas pour ce jour
             // Si non, cela signifie qu'il n'a pas d'horaires spécifiques du tout
-            const { data: otherDaySchedules } = await supabase
-              .from('stylist_schedule')
-              .select('day_of_week')
-              .in('stylist_id', stylistIdVariantsForSchedule)
-              .limit(1);
+            console.log(`[POST /api/appointments] 🔍 Aucun horaire trouvé pour le jour ${dayOfWeek}, vérification des autres jours...`);
+            console.log(`[POST /api/appointments] 🔍 Variants d'ID testés:`, stylistIdVariantsForSchedule);
             
-            if (otherDaySchedules && otherDaySchedules.length > 0) {
-              // Le styliste a des horaires pour d'autres jours, donc il a des horaires spécifiques
-              // Mais pas pour ce jour = il n'est pas disponible ce jour
-              console.warn(`[POST /api/appointments] ⚠️ Le styliste a des horaires spécifiques mais pas pour le jour ${dayOfWeek}`);
-              const dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-              return res.status(400).json({ 
-                error: `Créneau indisponible pour ce coiffeur·euse. Le ou la coiffeur·euse n'est pas disponible le ${dayNames[dayOfWeek]}` 
-              });
-            } else {
-              // Le styliste n'a pas d'horaires spécifiques du tout, on peut utiliser les horaires du salon
-              console.log('[POST /api/appointments] ℹ️ Aucun horaire styliste trouvé, le styliste n\'a pas d\'horaires spécifiques. Utilisation des horaires salon uniquement');
-              stylistSchedules = [];
+            // Essayer une requête plus large pour voir tous les horaires du styliste
+            let allSchedulesFound = false;
+            for (const variantId of stylistIdVariantsForSchedule) {
+              if (!variantId) continue;
+              
+              const { data: allSchedules, error: allSchedulesError } = await supabase
+                .from('stylist_schedule')
+                .select('day_of_week, start_time, end_time, is_available')
+                .eq('stylist_id', variantId);
+              
+              if (allSchedules && allSchedules.length > 0 && !allSchedulesError) {
+                console.log(`[POST /api/appointments] ✅ Horaires trouvés pour le styliste (variant ${variantId}):`, allSchedules);
+                allSchedulesFound = true;
+                
+                // Vérifier si le styliste a des horaires pour ce jour spécifique
+                const daySchedules = allSchedules.filter((s: any) => s.day_of_week === dayOfWeek);
+                if (daySchedules.length > 0) {
+                  // Les horaires existent mais n'ont pas été trouvés avec la requête précédente
+                  // Cela peut arriver si dayOfWeek n'est pas correct
+                  console.warn(`[POST /api/appointments] ⚠️ Horaires trouvés pour le jour ${dayOfWeek} mais pas avec la requête initiale!`);
+                  console.warn(`[POST /api/appointments] ⚠️ dayOfWeek utilisé: ${dayOfWeek}, horaires trouvés:`, daySchedules);
+                  stylistSchedules = daySchedules;
+                  schedulesFound = true;
+                  break;
+                }
+                break;
+              }
+            }
+            
+            if (!schedulesFound) {
+              if (allSchedulesFound) {
+                // Le styliste a des horaires pour d'autres jours, donc il a des horaires spécifiques
+                // Mais pas pour ce jour = il n'est pas disponible ce jour
+                console.warn(`[POST /api/appointments] ⚠️ Le styliste a des horaires spécifiques mais pas pour le jour ${dayOfWeek}`);
+                const dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+                return res.status(400).json({ 
+                  error: `Créneau indisponible pour ce coiffeur·euse. Le ou la coiffeur·euse n'est pas disponible le ${dayNames[dayOfWeek]}` 
+                });
+              } else {
+                // Le styliste n'a pas d'horaires spécifiques du tout
+                // Dans ce cas, on utilise les horaires du salon (fallback)
+                console.log('[POST /api/appointments] ℹ️ Le styliste n\'a pas d\'horaires spécifiques. Utilisation des horaires du salon.');
+                stylistSchedules = []; // Tableau vide = utiliser uniquement les horaires du salon
+              }
             }
           }
           
@@ -4431,6 +4504,7 @@ app.post('/api/appointments', express.json(), async (req, res) => {
       
       // Mettre à jour les informations client si elles ont été fournies dans le formulaire
       if (normalizedClientInfo) {
+        console.log('[POST /api/appointments] 📞 MISE À JOUR CLIENT - normalizedClientInfo.phone:', normalizedClientInfo.phone || '(vide)');
         const clientUpdateData: Record<string, string> = {};
         if (normalizedClientInfo.firstName) {
           clientUpdateData.first_name = normalizedClientInfo.firstName;
@@ -4442,20 +4516,34 @@ app.post('/api/appointments', express.json(), async (req, res) => {
           clientUpdateData.email = normalizedClientInfo.email;
         }
         if (normalizedClientInfo.phone) {
+          console.log('[POST /api/appointments] 📞   ✅ Ajout du numéro dans clientUpdateData:', normalizedClientInfo.phone);
           clientUpdateData.phone = normalizedClientInfo.phone;
+        } else {
+          console.log('[POST /api/appointments] 📞   ⚠️ Pas de numéro dans normalizedClientInfo, pas de mise à jour du numéro');
         }
         
         if (Object.keys(clientUpdateData).length > 0) {
           clientUpdateData.updated_at = new Date().toISOString();
-          const { error: clientUpdateError } = await supabase
+          console.log('[POST /api/appointments] 📞   📝 Données à mettre à jour:', JSON.stringify(clientUpdateData, null, 2));
+          const { error: clientUpdateError, data: clientUpdateDataResult } = await supabase
             .from('clients')
             .update(clientUpdateData)
-            .eq('id', finalClientId);
+            .eq('id', finalClientId)
+            .select('phone');
           
           if (clientUpdateError) {
             console.warn('[POST /api/appointments] ⚠️ Impossible de mettre à jour les informations du client:', clientUpdateError.message);
+          } else {
+            console.log('[POST /api/appointments] 📞   ✅ Client mis à jour avec succès');
+            if (clientUpdateDataResult && clientUpdateDataResult.length > 0) {
+              console.log('[POST /api/appointments] 📞   📋 Numéro dans la DB après mise à jour:', clientUpdateDataResult[0].phone || '(vide)');
+            }
           }
+        } else {
+          console.log('[POST /api/appointments] 📞   ⚠️ Aucune donnée à mettre à jour');
         }
+      } else {
+        console.log('[POST /api/appointments] 📞   ⚠️ normalizedClientInfo est null/undefined, pas de mise à jour du client');
       }
       
       console.log('[POST /api/appointments] 🔍 Données finales avant création:');
@@ -4477,8 +4565,9 @@ app.post('/api/appointments', express.json(), async (req, res) => {
       // Créer le rendez-vous dans Supabase
       // Note: La table appointments utilise appointment_date et duration, pas start_time/end_time
       // S'assurer que toutes les valeurs sont définies et non null
+      // IMPORTANT: La table utilise uuid('id') avec defaultRandom(), donc on doit utiliser un UUID valide
       const appointmentData: any = {
-        id: `appointment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: randomUUID(), // UUID valide pour la base de données
         salon_id: salonIdForInsert,
         client_id: finalClientId, // Utiliser le clientId de la session si disponible
         stylist_id: finalStylistId, // Utiliser le stylistId validé
@@ -4609,65 +4698,47 @@ app.post('/api/appointments', express.json(), async (req, res) => {
       
       console.log('[POST /api/appointments] ✅ Rendez-vous créé:', mappedAppointment.id);
       
-      // Envoyer les notifications de confirmation
+      // Envoyer les notifications de confirmation avec la nouvelle logique optimisée
       try {
         console.log('');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('[POST /api/appointments] 📧 ENVOI DES NOTIFICATIONS DE CONFIRMATION');
+        console.log('[POST /api/appointments] 📧 ENVOI DES NOTIFICATIONS OPTIMISÉES');
         console.log('═══════════════════════════════════════════════════════════════');
-        const notificationContext = await buildNotificationContext(newAppointment.id, supabase);
-        if (notificationContext) {
-          if (normalizedClientInfo) {
-            if (normalizedClientInfo.email) {
-              notificationContext.clientEmail = normalizedClientInfo.email;
-            }
-            if (normalizedClientInfo.phone) {
-              notificationContext.clientPhone = normalizedClientInfo.phone;
-            }
-            if (normalizedClientInfo.firstName || normalizedClientInfo.lastName) {
-              const overrideName = `${normalizedClientInfo.firstName ?? ''} ${normalizedClientInfo.lastName ?? ''}`.trim();
-              if (overrideName.length > 0) {
-                notificationContext.clientName = overrideName;
-              }
-            }
-          }
-          console.log('[POST /api/appointments] 📧 Contexte de notification construit avec succès');
-          console.log('[POST /api/appointments] 📧 Client:', notificationContext.clientName);
-          console.log('[POST /api/appointments] 📧 Email:', notificationContext.clientEmail || '(non fourni)');
-          console.log('[POST /api/appointments] 📧 Téléphone:', notificationContext.clientPhone || '(non fourni)');
-
-          console.log('[BookClient][Notifications] Préparation de l\'email de confirmation', {
-            appointmentId: newAppointment.id,
-            salonId: notificationContext.salonId,
-            clientEmail: notificationContext.clientEmail || '(non fourni)',
-            clientPhone: notificationContext.clientPhone || '(non fourni)',
-            serviceName: notificationContext.serviceName,
-            stylistName: notificationContext.stylistName,
-            startDate: notificationContext.startDate instanceof Date
-              ? notificationContext.startDate.toISOString()
-              : notificationContext.startDate,
-          });
-
-          await notificationService.sendBookingConfirmation(notificationContext);
-          console.log('[POST /api/appointments] ✅ Notifications envoyées avec succès');
-          console.log('[BookClient][Notifications] Email de confirmation ENVOYÉ', {
-            appointmentId: newAppointment.id,
-            clientEmail: notificationContext.clientEmail || '(non fourni)',
-          });
-          console.log('═══════════════════════════════════════════════════════════════');
-          console.log('');
-        } else {
-          console.warn('[POST /api/appointments] ⚠️ Impossible de construire le contexte de notification');
-          console.log('═══════════════════════════════════════════════════════════════');
-          console.log('');
+        
+        const appointmentDate = new Date(newAppointment.appointment_date);
+        const createdAt = new Date(newAppointment.created_at || new Date());
+        
+        const { sendAppointmentCreationNotifications } = await import('./core/notifications/optimizedNotificationService.js');
+        const notificationResult = await sendAppointmentCreationNotifications(
+          newAppointment.id,
+          appointmentDate,
+          createdAt
+        );
+        
+        console.log('[POST /api/appointments] 📊 Résultat des notifications:');
+        console.log(`  📧 Email envoyé: ${notificationResult.emailSent ? '✅' : '❌'}`);
+        console.log(`  📱 SMS envoyé: ${notificationResult.smsSent ? '✅' : '❌'}`);
+        console.log(`  ⏭️  Skip reminder SMS: ${notificationResult.skipReminderSms ? '✅' : '❌'}`);
+        if (notificationResult.errors.length > 0) {
+          console.warn(`  ⚠️  Erreurs: ${notificationResult.errors.join(', ')}`);
         }
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('');
       } catch (notificationError: any) {
         // Ne pas faire échouer la création du rendez-vous si les notifications échouent
-        console.error('[BookClient][Notifications][ERROR] Échec lors de l\'envoi des notifications:', notificationError);
+        console.error('[POST /api/appointments] ❌ Erreur lors de l\'envoi des notifications:', notificationError);
         console.log('═══════════════════════════════════════════════════════════════');
         console.log('');
         // Le rendez-vous est quand même créé, on continue
       }
+      
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('[POST /api/appointments] ✅ RENDEZ-VOUS CRÉÉ AVEC SUCCÈS');
+      console.log('[POST /api/appointments] 📋 ID:', mappedAppointment.id);
+      console.log('[POST /api/appointments] 📅 Date:', mappedAppointment.startTime);
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('');
       
       return res.json(mappedAppointment);
     } else {
@@ -4997,90 +5068,94 @@ app.put('/api/appointments/:id', express.json(), async (req, res) => {
   }
 });
 
-app.delete('/api/appointments/:id', async (req, res) => {
-  const appointmentId = req.params.id;
+app.delete('/api/appointments/:id', express.json(), async (req, res) => {
+  let appointmentId: string;
+  try {
+    appointmentId = decodeURIComponent(req.params.id);
+  } catch (e) {
+    // Si le décodage échoue, utiliser l'ID brut
+    appointmentId = req.params.id;
+  }
   
-  console.log('[DELETE /api/appointments/:id] Suppression du rendez-vous:', appointmentId);
+  console.log('[DELETE /api/appointments/:id] ============================================');
+  console.log('[DELETE /api/appointments/:id] Requête DELETE reçue');
+  console.log('[DELETE /api/appointments/:id] URL complète:', req.url);
+  console.log('[DELETE /api/appointments/:id] ID brut (params):', req.params.id);
+  console.log('[DELETE /api/appointments/:id] ID décodé:', appointmentId);
+  console.log('[DELETE /api/appointments/:id] User:', req.user?.id || 'NON AUTHENTIFIÉ');
+  console.log('[DELETE /api/appointments/:id] Method:', req.method);
+  console.log('[DELETE /api/appointments/:id] ============================================');
   
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    console.error('[DELETE /api/appointments/:id] ❌ Configuration Supabase manquante');
+    return res.status(500).json({ error: 'Configuration serveur incomplète' });
+  }
+  
   try {
-    if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-      
-      // Vérifier d'abord si le rendez-vous existe et récupérer les données pour la notification
-      const { data: appointment, error: fetchError } = await supabase
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    // Vérifier d'abord si le rendez-vous existe (pour debug)
+    console.log('[DELETE] 🔍 Vérification de l\'existence du rendez-vous avec ID:', appointmentId);
+    const { data: existingAppointment, error: checkError } = await supabase
+      .from('appointments')
+      .select('id, status, appointment_date')
+      .eq('id', appointmentId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error('[DELETE] ❌ Erreur lors de la vérification:', checkError);
+    } else if (!existingAppointment) {
+      console.error('[DELETE] ❌ Rendez-vous non trouvé avec ID:', appointmentId);
+      // Log les derniers rendez-vous pour debug
+      const { data: recent } = await supabase
         .from('appointments')
-        .select('id, salon_id')
-        .eq('id', appointmentId)
-        .maybeSingle();
-      
-      if (fetchError) {
-        console.error('[DELETE /api/appointments/:id] Erreur lors de la récupération du rendez-vous:', fetchError);
-        return res.status(500).json({ error: 'Erreur lors de la vérification du rendez-vous', details: fetchError.message });
-      }
-      
-      if (!appointment) {
-        console.log('[DELETE /api/appointments/:id] Rendez-vous non trouvé:', appointmentId);
-        return res.status(404).json({ error: 'Rendez-vous non trouvé', message: "Appointment not found" });
-      }
-      
-      // Construire le contexte de notification AVANT la suppression
-      let notificationContext = null;
-      try {
-        notificationContext = await buildNotificationContext(appointmentId, supabase);
-      } catch (notificationError: any) {
-        console.warn('[DELETE /api/appointments/:id] ⚠️ Impossible de construire le contexte de notification:', notificationError);
-        // Continuer quand même avec la suppression
-      }
-      
-      // Supprimer le rendez-vous de Supabase
-      const { error: deleteError } = await supabase
-        .from('appointments')
-        .delete()
-        .eq('id', appointmentId);
-      
-      if (deleteError) {
-        console.error('[DELETE /api/appointments/:id] Erreur lors de la suppression:', deleteError);
-        return res.status(500).json({ error: 'Erreur lors de la suppression du rendez-vous', details: deleteError.message });
-      }
-      
-      // Mettre à jour le cache mémoire si le rendez-vous y existe
-      const appointmentIndex = previewAppointments.findIndex(a => a.id === appointmentId);
-      if (appointmentIndex >= 0) {
-        previewAppointments.splice(appointmentIndex, 1);
-      }
-      
-      console.log('[DELETE /api/appointments/:id] ✅ Rendez-vous supprimé avec succès:', appointmentId);
-      
-      // Envoyer la notification d'annulation
-      if (notificationContext) {
-        try {
-          notificationContext.cancellationReason = req.body?.cancellationReason || 'Annulé par le salon';
-          console.log('[DELETE /api/appointments/:id] 📧 Envoi de la notification d\'annulation...');
-          await notificationService.sendBookingCancellation(notificationContext);
-          console.log('[DELETE /api/appointments/:id] ✅ Notification envoyée avec succès');
-        } catch (notificationError: any) {
-          // Ne pas faire échouer la suppression si les notifications échouent
-          console.error('[DELETE /api/appointments/:id] ❌ Erreur lors de l\'envoi des notifications:', notificationError);
-          // La suppression est quand même effectuée, on continue
-        }
-      }
-      
-      return res.json({ success: true, message: "Rendez-vous supprimé avec succès" });
+        .select('id, appointment_date, status')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      console.log('[DELETE] 🔍 Derniers rendez-vous dans la base:', recent?.map(a => ({ id: a.id, date: a.appointment_date, status: a.status })));
+      return res.status(404).json({ error: 'Rendez-vous introuvable' });
     } else {
-      // Fallback mémoire si Supabase n'est pas configuré
-      const appointmentIndex = previewAppointments.findIndex(a => a.id === appointmentId);
-      if (appointmentIndex >= 0) {
-        previewAppointments.splice(appointmentIndex, 1);
-        console.log('[DELETE /api/appointments/:id] Rendez-vous supprimé du cache mémoire:', appointmentId);
-        return res.json({ success: true, message: "Rendez-vous supprimé du cache mémoire" });
-      } else {
-        console.log('[DELETE /api/appointments/:id] Rendez-vous non trouvé dans le cache:', appointmentId);
-        return res.status(404).json({ error: 'Rendez-vous non trouvé', message: "Appointment not found" });
-      }
+      console.log('[DELETE] ✅ Rendez-vous trouvé:', { id: existingAppointment.id, status: existingAppointment.status, date: existingAppointment.appointment_date });
     }
+
+    const cancellationResult = await cancelAppointment(
+      {
+        supabase,
+        appointmentId,
+        cancelledById: req.user?.id || 'manager-dashboard',
+        cancelledByRole: 'manager',
+        cancellationReason: req.body?.cancellationReason || 'Annulé par le salon',
+      },
+      { notificationService },
+    );
+
+    if (!cancellationResult.success) {
+      console.error('[DELETE /api/appointments/:id] ❌ Échec de l\'annulation:', cancellationResult.error);
+      return res
+        .status(cancellationResult.status || 500)
+        .json({ error: cancellationResult.error || "Impossible d'annuler le rendez-vous" });
+    }
+
+    // Mettre à jour le cache mémoire si nécessaire
+    const appointmentIndex = previewAppointments.findIndex((a) => a.id === appointmentId);
+    if (appointmentIndex >= 0) {
+      previewAppointments[appointmentIndex] = {
+        ...previewAppointments[appointmentIndex],
+        status: 'cancelled',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    console.log('[DELETE /api/appointments/:id] ✅ Rendez-vous annulé via service unifié:', appointmentId);
+    
+    return res.json({
+      success: true,
+      message: 'Rendez-vous annulé avec succès',
+      appointment: cancellationResult.appointment,
+    });
   } catch (error: any) {
     console.error('[DELETE /api/appointments/:id] Erreur inattendue:', error);
     return res.status(500).json({ error: 'Erreur interne du serveur', details: error.message });
@@ -5403,6 +5478,8 @@ app.post('/api/owner/notifications/send-test-email', express.json(), async (req,
     }
 
     console.log('[POST /api/owner/notifications/send-test-email] ✅ Email envoyé avec succès à', emailToUse);
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('');
 
     return res.json({
       ok: true,
@@ -5428,6 +5505,249 @@ app.post('/api/owner/notifications/send-test-email', express.json(), async (req,
 
 // Versioning retiré : l'historique des templates reste stocké en base mais n'est
 // plus exposé par l'API tant que la fonctionnalité n'est pas utilisée côté UI.
+
+// ============================================================================
+// ENDPOINTS POUR TESTER LES NOTIFICATIONS INTELLIGENTES
+// ============================================================================
+// 
+// Ces endpoints permettent de tester manuellement les services de notifications
+// intelligentes (Option B et Option C).
+//
+// Sécurité: Accessibles uniquement aux owners authentifiés
+// ============================================================================
+
+// POST /api/owner/notifications/test-confirmation-sms
+// Teste l'envoi d'un SMS de confirmation pour un appointment (Option B)
+app.post('/api/owner/notifications/test-confirmation-sms', express.json(), async (req, res) => {
+  console.log('[POST /api/owner/notifications/test-confirmation-sms] ✅ Route appelée');
+  
+  try {
+    // Vérifier l'authentification owner
+    if (!req.user || req.user.userType !== 'owner') {
+      console.log('[POST /api/owner/notifications/test-confirmation-sms] ❌ Non autorisé');
+      return res.status(401).json({ 
+        success: false,
+        error: 'Non autorisé. Connexion owner requise.' 
+      });
+    }
+
+    const body = req.body || {};
+    const appointmentId = body.appointmentId?.trim();
+
+    if (!appointmentId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'appointmentId requis dans le body' 
+      });
+    }
+
+    const { sendSmsConfirmationIfNeeded } = await import('./core/notifications/smsService.js');
+    const result = await sendSmsConfirmationIfNeeded(appointmentId);
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+        metadata: result.metadata,
+      });
+    }
+
+    console.log('[POST /api/owner/notifications/test-confirmation-sms] ✅ SMS envoyé');
+
+    return res.json({
+      success: true,
+      message: 'SMS de confirmation envoyé avec succès',
+      metadata: result.metadata,
+    });
+  } catch (error: any) {
+    console.error('[POST /api/owner/notifications/test-confirmation-sms] Erreur:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Erreur lors de l\'envoi du SMS de confirmation', 
+      details: error.message 
+    });
+  }
+});
+
+// POST /api/owner/notifications/test-reminder-sms
+// Teste l'envoi d'un SMS de rappel pour un appointment (Option C)
+app.post('/api/owner/notifications/test-reminder-sms', express.json(), async (req, res) => {
+  console.log('[POST /api/owner/notifications/test-reminder-sms] ✅ Route appelée');
+  
+  try {
+    // Vérifier l'authentification owner
+    if (!req.user || req.user.userType !== 'owner') {
+      console.log('[POST /api/owner/notifications/test-reminder-sms] ❌ Non autorisé');
+      return res.status(401).json({ 
+        success: false,
+        error: 'Non autorisé. Connexion owner requise.' 
+      });
+    }
+
+    const body = req.body || {};
+    const appointmentId = body.appointmentId?.trim();
+
+    if (!appointmentId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'appointmentId requis dans le body' 
+      });
+    }
+
+    const { sendSmsReminderIfNeeded } = await import('./core/notifications/smsService.js');
+    const result = await sendSmsReminderIfNeeded(appointmentId);
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+        shouldRetry: result.shouldRetry,
+        retryAt: result.retryAt,
+        metadata: result.metadata,
+      });
+    }
+
+    console.log('[POST /api/owner/notifications/test-reminder-sms] ✅ SMS envoyé');
+
+    return res.json({
+      success: true,
+      message: 'SMS de rappel envoyé avec succès',
+      metadata: result.metadata,
+    });
+  } catch (error: any) {
+    console.error('[POST /api/owner/notifications/test-reminder-sms] Erreur:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Erreur lors de l\'envoi du SMS de rappel', 
+      details: error.message 
+    });
+  }
+});
+
+// ============================================================================
+// ENDPOINT POUR ENVOYER UN SMS DE TEST
+// ============================================================================
+// 
+// Cet endpoint permet à l'owner de tester l'envoi de SMS via le provider configuré.
+// Il accepte un numéro de téléphone et un message de test.
+//
+// Usage:
+//   POST /api/owner/notifications/send-test-sms
+//   Body: { "to": "+41791234567", "message": "Message de test" }
+//
+// Sécurité: Accessible uniquement aux owners authentifiés
+// ============================================================================
+
+app.post('/api/owner/notifications/send-test-sms', express.json(), async (req, res) => {
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('[POST /api/owner/notifications/send-test-sms] ✅ Route appelée');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('[POST /api/owner/notifications/send-test-sms] req.method:', req.method);
+  console.log('[POST /api/owner/notifications/send-test-sms] req.path:', req.path);
+  console.log('[POST /api/owner/notifications/send-test-sms] req.originalUrl:', req.originalUrl);
+  console.log('[POST /api/owner/notifications/send-test-sms] req.user:', req.user);
+  console.log('[POST /api/owner/notifications/send-test-sms] req.body:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    // Vérifier l'authentification owner
+    if (!req.user || req.user.userType !== 'owner') {
+      console.log('[POST /api/owner/notifications/send-test-sms] ❌ Non autorisé - req.user:', req.user);
+      return res.status(401).json({ error: 'Non autorisé. Connexion owner requise.' });
+    }
+
+    let salonId = req.user.salonId;
+    if (!salonId) {
+      return res.status(400).json({ error: 'Salon ID manquant. Veuillez vérifier votre compte.' });
+    }
+
+    // Normaliser le salonId
+    if (!salonId.startsWith('salon-')) {
+      salonId = `salon-${salonId}`;
+    }
+
+    const body = req.body || {};
+    const testPhone = body.to?.trim();
+    const testMessage = body.message?.trim();
+
+    // Valider les champs requis
+    if (!testPhone) {
+      return res.status(400).json({ 
+        error: 'Numéro de téléphone requis. Veuillez fournir "to" dans le body (format E.164, ex: +41791234567).' 
+      });
+    }
+
+    if (!testMessage) {
+      return res.status(400).json({ 
+        error: 'Message requis. Veuillez fournir "message" dans le body.' 
+      });
+    }
+
+    // Valider le format du numéro (format E.164 : commence par + suivi de chiffres)
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(testPhone)) {
+      return res.status(400).json({ 
+        error: 'Format de numéro invalide. Utilisez le format international E.164 (ex: +41791234567).' 
+      });
+    }
+
+    // Valider la longueur du message (optionnel, mais recommandé)
+    if (testMessage.length === 0) {
+      return res.status(400).json({ error: 'Le message ne peut pas être vide.' });
+    }
+
+    if (testMessage.length > 1600) {
+      console.warn('[POST /api/owner/notifications/send-test-sms] ⚠️  Message très long:', testMessage.length, 'caractères');
+    }
+
+    // Envoyer le SMS via NotificationService
+    console.log('[POST /api/owner/notifications/send-test-sms] 📱 Préparation de l\'envoi SMS');
+    console.log('[POST /api/owner/notifications/send-test-sms] 📱 To:', testPhone);
+    console.log('[POST /api/owner/notifications/send-test-sms] 📱 Message:', testMessage);
+    
+    const { notificationService } = await import('./core/notifications/index.js');
+    const result = await notificationService.sendSms({
+      to: testPhone,
+      message: testMessage,
+    });
+    
+    console.log('[POST /api/owner/notifications/send-test-sms] 📊 Résultat:', JSON.stringify(result, null, 2));
+
+    // Vérifier si l'envoi a réussi
+    if (!result.success) {
+      console.error('[POST /api/owner/notifications/send-test-sms] ❌ Échec de l\'envoi:', result.error);
+      return res.status(500).json({
+        success: false,
+        error: 'Échec de l\'envoi du SMS',
+        details: result.error,
+        to: testPhone,
+        metadata: result.metadata,
+      });
+    }
+
+    console.log('[POST /api/owner/notifications/send-test-sms] ✅ SMS envoyé avec succès à', testPhone);
+    if (result.metadata?.dryRun) {
+      console.log('[POST /api/owner/notifications/send-test-sms] ⚠️  Mode DRY RUN : SMS loggé mais pas envoyé');
+      console.log('[POST /api/owner/notifications/send-test-sms] 💡 Pour envoyer de vrais SMS, mettez SMS_DRY_RUN=false dans .env');
+    }
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('');
+
+    return res.json({
+      success: true,
+      to: testPhone,
+      message: testMessage.substring(0, 100) + (testMessage.length > 100 ? '...' : ''),
+      metadata: result.metadata,
+    });
+  } catch (error: any) {
+    console.error('[POST /api/owner/notifications/send-test-sms] Erreur:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Erreur lors de l\'envoi du SMS de test', 
+      details: error.message 
+    });
+  }
+});
 
 // ============================================================================
 // ENDPOINT POUR ENVOYER LES RAPPELS DE RENDEZ-VOUS
@@ -5801,12 +6121,67 @@ app.use((req, res, next) => {
       console.error('[404 Middleware] ❌ req.method:', req.method);
     }
     
+    // Si c'est une requête DELETE vers /api/appointments/:id, c'est un problème grave
+    if (req.method === 'DELETE' && req.path.startsWith('/api/appointments/')) {
+      console.error('[404 Middleware] ❌❌❌ CRITIQUE: Requête DELETE /api/appointments/:id non interceptée!');
+      console.error('[404 Middleware] ❌ La route devrait être définie à la ligne 5096');
+      console.error('[404 Middleware] ❌ Path:', req.path);
+      console.error('[404 Middleware] ❌ Original URL:', req.originalUrl);
+      console.error('[404 Middleware] ❌ req.user:', req.user);
+      console.error('[404 Middleware] ❌ req.method:', req.method);
+      console.error('[404 Middleware] ❌ Vérifiez que le serveur s\'est bien rechargé');
+    }
+    
     return res.status(404).json({ error: "Route non trouvée" });
   }
   next();
 });
 
 const server = createServer(app);
+
+// Configuration des cron jobs pour les notifications intelligentes
+// (Optionnel: peut être désactivé si vous utilisez Vercel Cron ou cron système)
+(async () => {
+  if (process.env.ENABLE_CRON_JOBS === 'true') {
+    try {
+      const cron = await import('node-cron');
+      const cronDefault = cron.default;
+      
+      // Cron job: Vérifier les emails non ouverts et envoyer SMS (Option B)
+      // Toutes les heures à la minute 0
+      cronDefault.schedule('0 * * * *', async () => {
+        try {
+          await import('./cron/check-email-opened-and-send-sms.js');
+        } catch (error: any) {
+          console.error('[Cron] ❌ Erreur lors de l\'exécution du cron job check-email-opened:', error);
+        }
+      });
+      console.log('[SERVER] ✅ Cron job configuré: Vérification email ouvert + SMS (toutes les heures)');
+      
+      // Cron job: Envoyer les SMS de rappel (Option C)
+      // Toutes les heures à la minute 0
+      cronDefault.schedule('0 * * * *', async () => {
+        try {
+          await import('./cron/send-reminder-sms.js');
+        } catch (error: any) {
+          console.error('[Cron] ❌ Erreur lors de l\'exécution du cron job send-reminder:', error);
+        }
+      });
+      console.log('[SERVER] ✅ Cron job configuré: Envoi SMS de rappel (toutes les heures)');
+      console.log('[SERVER] 💡 Pour activer les cron jobs, définissez ENABLE_CRON_JOBS=true dans .env');
+    } catch (error: any) {
+      console.warn('[SERVER] ⚠️  node-cron non disponible, les cron jobs ne seront pas exécutés automatiquement');
+      console.warn('[SERVER] 💡 Installez node-cron: npm install node-cron');
+      console.warn('[SERVER] 💡 Ou configurez les cron jobs via Vercel Cron ou votre système');
+    }
+  } else {
+    console.log('[SERVER] ℹ️  Cron jobs désactivés (ENABLE_CRON_JOBS non défini ou false)');
+    console.log('[SERVER] 💡 Pour activer, définissez ENABLE_CRON_JOBS=true dans .env');
+    console.log('[SERVER] 💡 Ou configurez les cron jobs via Vercel Cron ou votre système');
+  }
+})().catch((error) => {
+  console.error('[SERVER] ❌ Erreur lors de la configuration des cron jobs:', error);
+});
 
 // Configuration des fichiers statiques
 if (process.env.NODE_ENV === 'production') {
@@ -5825,6 +6200,10 @@ if (process.env.NODE_ENV === 'production') {
         console.log('[SERVER] ✅ GET /api/owner/notification-settings (ligne 5008)');
         console.log('[SERVER] ✅ PUT /api/owner/notification-settings (ligne 5054)');
         console.log('[SERVER] ✅ POST /api/owner/notifications/send-test-email (ligne 5174)');
+        console.log('[SERVER] ✅ POST /api/owner/notifications/send-test-sms');
+        console.log('[SERVER] ✅ POST /api/owner/notifications/test-confirmation-sms');
+        console.log('[SERVER] ✅ POST /api/owner/notifications/test-reminder-sms');
+        console.log('[SERVER] ✅ POST /api/notifications/resend/webhook');
     });
   });
 }

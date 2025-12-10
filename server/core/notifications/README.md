@@ -62,7 +62,7 @@ Ajoutez ces variables dans votre fichier `.env` :
 
 ```env
 # SMSup (SMS)
-SMSUP_API_KEY=your-smsup-api-key-here
+SMSUP_API_TOKEN=your-smsup-api-token
 SMSUP_SENDER=SalonPilot
 SMSUP_API_URL=https://api.smsup.ch/send  # Optionnel
 
@@ -164,7 +164,11 @@ export class TwilioSmsProvider implements SmsProvider {
 ```typescript
 // Avant
 import { SmsUpProvider } from '../../infrastructure/sms/SmsUpProvider';
-const smsProvider = new SmsUpProvider(process.env.SMSUP_API_KEY!, process.env.SMSUP_SENDER!);
+const smsProvider = new SmsUpProvider({
+  token: process.env.SMSUP_API_TOKEN!,
+  sender: process.env.SMSUP_SENDER || 'SalonPilot',
+  dryRun: process.env.SMS_DRY_RUN === 'true',
+});
 
 // Après
 import { TwilioSmsProvider } from '../../infrastructure/sms/TwilioSmsProvider';
@@ -272,7 +276,7 @@ Pour tester sans configurer les services externes ou sans crédits :
    - Retourne toujours `{ success: true }` pour ne pas bloquer la logique métier
 
 2. **Mode Mock** (fallback) :
-   - Ne pas définir `SMSUP_API_KEY` et `RESEND_API_KEY`
+   - Ne pas définir `SMSUP_API_TOKEN` ni `RESEND_API_KEY`
    - Les notifications seront loggées dans la console en mode "mock"
    - Vérifier les logs pour confirmer que les notifications sont déclenchées
 

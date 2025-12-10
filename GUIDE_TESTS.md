@@ -6,8 +6,8 @@
 1. Vérifier que votre fichier `.env` contient :
    ```env
    NOTIFICATIONS_DRY_RUN=true
-   SMSUP_API_KEY=votre_clé_ici
-   RESEND_API_KEY=votre_clé_ici
+   SMSUP_API_TOKEN=votre_token_api
+   RESEND_API_KEY=votre_clé_resend
    ```
 
 2. Redémarrer le serveur si nécessaire :

@@ -90,6 +90,13 @@ export const appointments = pgTable('appointments', {
   // Colonnes pour intégrations externes (déprécié, conservé pour compatibilité)
   externalId: text('external_id').unique(), // ID de réservation externe (déprécié)
   payload: jsonb('payload'), // Payload complet pour traçabilité
+  // Colonnes pour tracking des notifications (Option B & C)
+  emailSentAt: timestamp('email_sent_at'), // Date d'envoi de l'email de confirmation
+  emailOpenedAt: timestamp('email_opened_at'), // Date d'ouverture de l'email (via webhook Resend)
+  smsConfirmationSent: boolean('sms_confirmation_sent').default(false).notNull(), // SMS de confirmation envoyé
+  smsReminderSent: boolean('sms_reminder_sent').default(false).notNull(), // SMS de rappel envoyé
+  smsConfirmationType: text('sms_confirmation_type'), // Type de SMS: "immediate_less_24h", "confirmation_missing_email_open", etc.
+  skipReminderSms: boolean('skip_reminder_sms').default(false).notNull(), // true si RDV pris < 24h avant (pas de rappel)
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -210,6 +217,30 @@ export const clientNotificationsRelations = relations(clientNotifications, ({ on
   }),
 }));
 
+// Table des événements email (pour tracking Resend webhooks)
+// Note: appointment_id est TEXT pour correspondre au type de appointments.id dans Supabase
+export const emailEvents = pgTable('email_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  appointmentId: text('appointment_id').notNull().references(() => appointments.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'delivered', 'opened', 'bounced', 'complained', etc.
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  provider: text('provider').default('Resend').notNull(), // 'Resend', 'SendGrid', etc.
+  providerEventId: text('provider_event_id'), // ID de l'événement côté provider
+  metadata: jsonb('metadata'), // Métadonnées supplémentaires (IP, user-agent, etc.)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const emailEventsRelations = relations(emailEvents, ({ one }) => ({
+  appointment: one(appointments, {
+    fields: [emailEvents.appointmentId],
+    references: [appointments.id],
+  }),
+}));
+
+export const appointmentsRelationsWithEmailEvents = relations(appointments, ({ many }) => ({
+  emailEvents: many(emailEvents),
+}));
+
 export const openingHoursRelations = relations(openingHours, ({ one }) => ({
   salon: one(salons, {
     fields: [openingHours.salonId],
@@ -254,3 +285,6 @@ export type NewSetting = typeof settings.$inferInsert;
 
 export type ClientNotification = typeof clientNotifications.$inferSelect;
 export type NewClientNotification = typeof clientNotifications.$inferInsert;
+
+export type EmailEvent = typeof emailEvents.$inferSelect;
+export type NewEmailEvent = typeof emailEvents.$inferInsert;

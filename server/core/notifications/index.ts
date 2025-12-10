@@ -35,8 +35,9 @@
  * VARIABLES D'ENVIRONNEMENT REQUISES
  * ============================================================================
  * 
- * - SMSUP_API_KEY : Clé API SMSup (optionnel si SMS_DRY_RUN=true)
+ * - SMSUP_API_TOKEN : Token API SMSup (optionnel si SMS_DRY_RUN=true)
  * - SMSUP_SENDER : Nom de l'expéditeur SMS (défaut: "SalonPilot")
+ * - SMSUP_LOGIN / SMSUP_PASSWORD : (legacy) uniquement pour les logs / debug
  * - SMSUP_API_URL : URL de l'API SMSup (défaut: "https://api.smsup.ch/send")
  * - RESEND_API_KEY : Clé API Resend (optionnel si EMAIL_DRY_RUN=true)
  * - RESEND_FROM : Adresse email de l'expéditeur (défaut: "SalonPilot <noreply@salonpilot.ch>")
@@ -77,14 +78,41 @@
 
 import { NotificationService } from './NotificationService';
 import { SmsUpProvider } from '../../infrastructure/sms/SmsUpProvider';
+import { TwilioWhatsAppProvider } from '../../infrastructure/sms/TwilioWhatsAppProvider';
+import { TwilioSmsProvider } from '../../infrastructure/sms/TwilioSmsProvider';
+import { ClickSendSmsProvider } from '../../infrastructure/sms/ClickSendSmsProvider';
 import { ResendEmailProvider } from '../../infrastructure/email/ResendEmailProvider';
 import { SmsProvider, EmailProvider } from './types';
 import { createNotificationSettingsRepository, NotificationSettingsRepository } from './NotificationSettingsRepository';
 import { createClient } from '@supabase/supabase-js';
 
 // Lire les variables d'environnement
-const smsupApiKey = process.env.SMSUP_API_KEY || '';
+// Provider SMS : 'smsup' (legacy), 'twilio-sms' (SMS classique), 'twilio-whatsapp' (WhatsApp), ou 'clicksend'
+const smsProviderType = process.env.SMS_PROVIDER || 'twilio-sms'; // 'smsup', 'twilio-sms', 'twilio-whatsapp', ou 'clicksend'
+
+// Variables SMSup (legacy)
+const smsupToken = process.env.SMSUP_API_TOKEN || '';
+const smsupLogin = process.env.SMSUP_LOGIN || '';
+const smsupPassword = process.env.SMSUP_PASSWORD || '';
 const smsupSender = process.env.SMSUP_SENDER || 'SalonPilot';
+
+// Variables Twilio (partagées entre SMS et WhatsApp)
+const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID || '';
+const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN || '';
+const twilioMessagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID || ''; // Optionnel
+
+// Variables Twilio WhatsApp
+const twilioWhatsappFrom = process.env.TWILIO_WHATSAPP_FROM || ''; // Format: whatsapp:+14155238886
+
+// Variables Twilio SMS
+const twilioSmsFrom = process.env.TWILIO_SMS_FROM || ''; // Format: +14155238886 (sans préfixe whatsapp:)
+
+// Variables ClickSend
+const clicksendUsername = process.env.CLICKSEND_USERNAME || '';
+const clicksendApiKey = process.env.CLICKSEND_API_KEY || '';
+const clicksendSmsFrom = process.env.CLICKSEND_SMS_FROM || ''; // Sender ID alphanumérique ou numéro
+
+// Variables Email
 const resendApiKey = process.env.RESEND_API_KEY || '';
 const resendFrom = process.env.RESEND_FROM || 'SalonPilot <noreply@salonpilot.ch>';
 
@@ -126,7 +154,40 @@ console.log('');
 console.log('═══════════════════════════════════════════════════════════════');
 console.log('[Notifications] ⚙️  CONFIGURATION DES NOTIFICATIONS');
 console.log('═══════════════════════════════════════════════════════════════');
+console.log(`[Notifications] 📱 SMS Provider: ${smsProviderType.toUpperCase()}`);
 console.log(`[Notifications] 📱 SMS: ${smsDryRun ? '⚠️  DRY RUN (log uniquement)' : '✅ ENVOI RÉEL'}`);
+if (smsProviderType === 'clicksend') {
+  console.log(`[Notifications] 🔑 CLICKSEND_USERNAME: ${clicksendUsername ? `✅ Défini (${clicksendUsername.substring(0, 10)}… )` : '❌ NON DÉFINI'}`);
+  console.log(`[Notifications] 🔑 CLICKSEND_API_KEY: ${clicksendApiKey ? `✅ Défini (${clicksendApiKey.substring(0, 8)}… )` : '❌ NON DÉFINI'}`);
+  console.log(`[Notifications] 📱 CLICKSEND_SMS_FROM: ${clicksendSmsFrom || '❌ NON DÉFINI'}`);
+} else if (smsProviderType === 'twilio-whatsapp') {
+  console.log(`[Notifications] 🔑 TWILIO_ACCOUNT_SID: ${twilioAccountSid ? `✅ Défini (${twilioAccountSid.substring(0, 4)}… )` : '❌ NON DÉFINI'}`);
+  console.log(`[Notifications] 🔑 TWILIO_AUTH_TOKEN: ${twilioAuthToken ? '✅ Défini' : '❌ NON DÉFINI'}`);
+  console.log(`[Notifications] 📱 TWILIO_WHATSAPP_FROM: ${twilioWhatsappFrom || '❌ NON DÉFINI'}`);
+  if (twilioMessagingServiceSid) {
+    console.log(`[Notifications] 📱 TWILIO_MESSAGING_SERVICE_SID: ✅ Défini (priorité sur FROM)`);
+  }
+} else if (smsProviderType === 'twilio-sms') {
+  console.log(`[Notifications] 🔑 TWILIO_ACCOUNT_SID: ${twilioAccountSid ? `✅ Défini (${twilioAccountSid.substring(0, 4)}… )` : '❌ NON DÉFINI'}`);
+  console.log(`[Notifications] 🔑 TWILIO_AUTH_TOKEN: ${twilioAuthToken ? '✅ Défini' : '❌ NON DÉFINI'}`);
+  console.log(`[Notifications] 📱 TWILIO_SMS_FROM: ${twilioSmsFrom || '❌ NON DÉFINI'}`);
+  if (twilioMessagingServiceSid) {
+    console.log(`[Notifications] 📱 TWILIO_MESSAGING_SERVICE_SID: ✅ Défini (priorité sur FROM)`);
+  }
+} else {
+  // SMSup (legacy)
+  console.log(
+    `[Notifications] 🔑 SMSUP_API_TOKEN: ${
+      smsupToken ? `✅ Défini (${smsupToken.substring(0, 4)}… )` : '❌ NON DÉFINI'
+    }`,
+  );
+  console.log(`[Notifications] 👤 (legacy) SMSUP_LOGIN: ${smsupLogin ? '✅ Défini' : '❌ NON DÉFINI'}`);
+  console.log(
+    `[Notifications] 🔒 (legacy) SMSUP_PASSWORD: ${smsupPassword ? '✅ Défini' : '❌ NON DÉFINI'}`,
+  );
+  console.log(`[Notifications] 📱 SMSUP_SENDER: ${smsupSender || '❌ NON DÉFINI'}`);
+}
+console.log(`[Notifications] 🔧 SMS_DRY_RUN: ${process.env.SMS_DRY_RUN || 'non défini (défaut: true)'}`);
 console.log(`[Notifications] 📧 Email: ${emailDryRun ? '⚠️  DRY RUN (log uniquement)' : '✅ ENVOI RÉEL'}`);
 console.log(`[Notifications] 🔑 RESEND_API_KEY: ${resendApiKey ? '✅ Définie (' + resendApiKey.substring(0, 10) + '...)' : '❌ NON DÉFINIE'}`);
 console.log(`[Notifications] 📧 RESEND_FROM: ${resendFrom || '❌ NON DÉFINI'}`);
@@ -135,6 +196,24 @@ console.log(`[Notifications] 🔧 NOTIFICATIONS_DRY_RUN: ${process.env.NOTIFICAT
 if (legacyDryRun && (process.env.SMS_DRY_RUN === undefined || process.env.EMAIL_DRY_RUN === undefined)) {
   console.log('[Notifications] ⚠️  NOTIFICATIONS_DRY_RUN est utilisé comme fallback (déprécié)');
   console.log('[Notifications] 💡 Utilisez SMS_DRY_RUN et EMAIL_DRY_RUN pour un contrôle indépendant');
+}
+if (smsDryRun) {
+  console.log('[Notifications] ⚠️  ATTENTION: Les SMS sont en mode DRY RUN - aucun SMS ne sera réellement envoyé !');
+}
+if (!smsDryRun) {
+  if ((smsProviderType === 'twilio-whatsapp' || smsProviderType === 'twilio-sms') && (!twilioAccountSid || !twilioAuthToken)) {
+    console.log('[Notifications] ❌ ERREUR: SMS_DRY_RUN=false mais TWILIO_ACCOUNT_SID ou TWILIO_AUTH_TOKEN non défini !');
+    console.log('[Notifications] ❌ Les messages ne pourront pas être envoyés.');
+  } else if (smsProviderType === 'twilio-whatsapp' && !twilioWhatsappFrom && !twilioMessagingServiceSid) {
+    console.log('[Notifications] ❌ ERREUR: TWILIO_WHATSAPP_FROM ou TWILIO_MESSAGING_SERVICE_SID non défini !');
+    console.log('[Notifications] ❌ Les messages WhatsApp ne pourront pas être envoyés.');
+  } else if (smsProviderType === 'twilio-sms' && !twilioSmsFrom && !twilioMessagingServiceSid) {
+    console.log('[Notifications] ❌ ERREUR: TWILIO_SMS_FROM ou TWILIO_MESSAGING_SERVICE_SID non défini !');
+    console.log('[Notifications] ❌ Les SMS ne pourront pas être envoyés.');
+  } else if (smsProviderType === 'smsup' && !smsupToken) {
+    console.log('[Notifications] ❌ ERREUR: SMS_DRY_RUN=false mais SMSUP_API_TOKEN non défini !');
+    console.log('[Notifications] ❌ Les SMS ne pourront pas être envoyés.');
+  }
 }
 if (emailDryRun) {
   console.log('[Notifications] ⚠️  ATTENTION: Les emails sont en mode DRY RUN - aucun email ne sera réellement envoyé !');
@@ -153,20 +232,40 @@ let smsProvider: SmsProvider;
 let emailProvider: EmailProvider;
 
 // Provider SMS avec son propre flag dry-run
-if (smsDryRun || smsupApiKey) {
-  smsProvider = new SmsUpProvider(smsupApiKey, smsupSender, smsDryRun);
-  if (!smsDryRun && !smsupApiKey) {
-    console.warn('[Notifications] SMSUP_API_KEY non définie, mais provider créé en mode dry run');
-  }
+// Choisir entre SMSup (legacy), Twilio SMS, Twilio WhatsApp, ou ClickSend
+if (smsProviderType === 'clicksend') {
+  smsProvider = new ClickSendSmsProvider({
+    username: clicksendUsername,
+    apiKey: clicksendApiKey,
+    from: clicksendSmsFrom,
+    dryRun: smsDryRun,
+  });
+} else if (smsProviderType === 'twilio-whatsapp') {
+  smsProvider = new TwilioWhatsAppProvider({
+    accountSid: twilioAccountSid,
+    authToken: twilioAuthToken,
+    whatsappFrom: twilioWhatsappFrom,
+    messagingServiceSid: twilioMessagingServiceSid,
+    dryRun: smsDryRun,
+  });
+} else if (smsProviderType === 'twilio-sms') {
+  smsProvider = new TwilioSmsProvider({
+    accountSid: twilioAccountSid,
+    authToken: twilioAuthToken,
+    from: twilioSmsFrom,
+    messagingServiceSid: twilioMessagingServiceSid,
+    dryRun: smsDryRun,
+  });
 } else {
-  console.warn('[Notifications] SMSUP_API_KEY non définie et SMS_DRY_RUN=false, création d\'un provider mock');
-  // Créer un provider mock pour le développement
-  smsProvider = {
-    async sendSms({ to, message }) {
-      console.log('[Notifications] [MOCK SMS] Envoi à', to, ':', message);
-      return { success: true };
-    }
-  };
+  // SMSup (legacy)
+  smsProvider = new SmsUpProvider({
+    token: smsupToken,
+    sender: smsupSender,
+    apiUrl: process.env.SMSUP_API_URL,
+    dryRun: smsDryRun,
+    legacyLogin: smsupLogin,
+    legacyPassword: smsupPassword,
+  });
 }
 
 // Provider Email avec son propre flag dry-run

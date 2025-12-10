@@ -103,6 +103,29 @@ export default function FloatingChatbot() {
     });
   }, [isOpen]);
 
+  // Écouter l'événement personnalisé pour ouvrir le chatbot depuis le header
+  useEffect(() => {
+    const handleOpenChat = () => {
+      if (!isOpen) {
+        setIsOpen(true);
+        if (!hasWelcomed && conversation.length === 0) {
+          const welcomeMessage: ChatMessage = {
+            type: 'ai',
+            message: "👋 Salut ! Je suis votre assistant personnel SalonPilot. Je suis là pour vous simplifier la vie ! 😊\n\nJe peux vous aider à :\n✨ Réserver un rendez-vous en quelques secondes\n📅 Vérifier nos horaires d'ouverture\n💇 Découvrir nos services et tarifs\n💬 Répondre à toutes vos questions\n\nAlors, par quoi commençons-nous ?",
+            timestamp: new Date()
+          };
+          setConversation([welcomeMessage]);
+          setHasWelcomed(true);
+        }
+      }
+    };
+
+    window.addEventListener('openChatbot', handleOpenChat);
+    return () => {
+      window.removeEventListener('openChatbot', handleOpenChat);
+    };
+  }, [isOpen, hasWelcomed, conversation.length]);
+
   useEffect(() => {
     if (!isExpanded) return;
     if (typeof window === "undefined") return;

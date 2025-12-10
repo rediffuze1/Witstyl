@@ -12,21 +12,24 @@ const footerLinks = {
 };
 
 export default function Footer() {
-
   return (
-    <footer className="bg-foreground text-white py-16">
+    <footer className="py-16" style={{ backgroundColor: 'var(--lp-bg-section)', borderTop: '1px solid var(--lp-border-soft)' }}>
       <Container>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-          {/* Company Info */}
           <Reveal direction="up">
             <div>
               <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{
+                    background: `var(--lp-brand-gradient)`,
+                  }}
+                >
                   <Scissors className="text-white text-sm" />
                 </div>
-                <span className="text-xl font-bold">SalonPilot</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--lp-text-main)' }}>SalonPilot</span>
               </div>
-              <p className="text-gray-300 mb-6 max-w-md leading-relaxed">
+              <p className="mb-6 max-w-md leading-relaxed" style={{ color: 'var(--lp-text-muted)' }}>
                 La plateforme de réservation intelligente qui révolutionne la gestion des salons de
                 coiffure.
               </p>
@@ -37,7 +40,8 @@ export default function Footer() {
                     href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-400 hover:text-primary transition-colors"
+                    className="transition-colors hover:opacity-70"
+                    style={{ color: 'var(--lp-text-muted)' }}
                     aria-label={social.label}
                   >
                     <social.icon className="h-5 w-5" />
@@ -47,23 +51,12 @@ export default function Footer() {
             </div>
           </Reveal>
         </div>
-
-        <Reveal delay={0.3}>
-          <div className="border-t border-gray-700 mt-12 pt-8 text-center">
-            <p className="text-gray-400">
-              © {new Date().getFullYear()} SalonPilot. Tous droits réservés.
-            </p>
-          </div>
-        </Reveal>
+        <div className="mt-12 pt-8 border-t" style={{ borderColor: 'var(--lp-border-soft)' }}>
+          <p className="text-center text-sm" style={{ color: 'var(--lp-text-subtle)' }}>
+            © {new Date().getFullYear()} SalonPilot. Tous droits réservés.
+          </p>
+        </div>
       </Container>
     </footer>
   );
 }
-
-
-
-
-
-
-
-

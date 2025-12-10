@@ -651,7 +651,21 @@ const normalizedClosedDates = useMemo(() => {
 
   const deleteAppointmentMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/appointments/${id}`);
+      console.log('[Calendar] 🗑️ Suppression rendez-vous demandée');
+      console.log('[Calendar] 🗑️ ID original:', id);
+      console.log('[Calendar] 🗑️ Type de l\'ID:', typeof id);
+      console.log('[Calendar] 🗑️ URL complète:', `/api/appointments/${id}`);
+      
+      try {
+        const response = await apiRequest("DELETE", `/api/appointments/${id}`);
+        console.log('[Calendar] ✅ Suppression réussie, réponse:', response);
+        return response;
+      } catch (error: any) {
+        console.error('[Calendar] ❌ Erreur lors de la suppression:', error);
+        console.error('[Calendar] ❌ Message d\'erreur:', error.message);
+        console.error('[Calendar] ❌ Stack:', error.stack);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({

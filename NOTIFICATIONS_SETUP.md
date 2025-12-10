@@ -47,7 +47,7 @@ Ajoutez ces variables dans votre fichier `.env` :
 
 ```bash
 # SMS Provider (SMSup)
-SMSUP_API_KEY=your-smsup-api-key-here
+SMSUP_API_TOKEN=your-smsup-api-token
 SMSUP_SENDER=SalonPilot
 SMSUP_API_URL=https://api.smsup.ch/send  # Optionnel
 
@@ -225,7 +225,7 @@ curl -X POST http://localhost:5001/api/dev/send-test-notification \
    ```bash
    SMS_DRY_RUN=false
    EMAIL_DRY_RUN=false
-   SMSUP_API_KEY=your-smsup-api-key
+   SMSUP_API_TOKEN=your-smsup-api-token
    RESEND_API_KEY=re_your-resend-api-key
    ```
 2. S'assurer que les clés API sont configurées et valides

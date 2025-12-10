@@ -37,7 +37,7 @@ interface EnrichedAppointment {
 
 function Dashboard() {
   const { toast } = useToast();
-  const { owner, salonId, isHydrating } = useAuthContext();
+  const { owner, salonId, isHydrating, isLoading, isAuthenticated } = useAuthContext();
   const { firstName } = useUserContext();
   const [, setLocation] = useLocation();
 
@@ -63,7 +63,7 @@ function Dashboard() {
     if (owner?.lastName) {
       setUserLastName(owner.lastName);
     }
-  }, [firstName, user]);
+  }, [firstName, owner]);
 
   // Écouter les changements de prénom depuis les autres composants (settings)
   useEffect(() => {

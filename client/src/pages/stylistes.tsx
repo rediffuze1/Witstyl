@@ -16,17 +16,32 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Plus, Edit, Trash2, Mail, Phone, X, ChevronDown, Check } from "lucide-react";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { PhoneNumberInput } from "@/components/ui/PhoneNumberInput";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertStylistSchema, type Styliste } from "@shared/schema";
 import { z } from "zod";
+import { isValidPhoneNumber } from "react-phone-number-input";
 import Navigation from "@/components/navigation";
 
 const stylistFormSchema = z.object({
   firstName: z.string().min(1, "Le prénom est requis"),
   lastName: z.string().min(1, "Le nom est requis"),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        // Si vide, c'est valide (optionnel)
+        if (!val || val.trim() === "") return true;
+        // Sinon, valider avec libphonenumber
+        return isValidPhoneNumber(val);
+      },
+      {
+        message: "Ce numéro de téléphone est soit invalide, soit au mauvais format.",
+      }
+    ),
   photoUrl: z.string().optional(),
   specialties: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),
@@ -489,11 +504,17 @@ export default function Stylists() {
                     <FormField
                       control={form.control}
                       name="phone"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem>
-                          <FormLabel>Téléphone</FormLabel>
                           <FormControl>
-                            <Input placeholder="06 12 34 56 78" {...field} data-testid="input-stylist-phone" />
+                            <PhoneNumberInput
+                              label="Téléphone"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              defaultCountry="CH"
+                              error={fieldState.error?.message}
+                              showValidationState
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -19,7 +19,10 @@ export interface SmsProvider {
    * @param params.message - Message à envoyer
    * @returns Résultat de l'envoi avec success: true si réussi, false sinon avec un message d'erreur
    */
-  sendSms(params: { to: string; message: string }): Promise<{ success: boolean; error?: string }>;
+  sendSms(params: {
+    to: string;
+    message: string;
+  }): Promise<{ success: boolean; error?: string; metadata?: Record<string, unknown> }>;
 }
 
 /**
@@ -44,6 +47,7 @@ export interface EmailProvider {
     html: string;
     text?: string;
     from?: string;
+    metadata?: Record<string, unknown>;
   }): Promise<{ success: boolean; error?: string }>;
 }
 
@@ -67,5 +71,11 @@ export type BookingNotificationContext = {
   // Informations optionnelles pour les modifications/annulations
   cancellationReason?: string;
   modificationDetails?: string;
+};
+
+export type ManagerCancellationNotificationContext = BookingNotificationContext & {
+  managerEmail: string;
+  managerName?: string;
+  cancelledByRole: 'client' | 'manager';
 };
 

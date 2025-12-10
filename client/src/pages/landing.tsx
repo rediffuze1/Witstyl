@@ -1,25 +1,45 @@
 import { useEffect } from 'react';
 import { initLenis, destroyLenis } from '@/lib/lenis';
-import Header from '@/components/landing/Header';
-import Hero from '@/components/landing/Hero';
-import Features from '@/components/landing/Features';
-import Steps from '@/components/landing/Steps';
-import DashboardShowcase from '@/components/landing/DashboardShowcase';
-import Stats from '@/components/landing/Stats';
-import FAQ from '@/components/landing/FAQ';
-import Hours from '@/components/landing/Hours';
-import Contact from '@/components/landing/Contact';
-import Booking from '@/components/landing/Booking';
-import Footer from '@/components/landing/Footer';
 import SEO from '@/components/SEO';
 import FloatingChatbot from '@/components/floating-chatbot';
 
+// Header
+import Header from '@/components/marketing/Header';
+
+// Composants marketing
+import Hero from '@/components/marketing/Hero';
+import Services from '@/components/marketing/Services';
+import Reviews from '@/components/marketing/Reviews';
+import Gallery from '@/components/marketing/Gallery';
+import Team from '@/components/marketing/Team';
+import Hours from '@/components/marketing/Hours';
+import SalonMap from '@/components/marketing/SalonMap';
+import FAQ from '@/components/marketing/FAQ';
+import ContactFooter from '@/components/marketing/ContactFooter';
+
+/**
+ * Landing page - Refonte complète
+ * - Hero avec CTA "Prendre RDV"
+ * - Section Services avec cartes visuelles
+ * - Avis clients (Google Reviews - top 5)
+ * - Carrousel photos du salon
+ * - Carrousel équipe
+ * - Horaires clairs
+ * - Carte Google Maps
+ * - FAQ
+ * - Contact & Footer
+ * 
+ * Design : glow + glassmorphism, animations type xtract.framer.ai
+ * Thème : adaptatif avec variables CSS --brand-h/s/l
+ */
 export default function Landing() {
   useEffect(() => {
-    // Initialize Lenis smooth scroll après un court délai pour laisser le DOM se stabiliser
+    // Initialize Lenis smooth scroll
     const timer = setTimeout(() => {
       const lenis = initLenis();
-      (window as any).lenis = lenis;
+      if (lenis) {
+        (window as any).lenis = lenis;
+      }
     }, 100);
 
     return () => {
@@ -31,23 +51,39 @@ export default function Landing() {
   return (
     <>
       <SEO />
-      <div className="min-h-screen bg-background text-foreground antialiased overflow-x-hidden">
-        <Header />
-        <main className="overflow-x-hidden">
-          {/* Tous les composants sont rendus immédiatement, pas de lazy loading */}
-          <Hero />
-          <Features />
-          <Steps />
-          <DashboardShowcase />
-          <Stats />
-          <Booking />
-          <FAQ />
-          <Hours />
-          <Contact />
-        </main>
-        <Footer />
-        <FloatingChatbot />
+      <Header />
+      <div
+        className="min-h-screen antialiased overflow-x-hidden"
+        style={{ backgroundColor: 'hsl(var(--bg-page))', color: 'hsl(var(--text-main))' }}
+      >
+        {/* 1. Hero avec CTA "Prendre RDV" */}
+        <Hero />
+
+        {/* 2. Section Services */}
+        <Services />
+
+        {/* 3. Avis clients (Google Reviews - top 5) */}
+        <Reviews />
+
+        {/* 4. Carrousel photos du salon */}
+        <Gallery />
+
+        {/* 5. Carrousel équipe */}
+        <Team />
+
+        {/* 6. Horaires clairs */}
+        <Hours />
+
+        {/* 7. Carte Google Maps */}
+        <SalonMap />
+
+        {/* 8. FAQ */}
+        <FAQ />
+
+        {/* 9. Contact & Footer */}
+        <ContactFooter />
       </div>
+      <FloatingChatbot />
     </>
   );
 }

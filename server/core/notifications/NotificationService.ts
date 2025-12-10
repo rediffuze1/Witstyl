@@ -11,7 +11,12 @@
  * 3. Aucune modification nécessaire dans ce fichier ni dans la logique métier
  */
 
-import { SmsProvider, EmailProvider, BookingNotificationContext } from './types';
+import {
+  SmsProvider,
+  EmailProvider,
+  BookingNotificationContext,
+  ManagerCancellationNotificationContext,
+} from './types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { NotificationSettingsRepository } from './NotificationSettingsRepository';
@@ -43,6 +48,27 @@ export class NotificationService {
     private emailProvider: EmailProvider,
     private settingsRepositoryFactory: (salonId: string) => NotificationSettingsRepository,
   ) {}
+
+  /**
+   * Expose le emailProvider pour les services externes (emailService)
+   */
+  getEmailProvider(): EmailProvider {
+    return this.emailProvider;
+  }
+
+  /**
+   * Expose le smsProvider pour les services externes (smsService)
+   */
+  getSmsProvider(): SmsProvider {
+    return this.smsProvider;
+  }
+
+  /**
+   * Expose le settingsRepositoryFactory pour les services externes
+   */
+  getSettingsRepositoryFactory(): (salonId: string) => NotificationSettingsRepository {
+    return this.settingsRepositoryFactory;
+  }
 
   /**
    * Envoie une confirmation de rendez-vous
@@ -112,6 +138,14 @@ export class NotificationService {
 
     // Envoyer l'email de confirmation seulement si l'email est fourni
     if (ctx.clientEmail && ctx.clientEmail.trim() !== '') {
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('[NotificationService] 📧 ENVOI EMAIL DE CONFIRMATION');
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('[NotificationService] 📧 To:', ctx.clientEmail);
+      console.log('[NotificationService] 📧 Subject:', emailSubject);
+      console.log('[NotificationService] 📧 HTML length:', emailHtml.length, 'chars');
+      
       const emailResult = await this.emailProvider.sendEmail({
         to: ctx.clientEmail,
         subject: emailSubject,
@@ -119,25 +153,104 @@ export class NotificationService {
         text: emailText,
       });
 
-      if (!emailResult.success) {
-        console.error('[NotificationService] Erreur lors de l\'envoi de l\'email de confirmation:', emailResult.error);
+      if (emailResult.success) {
+        console.log('[NotificationService] ✅ Email de confirmation envoyé avec succès');
+        // Note: emailResult peut avoir metadata si le provider le supporte
+        const metadata = (emailResult as any).metadata;
+        if (metadata?.dryRun) {
+          console.log('[NotificationService] ⚠️  Mode DRY RUN : Email loggé mais pas envoyé');
+        }
+      } else {
+        console.error('[NotificationService] ❌ Erreur lors de l\'envoi de l\'email de confirmation:', emailResult.error);
       }
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('');
     } else {
-      console.warn('[NotificationService] Email non envoyé: adresse email manquante pour le client', ctx.clientName);
+      console.warn('[NotificationService] ⚠️  Email non envoyé: adresse email manquante pour le client', ctx.clientName);
     }
 
-    // Envoyer le SMS de confirmation seulement si le téléphone est fourni
-    if (ctx.clientPhone && ctx.clientPhone.trim() !== '') {
+    // Gestion intelligente du SMS :
+    // - Si RDV dans les 12h → SMS immédiat (important pour ne pas rater le RDV)
+    // - Sinon → SMS différé (Option B) : envoyé seulement si email non ouvert après 12h
+    const now = new Date();
+    const hoursUntilAppointment = (ctx.startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const isSameDayOrSoon = hoursUntilAppointment <= 12;
+    
+    // Logs de debug pour comprendre pourquoi le SMS n'est pas envoyé
+    console.log('[NotificationService] 🔍 Calcul SMS immédiat:');
+    console.log('[NotificationService] 🔍   Date/heure actuelle:', now.toISOString());
+    console.log('[NotificationService] 🔍   Date/heure RDV:', ctx.startDate.toISOString());
+    console.log('[NotificationService] 🔍   Heures jusqu\'au RDV:', hoursUntilAppointment.toFixed(2));
+    console.log('[NotificationService] 🔍   RDV dans les 12h?', isSameDayOrSoon);
+    console.log('[NotificationService] 🔍   Téléphone disponible?', ctx.clientPhone && ctx.clientPhone.trim() !== '');
+    
+    if (isSameDayOrSoon && ctx.clientPhone && ctx.clientPhone.trim() !== '') {
+      // RDV le jour même ou dans les 12h → SMS immédiat
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('[NotificationService] 📱 ENVOI SMS IMMÉDIAT (RDV dans les 12h)');
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('[NotificationService] 📱 RDV dans:', hoursUntilAppointment.toFixed(1), 'heures');
+      console.log('[NotificationService] 📱 To:', ctx.clientPhone);
+      console.log('[NotificationService] 📱 Message:', smsText);
+      
       const smsResult = await this.smsProvider.sendSms({
         to: ctx.clientPhone,
         message: smsText,
       });
-
-      if (!smsResult.success) {
-        console.error('[NotificationService] Erreur lors de l\'envoi du SMS de confirmation:', smsResult.error);
+      
+      if (smsResult.success) {
+        console.log('[NotificationService] ✅ SMS de confirmation envoyé immédiatement');
+        const metadata = smsResult.metadata;
+        if (metadata?.dryRun) {
+          console.log('[NotificationService] ⚠️  Mode DRY RUN : SMS loggé mais pas envoyé');
+        } else {
+          // Enregistrer que le SMS a été envoyé en base (pour éviter les doublons)
+          // Note: bookingId dans le contexte correspond à l'ID du rendez-vous
+          try {
+            const { createClient } = await import('@supabase/supabase-js');
+            const supabaseUrl = process.env.SUPABASE_URL;
+            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            if (supabaseUrl && supabaseKey && ctx.bookingId) {
+              const supabase = createClient(supabaseUrl, supabaseKey);
+              const appointmentId = ctx.bookingId;
+              const { error: updateError } = await supabase
+                .from('appointments')
+                .update({
+                  sms_confirmation_sent: true,
+                  sms_confirmation_type: 'immediate_same_day',
+                })
+                .eq('id', appointmentId);
+              
+              if (updateError) {
+                console.warn('[NotificationService] ⚠️  Erreur lors de la mise à jour du statut SMS en base:', updateError.message);
+              } else {
+                console.log('[NotificationService] ✅ Statut SMS mis à jour en base pour', appointmentId);
+              }
+            }
+          } catch (dbError: any) {
+            console.warn('[NotificationService] ⚠️  Erreur lors de la mise à jour du statut SMS en base:', dbError.message);
+            // Ne pas faire échouer l'envoi si la mise à jour DB échoue
+          }
+        }
+      } else {
+        console.error('[NotificationService] ❌ Erreur lors de l\'envoi du SMS:', smsResult.error);
       }
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('');
     } else {
-      console.warn('[NotificationService] SMS non envoyé: numéro de téléphone manquant pour le client', ctx.clientName);
+      // RDV dans plus de 12h → SMS différé (Option B)
+      console.log('[NotificationService] ℹ️  SMS de confirmation différé (Option B)');
+      console.log('[NotificationService] ℹ️  RDV dans', hoursUntilAppointment.toFixed(1), 'heures (>12h)');
+      console.log('[NotificationService] ℹ️  Le SMS sera envoyé automatiquement si l\'email n\'est pas ouvert après 12h');
+      
+      // Log pour debug (garder les traces mais ne pas envoyer)
+      if (ctx.clientPhone && ctx.clientPhone.trim() !== '') {
+        console.log('[NotificationService] 📞 Numéro disponible:', ctx.clientPhone);
+        console.log('[NotificationService] 📞 SMS sera envoyé automatiquement si email non ouvert après 12h');
+      } else {
+        console.warn('[NotificationService] ⚠️ SMS non disponible: numéro de téléphone manquant pour le client', ctx.clientName);
+      }
     }
   }
 
@@ -234,6 +347,77 @@ export class NotificationService {
 
     if (!emailResult.success) {
       console.error('[NotificationService] Erreur lors de l\'envoi de l\'email d\'annulation:', emailResult.error);
+    }
+  }
+
+  /**
+   * Informe le manager/owner qu'une annulation a eu lieu
+   * (principalement utilisé lorsque l'annulation est déclenchée par le client).
+   */
+  async sendBookingCancellationInfoToManager(
+    ctx: ManagerCancellationNotificationContext,
+  ): Promise<void> {
+    if (!ctx.managerEmail || ctx.managerEmail.trim() === '') {
+      console.warn('[NotificationService] Email info manager non envoyé: adresse manquante');
+      return;
+    }
+
+    const formattedDate = format(ctx.startDate, "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr });
+    const formattedTime = format(ctx.startDate, 'HH:mm', { locale: fr });
+    const cancelledByText = ctx.cancelledByRole === 'client' ? 'Client' : 'Manager';
+
+    const html = `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1b1b1b;">
+    <h2 style="color:#6b4dff;">💡 Rendez-vous annulé</h2>
+    <p>Bonjour ${ctx.managerName || 'Manager'},</p>
+    <p>Un rendez-vous a été annulé sur SalonPilot.</p>
+    <div style="background:#f7f5ff;border-radius:12px;padding:16px;border:1px solid #e4ddff;">
+      <p><strong>Client :</strong> ${ctx.clientName}</p>
+      <p><strong>Service :</strong> ${ctx.serviceName}</p>
+      <p><strong>Coiffeur·euse :</strong> ${ctx.stylistName}</p>
+      <p><strong>Date :</strong> ${formattedDate}</p>
+      <p><strong>Heure :</strong> ${formattedTime}</p>
+      <p><strong>Annulé par :</strong> ${cancelledByText}</p>
+      ${
+        ctx.cancellationReason
+          ? `<p><strong>Raison :</strong> ${ctx.cancellationReason}</p>`
+          : ''
+      }
+    </div>
+    <p>Salon : <strong>${ctx.salonName}</strong></p>
+    <p style="color:#7a7a7a;">Cet email est généré automatiquement par SalonPilot.</p>
+  </body>
+</html>
+    `.trim();
+
+    const text = [
+      'Rendez-vous annulé',
+      `Client : ${ctx.clientName}`,
+      `Service : ${ctx.serviceName}`,
+      `Coiffeur·euse : ${ctx.stylistName}`,
+      `Date : ${formattedDate}`,
+      `Heure : ${formattedTime}`,
+      `Annulé par : ${cancelledByText}`,
+      ctx.cancellationReason ? `Raison : ${ctx.cancellationReason}` : '',
+      `Salon : ${ctx.salonName}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const emailResult = await this.emailProvider.sendEmail({
+      to: ctx.managerEmail,
+      subject: `Annulation d'un rendez-vous - ${ctx.salonName}`,
+      html,
+      text,
+    });
+
+    if (!emailResult.success) {
+      console.error(
+        '[NotificationService] Erreur lors de l\'envoi de l\'email d\'info manager:',
+        emailResult.error,
+      );
     }
   }
 
@@ -650,19 +834,17 @@ Cet email a été envoyé automatiquement par ${ctx.salonName}
       // Rendre le template SMS avec préfixe [TEST]
       const smsText = `[TEST] ${renderTemplate(smsTemplate, templateContext)}`;
       
-      results.sms = {
-        template: smsTemplate,
-        rendered: smsText,
-      };
-      
       const smsResult = await this.smsProvider.sendSms({
         to: ctx.clientPhone,
         message: smsText,
       });
-      results.sms.success = smsResult.success;
-      if (smsResult.error) {
-        results.sms.error = smsResult.error;
-      }
+      
+      results.sms = {
+        template: smsTemplate,
+        rendered: smsText,
+        success: smsResult.success,
+        error: smsResult.error,
+      };
     }
 
     // Test Email
@@ -676,26 +858,40 @@ Cet email a été envoyé automatiquement par ${ctx.salonName}
       const emailHtml = renderTemplate(emailHtmlTemplate, templateContext);
       const emailText = this.htmlToText(emailHtml);
 
-      results.email = {
-        subjectTemplate: emailSubjectTemplate,
-        subjectRendered: emailSubject,
-        htmlTemplate: emailHtmlTemplate.substring(0, 200) + (emailHtmlTemplate.length > 200 ? '...' : ''),
-        htmlRendered: emailHtml.substring(0, 200) + (emailHtml.length > 200 ? '...' : ''),
-      };
-
       const emailResult = await this.emailProvider.sendEmail({
         to: ctx.clientEmail,
         subject: emailSubject,
         html: emailHtml,
         text: emailText,
       });
-      results.email.success = emailResult.success;
-      if (emailResult.error) {
-        results.email.error = emailResult.error;
-      }
+      
+      results.email = {
+        subjectTemplate: emailSubjectTemplate,
+        subjectRendered: emailSubject,
+        htmlTemplate: emailHtmlTemplate.substring(0, 200) + (emailHtmlTemplate.length > 200 ? '...' : ''),
+        htmlRendered: emailHtml.substring(0, 200) + (emailHtml.length > 200 ? '...' : ''),
+        success: emailResult.success,
+        error: emailResult.error,
+      };
     }
 
     return results;
+  }
+
+  /**
+   * Envoie un SMS directement via le provider SMS
+   * Méthode utilitaire pour les tests et les envois directs
+   * 
+   * @param params - Paramètres d'envoi
+   * @param params.to - Numéro de téléphone au format international (ex: +41791234567)
+   * @param params.message - Message à envoyer
+   * @returns Résultat de l'envoi avec success: true si réussi, false sinon avec un message d'erreur
+   */
+  async sendSms(params: {
+    to: string;
+    message: string;
+  }): Promise<{ success: boolean; error?: string; metadata?: Record<string, unknown> }> {
+    return await this.smsProvider.sendSms(params);
   }
 }
 

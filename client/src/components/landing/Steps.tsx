@@ -1,86 +1,92 @@
+import { motion } from 'framer-motion';
 import Container from '@/components/ui/Container';
 import Reveal from '@/components/ui/Reveal';
-import { motion } from 'framer-motion';
+import { CalendarDays, CheckCircle2, MessageCircleMore, SmartphoneNfc } from 'lucide-react';
 
-const steps = [
+const timeline = [
   {
-    number: '1',
-    title: 'Choisissez service & date',
+    title: 'Le client réserve en ligne',
     description:
-      'Sélectionnez votre service préféré et trouvez le créneau qui vous convient parmi les disponibilités en temps réel.',
+      'Widget mobile-first, créneaux filtrés par styliste et acompte optionnel.',
+    icon: CalendarDays,
   },
   {
-    number: '2',
-    title: 'Validez & payez',
+    title: 'Le salon valide ou ajuste',
     description:
-      'Confirmez vos informations et procédez au paiement sécurisé. Acompte ou règlement complet selon vos préférences.',
+      'Notification instantanée dans ton dashboard + sur ton mobile (push ou SMS).',
+    icon: CheckCircle2,
   },
   {
-    number: '3',
-    title: 'Confirmation & rappels',
+    title: 'Confirmation premium',
     description:
-      'Confirmation instantanée par email/SMS. Rappels automatiques pour ne jamais oublier votre rendez-vous.',
+      'Email glassmorphism + SMS brandé envoyés automatiquement avec lien de modification.',
+    icon: MessageCircleMore,
+  },
+  {
+    title: 'Rappel intelligent',
+    description:
+      '24h ou 2h avant : SMS + WhatsApp avec lien pour prévenir en cas de retard.',
+    icon: SmartphoneNfc,
   },
 ];
 
 export default function Steps() {
   return (
-    <section id="how-it-works" className="py-20 sm:py-24 lg:py-32">
+    <section id="how-it-works" className="relative py-24 sm:py-28 lg:py-32" style={{ backgroundColor: 'var(--lp-bg-page)' }}>
       <Container>
         <Reveal>
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4">
-              Comment ça marche
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <p className="text-sm uppercase tracking-[0.4em] mb-4 brand-pill">Flow de réservation</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold" style={{ color: 'var(--lp-text-main)' }}>
+              Une timeline lumineuse, sans friction
             </h2>
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Un processus simple en 3 étapes pour réserver votre rendez-vous
+            <p className="mt-4 text-lg" style={{ color: 'var(--lp-text-muted)' }}>
+              Chaque point de contact est habillé avec les mêmes effets Glow / Glass que ton application propriétaire.
             </p>
           </div>
         </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
-          {steps.map((step, index) => (
-            <Reveal key={step.number} delay={index * 0.15} direction="up">
-              <div className="relative text-center">
-                {/* Connector line (desktop only) */}
-                {index < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-10 left-full w-full h-0.5 bg-gradient-to-r from-primary/50 via-accent/30 to-transparent" />
-                )}
-
-                {/* Step number */}
-                <div className="relative mb-6">
-                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center mx-auto shadow-lg">
-                    <span className="text-3xl font-bold text-white">{step.number}</span>
+        <div className="relative">
+          <div
+            className="hidden lg:block absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-20"
+            style={{ color: 'var(--lp-border-medium)' }}
+          />
+          <div className="grid gap-8 lg:gap-10 lg:grid-cols-4">
+            {timeline.map((step, index) => (
+              <Reveal key={step.title} delay={index * 0.1}>
+                <motion.div
+                  whileHover={{ scale: 1.03, y: -4, transition: { duration: 0.2 } }}
+                  className="relative glass-panel p-6"
+                  style={{ backgroundColor: 'var(--lp-bg-card)' }}
+                >
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg mb-6"
+                    style={{
+                      background: `var(--lp-brand-gradient)`,
+                    }}
+                  >
+                    <step.icon className="h-5 w-5" />
                   </div>
-                  {index < steps.length - 1 && (
-                    <motion.div
-                      className="hidden md:block absolute top-10 left-full w-full h-0.5 bg-gradient-to-r from-primary/50 to-transparent"
-                      initial={{ scaleX: 0 }}
-                      whileInView={{ scaleX: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.8, delay: index * 0.2 }}
-                    />
+                  <h3 className="text-xl font-semibold mb-3" style={{ color: 'var(--lp-text-main)' }}>{step.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--lp-text-muted)' }}>{step.description}</p>
+                  {index < timeline.length - 1 && (
+                    <>
+                      <span
+                        className="absolute left-1/2 top-full hidden h-10 w-px bg-gradient-to-b from-current to-transparent opacity-20 lg:block"
+                        style={{ color: 'var(--lp-border-medium)' }}
+                      />
+                      <span
+                        className="absolute -left-1 lg:hidden top-6 h-6 w-px bg-gradient-to-b from-current to-transparent opacity-20"
+                        style={{ color: 'var(--lp-border-medium)' }}
+                      />
+                    </>
                   )}
-                </div>
-
-                {/* Step content */}
-                <h3 className="text-xl sm:text-2xl font-semibold text-foreground mb-4">
-                  {step.title}
-                </h3>
-                <p className="text-muted-foreground leading-relaxed">{step.description}</p>
-              </div>
-            </Reveal>
-          ))}
+                </motion.div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </Container>
     </section>
   );
 }
-
-
-
-
-
-
-
-

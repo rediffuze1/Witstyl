@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export function useAuth() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isMounted, setIsMounted] = useState(false);
+  const { refresh } = useAuthContext();
   
   // Attendre que le composant soit monté côté client
   useEffect(() => {
@@ -67,6 +69,9 @@ export function useAuth() {
       
       // Attendre que la query soit rafraîchie
       await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+
+      // Mettre à jour le AuthContext (protège les routes privées)
+      await refresh();
       
       toast({
         title: "Connexion réussie",
@@ -95,8 +100,10 @@ export function useAuth() {
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      await refresh();
       toast({
         title: "Déconnexion réussie",
         description: "Vous avez été déconnecté.",

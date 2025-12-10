@@ -107,7 +107,13 @@ export async function buildNotificationContext(
       stylistName = `${stylist.first_name || ''} ${stylist.last_name || ''}`.trim() || 'un·e coiffeur·euse';
     }
 
-    return {
+    // Logs détaillés pour le debug du numéro de téléphone
+    console.log('[buildNotificationContext] 📞 TRACE DU NUMÉRO DE TÉLÉPHONE:');
+    console.log('[buildNotificationContext] 📞   client.phone (depuis DB):', client.phone || '(vide ou null)');
+    console.log('[buildNotificationContext] 📞   client.phone type:', typeof client.phone);
+    console.log('[buildNotificationContext] 📞   client.phone length:', client.phone?.length || 0);
+
+    const context = {
       bookingId: appointmentData.id,
       salonId: appointmentData.salon_id, // Ajouter salonId pour récupérer les templates
       clientName: `${client.first_name || ''} ${client.last_name || ''}`.trim() || 'Client',
@@ -119,6 +125,11 @@ export async function buildNotificationContext(
       startDate,
       endDate,
     };
+
+    console.log('[buildNotificationContext] 📞   context.clientPhone (final):', context.clientPhone || '(vide)');
+    console.log('[buildNotificationContext] 📞   context.clientPhone type:', typeof context.clientPhone);
+
+    return context;
   } catch (error: any) {
     console.error('[Notifications] Erreur lors de la construction du contexte:', error);
     return null;

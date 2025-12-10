@@ -20,36 +20,28 @@ export default function Hours() {
     queryFn: async () => {
       const response = await fetch('/api/public/salon');
       if (!response.ok) {
-        // Ne pas throw, retourner un objet vide pour permettre le rendu
         console.warn('[Hours] Impossible de charger les horaires:', response.status);
         return { salon: null, hours: [] };
       }
       return response.json();
     },
-    retry: 1, // Réduire les retries pour éviter les blocages
-    staleTime: 5 * 60 * 1000, // Cache 5 minutes
-    // Ne pas suspendre le rendu en cas d'erreur
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
     throwOnError: false,
   });
 
-  // Convertir les horaires de l'API en format d'affichage
-  // Affiche TOUS les créneaux configurés pour chaque jour
   const formatHours = (hoursData: SalonHour[] | undefined) => {
     if (!hoursData || !Array.isArray(hoursData)) {
-      // Valeurs par défaut si pas de données
       return DAYS.map(day => ({
         day: day.label,
         time: 'Horaires indisponibles'
       }));
     }
 
-    // Grouper les horaires par jour (un jour peut avoir plusieurs créneaux)
     const hoursByDay = groupHoursByDay(hoursData);
 
     return DAYS.map(day => {
       const dayHours = hoursByDay.get(day.key) || [];
-      
-      // Formater toutes les tranches du jour
       const formattedTime = formatSalonDaySlots(dayHours);
       
       return {
@@ -62,17 +54,22 @@ export default function Hours() {
   const hours = formatHours(salonData?.hours);
 
   return (
-    <section id="hours" className="py-20 sm:py-24 lg:py-32 bg-muted/30">
+    <section id="hours" className="py-20 sm:py-24 lg:py-32" style={{ backgroundColor: 'var(--lp-bg-section)' }}>
       <Container>
         <Reveal>
           <div className="text-center mb-16">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+              style={{
+                background: `var(--lp-brand-gradient)`,
+              }}
+            >
               <Clock className="text-white text-2xl" />
             </div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4" style={{ color: 'var(--lp-text-main)' }}>
               Nos horaires
             </h2>
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl max-w-2xl mx-auto" style={{ color: 'var(--lp-text-muted)' }}>
               Nous sommes disponibles pour répondre à vos questions
             </p>
           </div>
@@ -80,15 +77,21 @@ export default function Hours() {
 
         <Reveal delay={0.1}>
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white/80 backdrop-blur-md border border-border/40 rounded-2xl p-8 shadow-lg">
+            <div className="glass-panel p-8" style={{ backgroundColor: 'var(--lp-bg-card)' }}>
               {isLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-                  <p className="text-muted-foreground">Chargement des horaires...</p>
+                  <div
+                    className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4"
+                    style={{
+                      borderColor: 'var(--brand-color)',
+                      borderTopColor: 'transparent',
+                    }}
+                  />
+                  <p style={{ color: 'var(--lp-text-muted)' }}>Chargement des horaires...</p>
                 </div>
               ) : error ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">
+                  <p style={{ color: 'var(--lp-text-muted)' }}>
                     Les horaires ne sont pas disponibles pour le moment.
                   </p>
                 </div>
@@ -97,13 +100,14 @@ export default function Hours() {
                   {hours.map((hour) => (
                     <div
                       key={hour.day}
-                      className="flex items-center justify-between py-3 border-b border-border/40 last:border-0"
+                      className="flex items-center justify-between py-3 border-b last:border-0"
+                      style={{ borderColor: 'var(--lp-border-soft)' }}
                     >
-                      <span className="font-semibold text-foreground">{hour.day}</span>
+                      <span className="font-semibold" style={{ color: 'var(--lp-text-main)' }}>{hour.day}</span>
                       <span
-                        className={`text-muted-foreground ${
-                          hour.time === 'Fermé' ? 'text-muted-foreground/60' : ''
-                        }`}
+                        style={{
+                          color: hour.time === 'Fermé' ? 'var(--lp-text-subtle)' : 'var(--lp-text-muted)',
+                        }}
                       >
                         {hour.time}
                       </span>
@@ -118,4 +122,3 @@ export default function Hours() {
     </section>
   );
 }
-

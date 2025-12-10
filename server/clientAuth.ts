@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { supabaseAdmin } from "./supabaseService";
+import { notificationService } from './core/notifications/index.js';
+import { cancelAppointment } from './core/appointments/AppointmentService.js';
 import crypto from 'crypto';
 
 // Extension du type Request pour inclure les sessions client
@@ -1154,35 +1156,28 @@ export function setupClientAuth(app: any) {
       const client = req.client;
       const appointmentId = req.params.id;
 
-      // Vérifier que le rendez-vous appartient au client
-      const { data: appointment, error: checkError } = await supabaseAdmin
-        .from('appointments')
-        .select('*')
-        .eq('id', appointmentId)
-        .eq('client_id', client.id)
-        .single();
+      const cancellationResult = await cancelAppointment(
+        {
+          supabase: supabaseAdmin,
+          appointmentId,
+          cancelledById: client.id,
+          cancelledByRole: 'client',
+          cancellationReason: req.body?.reason || 'Annulé par le client',
+          expectedClientId: client.id,
+        },
+        { notificationService },
+      );
 
-      if (checkError || !appointment) {
-        return res.status(404).json({ message: "Rendez-vous non trouvé" });
-      }
-
-      // Annuler le rendez-vous
-      const { error: updateError } = await supabaseAdmin
-        .from('appointments')
-        .update({
-          status: 'cancelled',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
-
-      if (updateError) {
-        console.error("Erreur lors de l'annulation du rendez-vous:", updateError);
-        return res.status(500).json({ message: "Erreur lors de l'annulation du rendez-vous" });
+      if (!cancellationResult.success) {
+        return res
+          .status(cancellationResult.status || 500)
+          .json({ message: cancellationResult.error || "Erreur lors de l'annulation du rendez-vous" });
       }
 
       res.json({
         success: true,
-        message: "Rendez-vous annulé avec succès"
+        message: "Rendez-vous annulé avec succès",
+        appointment: cancellationResult.appointment,
       });
     } catch (error) {
       console.error("Erreur lors de l'annulation du rendez-vous:", error);

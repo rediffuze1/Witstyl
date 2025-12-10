@@ -30,23 +30,33 @@ async function loadSalonInfo() {
   const now = Date.now();
   // Utiliser le cache si encore valide
   if (salonCache.data && (now - salonCache.lastFetch) < CACHE_TTL) {
+    console.log("[voice-agent] 📦 Utilisation du cache (valide jusqu'à", new Date(salonCache.lastFetch + CACHE_TTL).toISOString(), ")");
     return salonCache;
   }
 
+  console.log("[voice-agent] 🔄 Chargement des informations du salon depuis la base de données...");
+
   try {
-    // Récupérer le premier salon disponible (ou le salon par défaut)
+    // Récupérer le salon le plus récent (même logique que /api/public/salon)
     const { data: salonsData, error: salonError } = await supabaseAdmin
       .from('salons')
       .select('*')
+      .order('created_at', { ascending: false })
       .limit(1);
 
-    if (salonError || !salonsData || salonsData.length === 0) {
-      console.warn("[voice-agent] Aucun salon trouvé:", salonError?.message);
+    if (salonError) {
+      console.error("[voice-agent] ❌ Erreur récupération salon:", salonError);
+      return { data: null, services: null, hours: null, lastFetch: now };
+    }
+
+    if (!salonsData || salonsData.length === 0) {
+      console.warn("[voice-agent] ⚠️ Aucun salon trouvé dans la base de données");
       return { data: null, services: null, hours: null, lastFetch: now };
     }
 
     const salon = salonsData[0];
     const salonId = salon.id;
+    console.log("[voice-agent] ✅ Salon trouvé:", salon.name, "(ID:", salonId, ")");
 
     // Récupérer les services du salon
     const { data: services, error: servicesError } = await supabaseAdmin
@@ -54,12 +64,48 @@ async function loadSalonInfo() {
       .select('name, description, price, duration_minutes')
       .eq('salon_id', salonId)
       .eq('is_active', true);
+    
+    if (servicesError) {
+      console.warn("[voice-agent] ⚠️ Erreur récupération services:", servicesError);
+    } else {
+      console.log("[voice-agent] ✅ Services récupérés:", services?.length || 0);
+    }
 
     // Récupérer les horaires d'ouverture
-    const { data: hours, error: hoursError } = await supabaseAdmin
-      .from('salon_hours')
+    // Utiliser la même logique que /api/public/salon : d'abord opening_hours, puis fallback sur salon_hours
+    let hours = null;
+    let hoursError = null;
+    
+    // Essayer d'abord avec opening_hours (peut avoir plusieurs créneaux par jour)
+    const { data: openingHours, error: openingHoursError } = await supabaseAdmin
+      .from('opening_hours')
       .select('day_of_week, open_time, close_time, is_closed')
-      .eq('salon_id', salonId);
+      .eq('salon_id', salonId)
+      .order('day_of_week', { ascending: true })
+      .order('open_time', { ascending: true });
+    
+    if (!openingHoursError && openingHours && openingHours.length > 0) {
+      hours = openingHours;
+      console.log("[voice-agent] ✅ Horaires récupérés depuis opening_hours:", hours.length);
+    } else {
+      // Fallback sur salon_hours si opening_hours n'existe pas ou est vide
+      const { data: salonHours, error: salonHoursError } = await supabaseAdmin
+        .from('salon_hours')
+        .select('day_of_week, open_time, close_time, is_closed')
+        .eq('salon_id', salonId)
+        .order('day_of_week', { ascending: true })
+        .order('open_time', { ascending: true });
+      
+      if (!salonHoursError && salonHours) {
+        hours = salonHours;
+        console.log("[voice-agent] ✅ Horaires récupérés depuis salon_hours:", hours.length);
+      } else {
+        hoursError = salonHoursError || openingHoursError;
+        if (hoursError) {
+          console.warn("[voice-agent] ⚠️ Erreur chargement horaires:", hoursError);
+        }
+      }
+    }
 
     salonCache = {
       data: salon,
@@ -67,6 +113,12 @@ async function loadSalonInfo() {
       hours: hours || [],
       lastFetch: now
     };
+
+    console.log("[voice-agent] ✅ Cache mis à jour:", {
+      salonName: salon.name,
+      servicesCount: (services || []).length,
+      hoursCount: (hours || []).length
+    });
 
     return salonCache;
   } catch (error) {
@@ -160,6 +212,14 @@ router.post("/", async (req, res) => {
     // Charger les informations du salon
     const salonInfo = await loadSalonInfo();
     
+    // Log pour déboguer
+    console.log("[voice-agent] 📊 Informations salon chargées:", {
+      hasSalon: !!salonInfo.data,
+      salonName: salonInfo.data?.name || "N/A",
+      servicesCount: salonInfo.services?.length || 0,
+      hoursCount: salonInfo.hours?.length || 0
+    });
+    
     // Construire les informations sur les services disponibles
     let servicesList = "Aucun service configuré";
     if (salonInfo.services && salonInfo.services.length > 0) {
@@ -169,13 +229,33 @@ router.post("/", async (req, res) => {
     }
 
     // Construire les horaires d'ouverture
+    // Grouper les horaires par jour pour gérer les multiples créneaux (ex: 08h30-12h00, 13h00-18h30)
     let hoursInfo = "Horaires non spécifiés";
     if (salonInfo.hours && salonInfo.hours.length > 0) {
       const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-      const hoursText = salonInfo.hours
+      
+      // Grouper les horaires par jour
+      const hoursByDay = {};
+      salonInfo.hours
         .filter(h => !h.is_closed && h.open_time && h.close_time)
-        .map(h => `${dayNames[h.day_of_week] || `Jour ${h.day_of_week}`}: ${h.open_time} - ${h.close_time}`)
+        .forEach(h => {
+          const dayKey = h.day_of_week;
+          if (!hoursByDay[dayKey]) {
+            hoursByDay[dayKey] = [];
+          }
+          hoursByDay[dayKey].push(`${h.open_time} - ${h.close_time}`);
+        });
+      
+      // Formater chaque jour avec tous ses créneaux
+      const hoursText = Object.keys(hoursByDay)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(dayKey => {
+          const dayName = dayNames[parseInt(dayKey)] || `Jour ${dayKey}`;
+          const slots = hoursByDay[dayKey].join(', ');
+          return `${dayName}: ${slots}`;
+        })
         .join('\n');
+      
       if (hoursText) {
         hoursInfo = hoursText;
       }
@@ -186,6 +266,16 @@ router.post("/", async (req, res) => {
     const salonAddress = salonInfo.data?.address || "";
     const salonPhone = salonInfo.data?.phone || "";
     const salonEmail = salonInfo.data?.email || "";
+    
+    // Log pour vérifier que les données sont bien présentes
+    console.log("[voice-agent] 📝 Données pour le prompt:", {
+      salonName,
+      hasAddress: !!salonAddress,
+      hasPhone: !!salonPhone,
+      hasEmail: !!salonEmail,
+      servicesListLength: servicesList.length,
+      hoursInfoLength: hoursInfo.length
+    });
     
     const systemPrompt = `Tu es une réceptionniste IA professionnelle et chaleureuse pour le salon "${salonName}".
 

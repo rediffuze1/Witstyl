@@ -45,14 +45,14 @@ export default function FAQ() {
   };
 
   return (
-    <section id="faq" className="py-20 sm:py-24 lg:py-32 bg-muted/30">
+    <section id="faq" className="py-20 sm:py-24 lg:py-32" style={{ backgroundColor: 'var(--lp-bg-page)' }}>
       <Container>
         <Reveal>
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4" style={{ color: 'var(--lp-text-main)' }}>
               Questions fréquentes
             </h2>
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl max-w-2xl mx-auto" style={{ color: 'var(--lp-text-muted)' }}>
               Tout ce que vous devez savoir sur SalonPilot
             </p>
           </div>
@@ -61,16 +61,19 @@ export default function FAQ() {
         <div className="max-w-3xl mx-auto space-y-4">
           {faqs.map((faq, index) => (
             <Reveal key={index} delay={index * 0.05} direction="up">
-              <div className="bg-white/80 backdrop-blur-md border border-border/40 rounded-2xl overflow-hidden">
+              <div className="glass-panel overflow-hidden" style={{ backgroundColor: 'var(--lp-bg-card)' }}>
                 <button
                   onClick={() => toggleFAQ(index)}
-                  className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-muted/50 transition-colors"
+                  className="w-full px-6 py-5 flex items-center justify-between text-left transition-colors hover:bg-opacity-50"
+                  style={{ 
+                    backgroundColor: openIndex === index ? 'var(--lp-bg-section)' : 'transparent',
+                  }}
                 >
-                  <span className="font-semibold text-foreground pr-4">{faq.question}</span>
+                  <span className="font-semibold pr-4" style={{ color: 'var(--lp-text-main)' }}>{faq.question}</span>
                   {openIndex === index ? (
-                    <ChevronUp className="h-5 w-5 text-primary flex-shrink-0" />
+                    <ChevronUp className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--brand-color)' }} />
                   ) : (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <ChevronDown className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--lp-text-muted)' }} />
                   )}
                 </button>
                 <AnimatePresence>
@@ -82,7 +85,7 @@ export default function FAQ() {
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-6 pb-5 text-muted-foreground leading-relaxed">
+                      <div className="px-6 pb-5 leading-relaxed" style={{ color: 'var(--lp-text-muted)' }}>
                         {faq.answer}
                       </div>
                     </motion.div>
@@ -96,11 +99,3 @@ export default function FAQ() {
     </section>
   );
 }
-
-
-
-
-
-
-
-

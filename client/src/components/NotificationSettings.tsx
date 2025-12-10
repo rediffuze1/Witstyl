@@ -49,6 +49,7 @@ export default function NotificationSettings() {
   });
 
   const [testEmail, setTestEmail] = useState('');
+  const [testPhone, setTestPhone] = useState('');
 
   // Charger les settings depuis l'API
   // ⚠️ IMPORTANT: staleTime: 0 pour toujours recharger depuis le serveur
@@ -182,6 +183,48 @@ export default function NotificationSettings() {
       return;
     }
     sendTestEmailMutation.mutate(testEmail.trim());
+  };
+
+  // Mutation pour envoyer un SMS de test
+  const sendTestSmsMutation = useMutation({
+    mutationFn: async (phone: string) => {
+      const response = await apiRequest('POST', '/api/owner/notifications/send-test-sms', { 
+        to: phone,
+        message: 'Test SMS depuis SalonPilot - Vérification de la configuration'
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Erreur lors de l\'envoi du SMS de test');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'SMS de test envoyé',
+        description: data.metadata?.dryRun 
+          ? 'SMS loggé en mode DRY RUN (pas réellement envoyé). Vérifiez les logs du serveur.'
+          : `Le SMS de test a été envoyé à ${data.to}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible d\'envoyer le SMS de test.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSendTestSms = () => {
+    if (!testPhone.trim()) {
+      toast({
+        title: 'Numéro requis',
+        description: 'Veuillez saisir un numéro de téléphone de test (format: +41791234567).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    sendTestSmsMutation.mutate(testPhone.trim());
   };
 
   const insertPlaceholder = (field: keyof NotificationSettings, placeholder: string) => {
@@ -477,6 +520,48 @@ Nous avons hâte de vous accueillir !"
               )}
             </Button>
           </div>
+        </div>
+
+        <Separator />
+
+        {/* Section SMS de test */}
+        <div className="space-y-4 rounded-lg border p-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Envoyer un SMS de test</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Testez l'envoi de SMS directement. Si SMS_DRY_RUN=true, le SMS sera loggé mais pas envoyé (vérifiez les logs du serveur).
+          </p>
+          <div className="flex gap-2">
+            <Input
+              type="tel"
+              placeholder="+41791234567"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSendTestSms}
+              disabled={sendTestSmsMutation.isPending || !testPhone.trim()}
+              variant="outline"
+            >
+              {sendTestSmsMutation.isPending ? (
+                <>
+                  <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                  Envoi...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Envoyer
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Format: +41791234567 (E.164 international). Vérifiez les logs du serveur pour voir le résultat.
+          </p>
         </div>
 
         <Separator />

@@ -1787,7 +1787,8 @@ salonsRouter.get('/:salonId/appointments', async (req: Request, res: Response) =
     let query = supabase
       .from('appointments')
       .select('id, salon_id, client_id, stylist_id, service_id, appointment_date, duration, status, notes, created_at, updated_at')
-      .or(`salon_id.eq.${realSalonId},salon_id.eq.${prefixedSalonId},salon_id.eq.${normalizedSalonId}`);
+      .or(`salon_id.eq.${realSalonId},salon_id.eq.${prefixedSalonId},salon_id.eq.${normalizedSalonId}`)
+      .neq('status', 'cancelled');
 
     // Filtrer par date si fourni dans les query params
     // Note: La table utilise appointment_date, pas start_time

@@ -43,12 +43,13 @@ export class ResendEmailProvider implements EmailProvider {
    * @param params.from - Adresse email de l'expéditeur (optionnel, utilise this.from par défaut)
    * @returns Résultat de l'envoi avec success: true si réussi, false sinon avec un message d'erreur
    */
-  async sendEmail({ to, subject, html, text, from }: {
+  async sendEmail({ to, subject, html, text, from, metadata }: {
     to: string;
     subject: string;
     html: string;
     text?: string;
     from?: string;
+    metadata?: Record<string, unknown>;
   }): Promise<{ success: boolean; error?: string }> {
     const fromAddress = from || this.from;
 
@@ -87,13 +88,28 @@ export class ResendEmailProvider implements EmailProvider {
       console.log(`[Resend] HTML length: ${html.length} chars`);
       console.log(`[Resend] Text length: ${(text || this.htmlToText(html)).length} chars`);
       
-      const payload = {
+      const payload: {
+        from: string;
+        to: string;
+        subject: string;
+        html: string;
+        text: string;
+        tags?: Array<{ name: string; value: string }>;
+      } = {
         from: fromAddress,
         to,
         subject,
         html,
         text: text || this.htmlToText(html),
       };
+
+      // Ajouter les metadata comme tags Resend (pour le webhook)
+      if (metadata && Object.keys(metadata).length > 0) {
+        payload.tags = Object.entries(metadata).map(([name, value]) => ({
+          name,
+          value: String(value),
+        }));
+      }
       
       console.log('[Resend] Payload complet:', JSON.stringify(payload, null, 2));
       console.log('[Resend] Appel à Resend API...');
