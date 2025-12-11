@@ -1,89 +1,31 @@
-import express, { type Express } from "express";
-import fs from "fs";
-import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
-import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
+// server/vite.ts
+// Stub pour la prod Vercel : on exporte des fonctions vides
+// pour éviter l'erreur "Cannot find module '/var/task/server/vite'".
 
-const viteLogger = createLogger();
+import type { Express } from "express";
+import type { Server } from "http";
+
+/**
+ * En développement, ce fichier peut être remplacé par une vraie
+ * intégration Vite. En production Vercel, ces fonctions ne font rien.
+ */
+export async function setupVite(_app: Express, _server?: Server) {
+  // Ne rien faire en prod
+  return;
+}
+
+export function serveStatic(_app: Express) {
+  // Ne rien faire en prod
+  return;
+}
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
+  // Stub pour la fonction log - en prod on utilise console.log directement
+  console.log(message);
 }
 
-export async function setupVite(app: Express, server: Server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true as const,
-  };
-
-  const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
-    server: serverOptions,
-    appType: "custom",
-  });
-
-  // Do not let Vite handle /api/* requests
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    return (vite.middlewares as any)(req, res, next);
-  });
-  app.get("*", async (req, res, next) => {
-    const url = req.originalUrl;
-
-    try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
-      );
-
-      // always reload the index.html file from disk incase it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
-    }
-  });
-}
-
-export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "..", "dist");
-
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
-  }
-
-  app.use(express.static(distPath));
-
-  // fall through to index.html on GET if the file doesn't exist
-  app.get("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
-  });
-}
+export default {
+  setupVite,
+  serveStatic,
+  log,
+};

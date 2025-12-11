@@ -5,7 +5,7 @@
 import 'dotenv/config';
 import express from "express";
 import { createServer, type Server } from "http";
-import { setupVite, log } from "./vite.js";
+import { setupVite, log } from "./vite.dev.js";
 import app from "./index.js";
 
 // Créer le serveur HTTP pour le développement
