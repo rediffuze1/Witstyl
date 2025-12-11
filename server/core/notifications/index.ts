@@ -87,12 +87,12 @@
  * - BookingNotificationContext : Type TypeScript pour le contexte de notification
  */
 
-import { NotificationService } from './NotificationService';
+import { NotificationService } from './NotificationService.js';
 // Uniquement ClickSend est utilisé maintenant (Twilio et SMSup ne sont plus supportés)
-import { ClickSendSmsProvider } from '../../infrastructure/sms/ClickSendSmsProvider';
-import { ResendEmailProvider } from '../../infrastructure/email/ResendEmailProvider';
-import { SmsProvider, EmailProvider } from './types';
-import { createNotificationSettingsRepository, NotificationSettingsRepository } from './NotificationSettingsRepository';
+import { ClickSendSmsProvider } from '../../infrastructure/sms/ClickSendSmsProvider.js';
+import { ResendEmailProvider } from '../../infrastructure/email/ResendEmailProvider.js';
+import { SmsProvider, EmailProvider } from './types.js';
+import { createNotificationSettingsRepository, NotificationSettingsRepository } from './NotificationSettingsRepository.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Lire les variables d'environnement

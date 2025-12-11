@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { supabaseAdmin } from "./supabaseService";
+import { supabaseAdmin } from "./supabaseService.js";
 import { notificationService } from './core/notifications/index.js';
 import { cancelAppointment } from './core/appointments/AppointmentService.js';
 import crypto from 'crypto';

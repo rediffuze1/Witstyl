@@ -55,7 +55,7 @@ import { createServer, type Server } from "http";
 import path from "path";
 import fs from "fs";
 // @ts-ignore - Import d'un fichier JS depuis TS
-import { hasOpenAI } from "./config-direct";
+import { hasOpenAI } from "./config-direct.js";
 
 // Fonction de logging (déplacée depuis vite.ts pour éviter l'import statique)
 function log(message: string, source = "express") {
@@ -68,7 +68,7 @@ function log(message: string, source = "express") {
 
   console.log(`${formattedTime} [${source}] ${message}`);
 }
-import { SalonAuthService, ClientAuthService, supabaseAdmin } from "./supabaseService";
+import { SalonAuthService, ClientAuthService, supabaseAdmin } from "./supabaseService.js";
 import { healthRouter } from "./routes/health.js";
 import { setupClientAuth } from "./clientAuth.js";
 import session from "express-session";

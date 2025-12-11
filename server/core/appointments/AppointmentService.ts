@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { NotificationService } from '../notifications/NotificationService';
-import { buildNotificationContext } from '../notifications/utils';
+import type { NotificationService } from '../notifications/NotificationService.js';
+import { buildNotificationContext } from '../notifications/utils.js';
 import type {
   BookingNotificationContext,
   ManagerCancellationNotificationContext,
