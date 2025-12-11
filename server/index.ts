@@ -53,6 +53,7 @@ declare global {
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
+import fs from "fs";
 // @ts-ignore - Import d'un fichier JS depuis TS
 import { hasOpenAI } from "./config-direct";
 
@@ -6308,9 +6309,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Créer le serveur HTTP uniquement si on n'est pas sur Vercel
+// Le serveur HTTP n'est créé que dans devServer.ts pour le développement
 // Sur Vercel, on n'a pas besoin d'un serveur HTTP car Vercel gère le routing
-const server = process.env.VERCEL ? null : createServer(app);
+// En production locale, le serveur sera créé si nécessaire (voir la section de démarrage en bas)
+const server = (process.env.NODE_ENV === 'production' && !process.env.VERCEL) ? createServer(app) : null;
 
 // Configuration des cron jobs pour les notifications intelligentes
 // (Optionnel: peut être désactivé si vous utilisez Vercel Cron ou cron système)
@@ -6356,53 +6358,25 @@ const server = process.env.VERCEL ? null : createServer(app);
   console.error('[SERVER] ❌ Erreur lors de la configuration des cron jobs:', error);
 });
 
-// Configuration des fichiers statiques
-// Sur Vercel, on ne configure pas les fichiers statiques ni le serveur HTTP
+// Configuration des fichiers statiques pour production locale uniquement
+// Sur Vercel, on ne configure pas les fichiers statiques - Vercel gère le routing
 if (process.env.VERCEL) {
   // Sur Vercel, on ne fait rien ici - Vercel gère le routing
   console.log('[SERVER] ✅ Application Express configurée pour Vercel serverless');
-} else if (process.env.NODE_ENV === 'production') {
-  // Import dynamique de serveStatic uniquement en production (pas sur Vercel)
-  import('./vite.js')
-    .then(({ serveStatic }) => {
-      serveStatic(app);
-    })
-    .catch((err) => {
-      console.error('[SERVER] ❌ Erreur lors du chargement de serveStatic:', err);
-      throw err;
+} else if (process.env.NODE_ENV === 'production' && server) {
+  // En production locale (pas sur Vercel), servir les fichiers statiques depuis dist/
+  const distPath = path.resolve(import.meta.dirname, "..", "dist");
+  
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    // fall through to index.html on GET if the file doesn't exist
+    app.get("*", (_req, res) => {
+      res.sendFile(path.resolve(distPath, "index.html"));
     });
-} else {
-  // Import dynamique de setupVite uniquement en développement
-  if (!server) {
-    throw new Error('Server HTTP non initialisé');
+    console.log('[SERVER] ✅ Fichiers statiques configurés depuis:', distPath);
+  } else {
+    console.warn('[SERVER] ⚠️  Dossier dist/ introuvable, les fichiers statiques ne seront pas servis');
   }
-  import('./vite.js')
-    .then(({ setupVite }) => {
-      return setupVite(app, server);
-    })
-    .then(() => {
-      const port = parseInt(process.env.PORT || '5001', 10);
-      const host = process.env.HOST || '0.0.0.0';
-      server.listen(port, host, () => {
-        log(`serving on ${host}:${port}`);
-        console.log('[SERVER] ✅ Routes salon/hours enregistrées:');
-        console.log('[SERVER] ✅ GET /api/salons/:salonId/hours');
-        console.log('[SERVER] ✅ PUT /api/salons/:salonId/hours');
-        console.log('[SERVER] ✅ Router salons monté sur /api/salons');
-        console.log('[SERVER] ✅ Routes notification-settings enregistrées:');
-        console.log('[SERVER] ✅ GET /api/owner/notification-settings (ligne 5008)');
-        console.log('[SERVER] ✅ PUT /api/owner/notification-settings (ligne 5054)');
-        console.log('[SERVER] ✅ POST /api/owner/notifications/send-test-email (ligne 5174)');
-        console.log('[SERVER] ✅ POST /api/owner/notifications/send-test-sms');
-        console.log('[SERVER] ✅ POST /api/owner/notifications/test-confirmation-sms');
-        console.log('[SERVER] ✅ POST /api/owner/notifications/test-reminder-sms');
-        console.log('[SERVER] ✅ POST /api/notifications/resend/webhook');
-      });
-    })
-    .catch((err) => {
-      console.error('[SERVER] ❌ Erreur lors du chargement de setupVite:', err);
-      throw err;
-    });
 }
 
 // Export de l'app Express pour Vercel (serverless)
