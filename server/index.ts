@@ -6361,7 +6361,18 @@ const server = (process.env.NODE_ENV === 'production' && !process.env.VERCEL) ? 
 // Configuration des fichiers statiques pour production locale uniquement
 // Sur Vercel, on ne configure pas les fichiers statiques - Vercel gère le routing
 if (process.env.VERCEL) {
-  // Sur Vercel, on ne fait rien ici - Vercel gère le routing
+  // Sur Vercel, les fichiers statiques sont servis directement par Vercel
+  // On ajoute un handler pour les routes non-API qui renvoie 404 proprement
+  // Cela évite que finalhandler essaie de manipuler des objets req/res déjà terminés
+  app.use((req, res, next) => {
+    // Si ce n'est pas une route API, renvoyer 404 proprement
+    if (!req.path.startsWith('/api/')) {
+      if (!res.headersSent) {
+        return res.status(404).json({ error: 'Not found', path: req.path });
+      }
+    }
+    next();
+  });
   console.log('[SERVER] ✅ Application Express configurée pour Vercel serverless');
 } else if (process.env.NODE_ENV === 'production' && server) {
   // En production locale (pas sur Vercel), servir les fichiers statiques depuis dist/
@@ -6378,6 +6389,26 @@ if (process.env.VERCEL) {
     console.warn('[SERVER] ⚠️  Dossier dist/ introuvable, les fichiers statiques ne seront pas servis');
   }
 }
+
+// Middleware d'erreur global pour éviter les crashes avec finalhandler
+// Doit être monté APRÈS tous les autres middlewares et routes
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  // Si les headers ont déjà été envoyés, ne rien faire
+  if (res.headersSent) {
+    return next(err);
+  }
+  
+  console.error('[Global Error Handler]', err.message || err);
+  if (err.stack && process.env.NODE_ENV !== 'production') {
+    console.error('[Global Error Handler] Stack:', err.stack);
+  }
+  
+  // Renvoyer une erreur propre
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
+});
 
 // Export de l'app Express pour Vercel (serverless)
 // Vercel utilisera cet export comme handler
