@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -60,24 +60,24 @@ export default function Stylists() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isHydrating } = useAuthContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Redirect to home if not authenticated
+  // Redirect to home if not authenticated (attendre la fin de l'hydratation)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isHydrating && !isLoading && !isAuthenticated) {
       toast({
         title: "Non autorisé",
         description: "Vous devez être connecté pour gérer les coiffeurs et coiffeuses.",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/salon-login";
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [isAuthenticated, isLoading, isHydrating, toast]);
 
   // Fermer le dropdown quand on clique en dehors
   useEffect(() => {
@@ -245,7 +245,7 @@ export default function Stylists() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/salon-login";
         }, 500);
         return;
       }
@@ -288,7 +288,7 @@ export default function Stylists() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/salon-login";
         }, 500);
         return;
       }
@@ -319,7 +319,7 @@ export default function Stylists() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/salon-login";
         }, 500);
         return;
       }
