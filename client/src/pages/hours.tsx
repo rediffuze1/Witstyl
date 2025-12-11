@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -84,7 +84,7 @@ function decodeEncodedReason(reason: unknown) {
 }
 
 export default function Hours() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isHydrating } = useAuthContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [salonHours, setSalonHours] = useState<SalonHour[]>([]);
@@ -371,6 +371,7 @@ export default function Hours() {
       const response = await fetch(`/api/salons/${salon.id}/hours`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ hours: hoursToSave }),
         credentials: "include",
       });
@@ -417,6 +418,7 @@ export default function Hours() {
       const response = await fetch(`/api/salons/${salon.id}/stylist-hours/${stylistId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ hours }),
         credentials: "include",
       });
@@ -603,6 +605,7 @@ export default function Hours() {
       if (!salon?.id) throw new Error("Salon ID manquant");
       const response = await fetch(`/api/salons/${salon.id}/closed-dates/${dateId}`, {
         method: "DELETE",
+        credentials: 'include',
         credentials: "include",
       });
       if (!response.ok) {
