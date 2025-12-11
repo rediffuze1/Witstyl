@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -83,24 +83,24 @@ export default function Calendar() {
     notes: string;
   } | null>(null);
   
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isHydrating } = useAuthContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Redirect to home if not authenticated
+  // Redirect to home if not authenticated (attendre la fin de l'hydratation)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isHydrating && !isLoading && !isAuthenticated) {
       toast({
         title: "Non autorisé",
         description: "Vous devez être connecté pour accéder au calendrier.",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/salon-login";
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [isAuthenticated, isLoading, isHydrating, toast]);
 
   const { data: salon } = useQuery({
     queryKey: ["/api/salon"],
@@ -548,6 +548,7 @@ const normalizedClosedDates = useMemo(() => {
       const response = await fetch(`/api/appointments/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(data),
         credentials: "include",
       });
@@ -584,7 +585,7 @@ const normalizedClosedDates = useMemo(() => {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/salon-login";
         }, 500);
         return;
       }
@@ -683,7 +684,7 @@ const normalizedClosedDates = useMemo(() => {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/salon-login";
         }, 500);
         return;
       }

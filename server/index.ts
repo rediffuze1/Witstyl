@@ -998,6 +998,21 @@ app.use('/api/salons', salonsRouter);
 console.log('[SERVER] ✅ Router /api/salons monté à', new Date().toISOString());
 console.log('[SERVER] ✅ Routes disponibles: GET /api/salons/:salonId/hours, PUT /api/salons/:salonId/hours');
 
+// ============================================
+// ROUTE GOOGLE REVIEWS (STUB)
+// ============================================
+// Route stub pour /api/reviews/google qui renvoie une liste vide
+// Cette route sera implémentée plus tard avec l'intégration Google Reviews API
+app.get('/api/reviews/google', (req, res) => {
+  console.log('[GET /api/reviews/google] Route appelée (stub)');
+  // Retourner une réponse vide pour éviter les 404
+  res.json({
+    reviews: [],
+    averageRating: 0,
+    totalReviews: 0,
+  });
+});
+
 // 👉 Routes publiques (après les routes spécifiques)
 app.use("/api/public", publicRouter);
 console.log('[SERVER] ✅ Router /api/public monté à', new Date().toISOString());
@@ -6361,18 +6376,10 @@ const server = (process.env.NODE_ENV === 'production' && !process.env.VERCEL) ? 
 // Configuration des fichiers statiques pour production locale uniquement
 // Sur Vercel, on ne configure pas les fichiers statiques - Vercel gère le routing
 if (process.env.VERCEL) {
-  // Sur Vercel, les fichiers statiques sont servis directement par Vercel
-  // On ajoute un handler pour les routes non-API qui renvoie 404 proprement
-  // Cela évite que finalhandler essaie de manipuler des objets req/res déjà terminés
-  app.use((req, res, next) => {
-    // Si ce n'est pas une route API, renvoyer 404 proprement
-    if (!req.path.startsWith('/api/')) {
-      if (!res.headersSent) {
-        return res.status(404).json({ error: 'Not found', path: req.path });
-      }
-    }
-    next();
-  });
+  // Sur Vercel, les fichiers statiques sont servis directement par Vercel via vercel.json
+  // On ne doit gérer QUE les routes API dans Express
+  // Les routes non-API sont gérées par Vercel qui sert index.html pour le routing côté client
+  // Donc on ne fait rien ici pour les routes non-API - Vercel les gère
   console.log('[SERVER] ✅ Application Express configurée pour Vercel serverless');
 } else if (process.env.NODE_ENV === 'production' && server) {
   // En production locale (pas sur Vercel), servir les fichiers statiques depuis dist/
