@@ -280,5 +280,5 @@ export const notificationService = new NotificationService(
 );
 
 // Exporter aussi les types pour faciliter l'utilisation
-export type { BookingNotificationContext } from './types';
+export type { BookingNotificationContext } from './types.js';
 

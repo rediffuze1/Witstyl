@@ -9,7 +9,7 @@
  * 3. Modifier server/core/notifications/index.ts pour utiliser ClickSendSmsProvider
  */
 
-import { SmsProvider } from '../../core/notifications/types';
+import { SmsProvider } from '../../core/notifications/types.js';
 
 type ClickSendSmsProviderConfig = {
   username?: string;

@@ -22,7 +22,7 @@ import {
   type SalonHours,
   type StylistSchedule,
 } from "@shared/schema";
-import { db } from "./db";
+import { db } from "./db.js";
 import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
 
 export interface IStorage {

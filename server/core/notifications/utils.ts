@@ -2,9 +2,9 @@
  * Utilitaires pour construire le contexte de notification à partir des données de la base
  */
 
-import { BookingNotificationContext } from './types';
+import { BookingNotificationContext } from './types.js';
 import { createClient } from '@supabase/supabase-js';
-import { AppointmentTemplateContext } from './templateRenderer';
+import { AppointmentTemplateContext } from './templateRenderer.js';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 

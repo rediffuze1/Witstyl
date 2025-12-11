@@ -9,7 +9,7 @@
  * 3. Modifier server/core/notifications/index.ts pour utiliser TwilioWhatsAppProvider
  */
 
-import { SmsProvider } from '../../core/notifications/types';
+import { SmsProvider } from '../../core/notifications/types.js';
 
 type TwilioWhatsAppProviderConfig = {
   accountSid?: string;

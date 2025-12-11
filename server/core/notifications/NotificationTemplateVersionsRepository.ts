@@ -8,7 +8,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { NotificationSettings } from './NotificationSettingsRepository';
+import { NotificationSettings } from './NotificationSettingsRepository.js';
 
 export interface NotificationTemplateVersion {
   id: number;

@@ -16,12 +16,12 @@ import {
   EmailProvider,
   BookingNotificationContext,
   ManagerCancellationNotificationContext,
-} from './types';
+} from './types.js';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { NotificationSettingsRepository } from './NotificationSettingsRepository';
-import { renderTemplate, AppointmentTemplateContext } from './templateRenderer';
-import { DEFAULT_NOTIFICATION_TEMPLATES } from './defaultTemplates';
+import { NotificationSettingsRepository } from './NotificationSettingsRepository.js';
+import { renderTemplate, AppointmentTemplateContext } from './templateRenderer.js';
+import { DEFAULT_NOTIFICATION_TEMPLATES } from './defaultTemplates.js';
 
 /**
  * Mode DEBUG pour les notifications

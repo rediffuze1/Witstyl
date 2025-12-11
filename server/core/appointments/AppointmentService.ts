@@ -4,7 +4,7 @@ import { buildNotificationContext } from '../notifications/utils.js';
 import type {
   BookingNotificationContext,
   ManagerCancellationNotificationContext,
-} from '../notifications/types';
+} from '../notifications/types.js';
 
 type CancelledByRole = 'client' | 'manager';
 

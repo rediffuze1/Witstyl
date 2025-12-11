@@ -6,7 +6,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { DEFAULT_NOTIFICATION_TEMPLATES } from './defaultTemplates';
+import { DEFAULT_NOTIFICATION_TEMPLATES } from './defaultTemplates.js';
 
 export interface NotificationSettings {
   id: string;

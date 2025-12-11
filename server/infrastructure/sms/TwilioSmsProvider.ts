@@ -9,7 +9,7 @@
  * 3. Modifier server/core/notifications/index.ts pour utiliser TwilioSmsProvider
  */
 
-import { SmsProvider } from '../../core/notifications/types';
+import { SmsProvider } from '../../core/notifications/types.js';
 
 type TwilioSmsProviderConfig = {
   accountSid?: string;

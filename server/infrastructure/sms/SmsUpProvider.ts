@@ -9,7 +9,7 @@
  * 3. Aucune autre modification nécessaire
  */
 
-import { SmsProvider } from '../../core/notifications/types';
+import { SmsProvider } from '../../core/notifications/types.js';
 
 type SmsUpProviderConfig = {
   token?: string;

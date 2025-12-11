@@ -9,7 +9,7 @@
  * 3. Aucune autre modification nécessaire
  */
 
-import { EmailProvider } from '../../core/notifications/types';
+import { EmailProvider } from '../../core/notifications/types.js';
 
 // @ts-ignore - Resend peut avoir des problèmes de types avec moduleResolution
 import { Resend } from 'resend';

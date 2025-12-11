@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "./db.js";
 import { salons, services, stylistes, clients, appointments, users } from "@shared/schema";
 
 async function seed() {
