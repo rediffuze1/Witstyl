@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
 import { ReportRange } from "./useReportRange";
 
@@ -63,8 +63,8 @@ export function useReportsData(
   isLoading: boolean;
   error: Error | null;
 } {
-  const { user, isAuthenticated } = useAuth();
-  const salonId = (user as any)?.salonId;
+  const { owner, salonId: contextSalonId, isAuthenticated } = useAuthContext();
+  const salonId = contextSalonId || (owner as any)?.salonId;
 
   // Construire la clé de cache avec tous les paramètres critiques
   // Inclure startDate et endDate pour éviter les collisions de cache

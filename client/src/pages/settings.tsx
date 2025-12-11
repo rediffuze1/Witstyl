@@ -64,6 +64,14 @@ function SettingsPage() {
         return;
       }
       
+      // Si on a déjà un salonId depuis le contexte, on peut l'utiliser directement
+      if (contextSalonId) {
+        setSalonId(contextSalonId);
+        setSalonVerified(true);
+        logger.log('[SETTINGS] Salon ID depuis contexte:', contextSalonId);
+        return;
+      }
+      
       logger.log('🔍 [SETTINGS] Vérification salon au chargement...');
       
       try {
@@ -76,12 +84,20 @@ function SettingsPage() {
         });
         
         if (!response.ok) {
-          console.error('[SETTINGS] Erreur vérification salon:', response.status);
-          throw new Error('Erreur vérification salon');
+          const errorText = await response.text();
+          console.error('[SETTINGS] Erreur vérification salon:', response.status, errorText);
+          
+          // Si 401, c'est un problème d'authentification, ne pas afficher d'erreur
+          if (response.status === 401) {
+            logger.log('[SETTINGS] Non authentifié, attente de la session...');
+            return;
+          }
+          
+          throw new Error(`Erreur vérification salon: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('✅ [SETTINGS] Salon vérifié:', data.salon.id);
+        console.log('✅ [SETTINGS] Salon vérifié:', data.salon?.id);
         
         if (data.salon) {
           setSalonId(data.salon.id);
@@ -93,15 +109,14 @@ function SettingsPage() {
             queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
             queryClient.invalidateQueries({ queryKey: ['/api/salon'] });
           }
-          
-          // Charger les horaires existants si disponibles
-          if (data.salon.opening_hours) {
-            // Les horaires sont dans salon_hours, pas dans opening_hours
-            // On les chargera via la query GET /api/salons/:salonId/hours
-          }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ [SETTINGS] Erreur vérification:', error);
+        // Ne pas afficher d'erreur si c'est juste un problème de session en cours de chargement
+        if (error.message?.includes('401') || error.message?.includes('Non authentifié')) {
+          logger.log('[SETTINGS] Session en cours de chargement, réessai plus tard...');
+          return;
+        }
         toast({
           title: "Erreur",
           description: "Impossible de vérifier votre salon. Veuillez contacter le support.",
@@ -110,8 +125,11 @@ function SettingsPage() {
       }
     };
     
-    verifySalon();
-  }, [owner, queryClient, toast]);
+    // Attendre la fin de l'hydratation avant de vérifier
+    if (!isHydrating) {
+      verifySalon();
+    }
+  }, [owner, contextSalonId, isHydrating, queryClient, toast]);
 
   // Fonction pour convertir HSL en HEX (pour le color picker)
   const hslToHex = (hsl: string): string => {
