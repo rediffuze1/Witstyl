@@ -348,6 +348,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     restoreSession();
   }, [restoreSession]);
 
+  // Écouter les événements d'erreur 401 pour invalider la session
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      console.log('[AuthContext] Événement auth:unauthorized reçu, invalidation de la session');
+      // Réinitialiser l'état d'authentification
+      setStatus('anonymous');
+      setUserType(null);
+      setOwner(null);
+      setClient(null);
+      setSalonId(null);
+      setIsHydrating(false);
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
   const value: AuthContextType = {
     isHydrating,
     status,

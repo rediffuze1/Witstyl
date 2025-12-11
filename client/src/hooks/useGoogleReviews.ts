@@ -27,8 +27,24 @@ export function useGoogleReviews() {
         credentials: 'include',
       });
 
+      // Gérer le 404 proprement : retourner une liste vide au lieu de throw
+      if (response.status === 404) {
+        console.log('[useGoogleReviews] Route /api/reviews/google non implémentée, retour liste vide');
+        return {
+          reviews: [],
+          averageRating: 0,
+          totalReviews: 0,
+        };
+      }
+
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        // Pour les autres erreurs, retourner aussi une liste vide pour éviter les erreurs visibles
+        console.warn('[useGoogleReviews] Erreur HTTP:', response.status, '- retour liste vide');
+        return {
+          reviews: [],
+          averageRating: 0,
+          totalReviews: 0,
+        };
       }
 
       const data = await response.json();
@@ -51,7 +67,7 @@ export function useGoogleReviews() {
       };
     },
     staleTime: 1000 * 60 * 30, // Cache 30 minutes
-    retry: 1,
+    retry: false, // Ne pas retry pour éviter les logs inutiles
   });
 }
 

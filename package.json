@@ -18,6 +18,7 @@
     "test:sms": "tsx scripts/test-sms-quick.ts",
     "test:api-prod": "tsx scripts/test-api-prod.ts",
     "test:vercel-prod": "NODE_ENV=production VERCEL=1 tsx scripts/test-vercel-prod.ts",
+    "test:vercel-endpoints": "tsx scripts/test-vercel-prod-endpoints.ts",
     "health": "tsx scripts/check-supabase.ts",
     "normalize:phones": "tsx scripts/normalize-phone-numbers.ts",
     "mcp:reload": "echo 'toggle MCP in Cursor Tools & MCP puis Reload Window'",

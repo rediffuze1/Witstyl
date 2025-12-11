@@ -161,10 +161,12 @@ export const salonConfig: SalonConfig = {
     },
   ],
 
+  // Images de galerie - désactivées temporairement jusqu'à ce que les fichiers soient ajoutés
+  // Pour activer : ajouter les fichiers salon1.jpg, salon2.jpg, salon3.jpg dans client/public/
   galleryImages: [
-    { src: "/salon1.jpg", alt: "Vue du salon" },
-    { src: "/salon2.jpg", alt: "Espace de travail" },
-    { src: "/salon3.jpg", alt: "Salle d'attente" },
+    // { src: "/salon1.jpg", alt: "Vue du salon" },
+    // { src: "/salon2.jpg", alt: "Espace de travail" },
+    // { src: "/salon3.jpg", alt: "Salle d'attente" },
   ],
 
   cta: {

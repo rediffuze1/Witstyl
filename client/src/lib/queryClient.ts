@@ -19,6 +19,16 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  // Gérer les erreurs 401 en invalidant l'état auth
+  if (res.status === 401) {
+    console.warn('[apiRequest] 401 Unauthorized - Session expirée ou invalide');
+    
+    // Déclencher un événement pour que les contextes d'auth réagissent
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    }
+  }
+
   await throwIfResNotOk(res);
   return res;
 }

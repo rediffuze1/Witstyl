@@ -34,6 +34,7 @@ const endpoints = [
   { method: 'GET', path: '/api/public/salon', description: 'GET /api/public/salon' },
   { method: 'GET', path: '/api/public/salon/stylistes', description: 'GET /api/public/salon/stylistes' },
   { method: 'GET', path: '/api/reviews/google', description: 'GET /api/reviews/google' },
+  { method: 'GET', path: '/api/salons/test-salon-id/reports?view=week&date=2025-12-08', description: 'GET /api/salons/:salonId/reports (sans session - 401 attendu)' },
   { method: 'GET', path: '/team/emma.jpg', description: 'GET /team/emma.jpg (fichier statique - 404 attendu sur Vercel)' },
   { method: 'GET', path: '/salon1.jpg', description: 'GET /salon1.jpg (fichier statique - 404 attendu sur Vercel)' },
 ];

@@ -145,7 +145,9 @@ export default function BookClient() {
     queryFn: async () => {
       if (!salonId) return [];
       // Utiliser l'ID tel quel (l'API gère les deux formats)
-      const response = await fetch(`/api/salons/${salonId}/services`);
+      const response = await fetch(`/api/salons/${salonId}/services`, {
+        credentials: 'include',
+      });
       if (!response.ok) {
         console.error('[BookClient] Erreur chargement services:', response.status);
         return [];

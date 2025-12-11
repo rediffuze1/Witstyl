@@ -63,7 +63,7 @@ export function useReportsData(
   isLoading: boolean;
   error: Error | null;
 } {
-  const { owner, salonId: contextSalonId, isAuthenticated } = useAuthContext();
+  const { owner, salonId: contextSalonId, isAuthenticated, isHydrating, isLoading: authLoading } = useAuthContext();
   const salonId = contextSalonId || (owner as any)?.salonId;
 
   // Construire la clé de cache avec tous les paramètres critiques
@@ -108,16 +108,27 @@ export function useReportsData(
         stylistId,
         url,
         cacheKey,
+        isAuthenticated,
+        isHydrating,
       });
 
-      const response = await apiRequest("GET", url);
+      try {
+        const response = await apiRequest("GET", url);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
-      }
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.error || `Erreur HTTP: ${response.status}`;
+          
+          // Si c'est un 401 et qu'on est en train de charger l'auth, ne pas considérer comme une vraie erreur
+          if (response.status === 401 && (isHydrating || authLoading)) {
+            console.log("[useReportsData] ⏳ 401 pendant le chargement de l'auth, attente...");
+            throw new Error("AUTH_LOADING"); // Erreur spéciale pour indiquer que c'est temporaire
+          }
+          
+          throw new Error(errorMessage);
+        }
 
-      const apiData = await response.json();
+        const apiData = await response.json();
 
       console.log("[useReportsData] ✅ Données reçues:", {
         granularity: range.granularity,
@@ -131,24 +142,33 @@ export function useReportsData(
         popularServicesCount: apiData.popularServices?.length || 0,
       });
 
-      // Normaliser les données de l'API vers notre interface
-      return {
-        totalAppointments: apiData.totalAppointments || 0,
-        totalRevenue: apiData.monthlyRevenue || 0,
-        newClients: apiData.newClients || 0,
-        retentionRate: apiData.retentionRate || 0,
-        trends: apiData.trends || {
-          appointments: 0,
-          revenue: 0,
-          newClients: 0,
-          retention: 0,
-        },
-        chartData: apiData.chartData || apiData.weeklyData || [],
-        topStylists: apiData.topStylists || [],
-        popularServices: apiData.popularServices || [],
-      };
+        // Normaliser les données de l'API vers notre interface
+        return {
+          totalAppointments: apiData.totalAppointments || 0,
+          totalRevenue: apiData.monthlyRevenue || 0,
+          newClients: apiData.newClients || 0,
+          retentionRate: apiData.retentionRate || 0,
+          trends: apiData.trends || {
+            appointments: 0,
+            revenue: 0,
+            newClients: 0,
+            retention: 0,
+          },
+          chartData: apiData.chartData || apiData.weeklyData || [],
+          topStylists: apiData.topStylists || [],
+          popularServices: apiData.popularServices || [],
+        };
+      } catch (err: any) {
+        // Si c'est une erreur d'auth en cours de chargement, ne pas la propager comme une vraie erreur
+        if (err.message === "AUTH_LOADING") {
+          console.log("[useReportsData] ⏳ Erreur temporaire d'auth, réessai plus tard");
+          // Retourner null pour que la query soit considérée comme en chargement
+          return null as any;
+        }
+        throw err;
+      }
     },
-    enabled: !!salonId && isAuthenticated,
+    enabled: !!salonId && isAuthenticated && !isHydrating,
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 0, // Toujours considérer comme périmé pour forcer le refetch
@@ -158,9 +178,12 @@ export function useReportsData(
     refetchOnReconnect: true,
   });
 
+  // Filtrer les erreurs d'auth en cours de chargement
+  const filteredError = error && error.message !== "AUTH_LOADING" ? error : null;
+
   return {
     data: data || null,
-    isLoading,
-    error: error as Error | null,
+    isLoading: isLoading || isHydrating || authLoading,
+    error: filteredError as Error | null,
   };
 }

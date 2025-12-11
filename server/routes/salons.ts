@@ -1885,13 +1885,14 @@ salonsRouter.get('/:salonId/appointments', async (req: Request, res: Response) =
 // GET /api/salons/:salonId/reports
 salonsRouter.get('/:salonId/reports', async (req: Request, res: Response) => {
   try {
+    const timestamp = new Date().toISOString();
     const rawSalonId = req.params.salonId;
     const salonId = normalizeSalonId(rawSalonId);
     const user = (req as any).user;
     const view = req.query.view as string || 'week'; // 'day', 'week', 'month'
     const dateParam = req.query.date as string; // Date ISO string
 
-    console.log('[GET /api/salons/:salonId/reports] Requête reçue:', {
+    console.log(`[GET /api/salons/:salonId/reports] ${timestamp} - Requête reçue:`, {
       rawSalonId,
       normalizedSalonId: salonId,
       userId: user?.id,
@@ -1903,7 +1904,9 @@ salonsRouter.get('/:salonId/reports', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Salon ID manquant' });
     }
 
+    // Vérification d'autorisation (identique à appointments)
     if (!user) {
+      console.log(`[GET /api/salons/:salonId/reports] ${timestamp} - ❌ Utilisateur non authentifié`);
       return res.status(401).json({ error: 'Utilisateur non authentifié' });
     }
 
@@ -1911,41 +1914,80 @@ salonsRouter.get('/:salonId/reports', async (req: Request, res: Response) => {
     const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      console.error('[GET /api/salons/:salonId/reports] Configuration Supabase manquante');
       return res.status(500).json({ error: 'Configuration Supabase manquante' });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // Essayer plusieurs formats d'ID pour trouver le salon
-    const possibleSalonIds = [rawSalonId];
-    if (rawSalonId.startsWith('salon-')) {
-      possibleSalonIds.push(rawSalonId.substring(6));
-    } else {
-      possibleSalonIds.push(`salon-${salonId}`);
-    }
-    possibleSalonIds.push(salonId);
-
+    // Vérifier que le salon existe (même logique que appointments)
     let salon: any = null;
-    for (const testId of possibleSalonIds) {
-      const { data, error } = await supabase
+    
+    // 1. Essayer avec l'ID normalisé (sans préfixe)
+    const { data: salonData } = await supabase
+      .from('salons')
+      .select('id, user_id')
+      .eq('id', salonId)
+      .maybeSingle();
+    
+    if (salonData) {
+      salon = salonData;
+      console.log(`[GET /api/salons/:salonId/reports] ✅ Salon trouvé avec ID normalisé: ${salonId}`);
+    } else {
+      // 2. Essayer avec l'ID préfixé
+      const prefixedId = `salon-${salonId}`;
+      const { data: salonDataPrefixed } = await supabase
         .from('salons')
         .select('id, user_id')
-        .eq('id', testId)
+        .eq('id', prefixedId)
         .maybeSingle();
       
-      if (data && !error) {
-        salon = data;
-        console.log('[GET /api/salons/:salonId/reports] Salon trouvé avec ID:', testId);
-        break;
+      if (salonDataPrefixed) {
+        salon = salonDataPrefixed;
+        console.log(`[GET /api/salons/:salonId/reports] ✅ Salon trouvé avec ID préfixé: ${prefixedId}`);
+      } else {
+        // 3. Essayer avec l'ID brut (si salonId était déjà préfixé dans rawId)
+        const { data: salonDataRaw } = await supabase
+          .from('salons')
+          .select('id, user_id')
+          .eq('id', rawSalonId)
+          .maybeSingle();
+        
+        if (salonDataRaw) {
+          salon = salonDataRaw;
+          console.log(`[GET /api/salons/:salonId/reports] ✅ Salon trouvé avec ID brut: ${rawSalonId}`);
+        } else if (user?.id) {
+          // 4. Si le salon n'est pas trouvé par ID, chercher par user_id (plus fiable)
+          console.log(`[GET /api/salons/:salonId/reports] 🔍 Salon non trouvé par ID, recherche par user_id: ${user.id}`);
+          const { data: salonDataByUser, error: salonErrorByUser } = await supabase
+            .from('salons')
+            .select('id, user_id')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
+          
+          if (salonErrorByUser) {
+            console.error(`[GET /api/salons/:salonId/reports] Erreur recherche par user_id:`, salonErrorByUser);
+          }
+          
+          if (salonDataByUser) {
+            salon = salonDataByUser;
+            console.log(`[GET /api/salons/:salonId/reports] ✅ Salon trouvé par user_id: ${user.id} → salon ID: ${salon.id}`);
+          } else {
+            console.warn(`[GET /api/salons/:salonId/reports] ⚠️ Aucun salon trouvé pour user_id: ${user.id}`);
+          }
+        }
       }
     }
 
     if (!salon) {
-      console.error('[GET /api/salons/:salonId/reports] Salon introuvable avec IDs testés:', possibleSalonIds);
+      console.error(`[GET /api/salons/:salonId/reports] ❌ Salon introuvable avec ID normalisé: ${salonId}, préfixé: salon-${salonId}, brut: ${rawSalonId}, ou user_id: ${user?.id || 'N/A'}`);
       return res.status(404).json({ error: 'Salon introuvable' });
     }
 
+    // Vérifier que le salon appartient à l'utilisateur
     if (salon.user_id !== user.id) {
+      console.warn(`[GET /api/salons/:salonId/reports] ⚠️ Accès refusé: salon.user_id (${salon.user_id}) !== user.id (${user.id})`);
       return res.status(403).json({ error: 'Accès refusé' });
     }
 

@@ -86,7 +86,7 @@ class ApiClient {
 
     // Gestion spécifique des erreurs 401
     if (status === 401 && !options.skipAuth) {
-      console.warn('[ApiClient] 401 Unauthorized - Tentative de refresh token...');
+      console.warn('[ApiClient] 401 Unauthorized - Session expirée ou invalide');
       
       // Essayer de rafraîchir le token
       const refreshResponse = await this.refreshToken();
@@ -98,11 +98,14 @@ class ApiClient {
         return this.request(url, retryOptions);
       }
 
-      // Si le refresh échoue, rediriger vers login
-      console.warn('[ApiClient] Refresh token échoué, redirection vers login...');
+      // Si le refresh échoue, invalider l'état auth et rediriger vers login
+      console.warn('[ApiClient] Refresh token échoué, invalidation de la session...');
       
-      // Éviter les boucles de redirection
+      // Invalider l'état d'authentification dans le contexte
       if (typeof window !== 'undefined') {
+        // Déclencher un événement personnalisé pour que les contextes d'auth réagissent
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        
         const currentPath = window.location.pathname;
         const isLoginPage = currentPath.includes('login') || currentPath.includes('register');
         

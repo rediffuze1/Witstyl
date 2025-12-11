@@ -353,7 +353,7 @@ export default function ServicesPage() {
           description: "Vous devez être connecté. Redirection...",
           variant: "destructive",
         });
-        setTimeout(() => (window.location.href = "/api/login"), 500);
+        setTimeout(() => (window.location.href = "/salon-login"), 500);
       } else {
         toast({
           title: "Erreur",
@@ -386,7 +386,7 @@ export default function ServicesPage() {
           description: "Vous devez être connecté. Redirection...",
           variant: "destructive",
         });
-        setTimeout(() => (window.location.href = "/api/login"), 500);
+        setTimeout(() => (window.location.href = "/salon-login"), 500);
       } else {
         toast({
           title: "Erreur",
@@ -416,7 +416,7 @@ export default function ServicesPage() {
           description: "Vous devez être connecté. Redirection...",
           variant: "destructive",
         });
-        setTimeout(() => (window.location.href = "/api/login"), 500);
+        setTimeout(() => (window.location.href = "/salon-login"), 500);
       } else {
         toast({
           title: "Erreur",
