@@ -11,9 +11,9 @@ process.env.NODE_ENV = 'production';
 // index.ts n'importe pas Vite directement, mais on veut être absolument sûr
 // que même si un import dynamique existe quelque part, il ne sera pas résolu
 // 
-// IMPORTANT: Utiliser l'extension .js car Vercel compile TS → JS
-// et Node.js ESM nécessite les extensions .js dans les imports
-import app from './index.js';
+// IMPORTANT: Import sans extension pour que Vercel résolve correctement
+// Le bundler Vercel gère automatiquement la résolution TypeScript → JavaScript
+import app from './index';
 
 // Export de l'app Express pour Vercel
 export default app;

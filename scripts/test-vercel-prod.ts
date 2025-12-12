@@ -52,6 +52,301 @@ const endpoints = [
   { method: 'GET', path: '/salon1.jpg', description: 'GET /salon1.jpg (fichier statique - 404 attendu sur Vercel)' },
 ];
 
+// Credentials de test depuis les variables d'environnement
+const TEST_EMAIL = process.env.TEST_LOGIN_EMAIL || 'veignatpierre@gmail.com';
+const TEST_PASSWORD = process.env.TEST_LOGIN_PASSWORD || 'Pa$$w0rd';
+
+/**
+ * Test spécialisé pour vérifier la persistance de session via cookie
+ */
+async function testSessionCookie(): Promise<{ success: boolean; message: string; details?: any }> {
+  try {
+    const vercelHandler = await loadHandler();
+    
+    // Étape 1: POST /api/salon/login
+    const loginReqHeaders: Record<string, string> = {
+      'content-type': 'application/json',
+      'host': 'localhost:3002',
+    };
+    
+    const loginReq = {
+      method: 'POST',
+      url: '/api/salon/login',
+      headers: loginReqHeaders,
+      readable: true,
+      readableEnded: false,
+      destroyed: false,
+      on: (event: string, callback: Function) => {
+        if (event === 'data') {
+          setTimeout(() => callback(JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD })), 0);
+        }
+        if (event === 'end') {
+          setTimeout(() => callback(), 0);
+        }
+        return loginReq;
+      },
+      once: (event: string, callback: Function) => {
+        if (event === 'end') {
+          setTimeout(() => callback(), 0);
+        }
+        return loginReq;
+      },
+      removeListener: () => loginReq,
+      removeAllListeners: () => loginReq,
+      path: '/api/salon/login',
+      query: {},
+      params: {},
+      body: { email: TEST_EMAIL, password: TEST_PASSWORD },
+      originalUrl: '/api/salon/login',
+      protocol: 'http',
+      hostname: 'localhost',
+      ip: '127.0.0.1',
+      get: (name: string) => loginReqHeaders[name.toLowerCase()],
+      baseUrl: '',
+      route: null,
+    } as any;
+
+    let loginStatusCode = 200;
+    let loginResponseBody = '';
+    const loginHeaders: Record<string, string> = {};
+    let loginHeadersSent = false;
+    let loginEnded = false;
+
+    const loginRes = {
+      statusCode: 200,
+      status: (code: number) => {
+        if (!loginHeadersSent) {
+          loginStatusCode = code;
+        }
+        return loginRes;
+      },
+      json: (data: any) => {
+        if (!loginHeadersSent && !loginEnded) {
+          loginResponseBody = JSON.stringify(data);
+          loginHeadersSent = true;
+          loginRes.end();
+        }
+      },
+      send: (data: any) => {
+        if (!loginHeadersSent && !loginEnded) {
+          loginResponseBody = typeof data === 'string' ? data : JSON.stringify(data);
+          loginHeadersSent = true;
+          loginRes.end();
+        }
+      },
+      end: (data?: any) => {
+        if (!loginEnded) {
+          if (data) loginResponseBody += typeof data === 'string' ? data : JSON.stringify(data);
+          loginEnded = true;
+          loginHeadersSent = true;
+        }
+      },
+      setHeader: (name: string, value: string) => {
+        if (!loginHeadersSent) {
+          loginHeaders[name] = value;
+        }
+      },
+      getHeader: (name: string) => loginHeaders[name],
+      headersSent: false,
+      get headersSent() {
+        return loginHeadersSent;
+      },
+      writable: true,
+      writableEnded: false,
+      destroyed: false,
+      on: () => loginRes,
+      once: () => loginRes,
+      removeListener: () => loginRes,
+      removeAllListeners: () => loginRes,
+      write: (chunk: any) => {
+        if (!loginHeadersSent && !loginEnded) {
+          loginResponseBody += chunk;
+          return true;
+        }
+        return false;
+      },
+      writeHead: (code: number, headers?: Record<string, string>) => {
+        if (!loginHeadersSent) {
+          loginStatusCode = code;
+          if (headers) {
+            Object.assign(loginHeaders, headers);
+          }
+        }
+        return loginRes;
+      },
+    } as any;
+
+    await vercelHandler(loginReq, loginRes);
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    if (loginStatusCode !== 200) {
+      return {
+        success: false,
+        message: `Login failed with status ${loginStatusCode}`,
+        details: { status: loginStatusCode, response: loginResponseBody.substring(0, 200) },
+      };
+    }
+
+    // Récupérer le Set-Cookie
+    const setCookieHeader = loginHeaders['set-cookie'] || loginRes.getHeader('Set-Cookie');
+    if (!setCookieHeader) {
+      return {
+        success: false,
+        message: 'Set-Cookie header absent dans la réponse de login',
+        details: { headers: loginHeaders },
+      };
+    }
+
+    const cookie = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
+
+    // Étape 2: GET /api/auth/user avec le cookie
+    const authReqHeaders: Record<string, string> = {
+      'host': 'localhost:3002',
+      'cookie': cookie,
+    };
+
+    const authReq = {
+      method: 'GET',
+      url: '/api/auth/user',
+      headers: authReqHeaders,
+      readable: true,
+      readableEnded: false,
+      destroyed: false,
+      on: () => authReq,
+      once: () => authReq,
+      removeListener: () => authReq,
+      removeAllListeners: () => authReq,
+      path: '/api/auth/user',
+      query: {},
+      params: {},
+      body: {},
+      originalUrl: '/api/auth/user',
+      protocol: 'http',
+      hostname: 'localhost',
+      ip: '127.0.0.1',
+      get: (name: string) => authReqHeaders[name.toLowerCase()],
+      baseUrl: '',
+      route: null,
+    } as any;
+
+    let authStatusCode = 200;
+    let authResponseBody = '';
+    const authHeaders: Record<string, string> = {};
+    let authHeadersSent = false;
+    let authEnded = false;
+
+    const authRes = {
+      statusCode: 200,
+      status: (code: number) => {
+        if (!authHeadersSent) {
+          authStatusCode = code;
+        }
+        return authRes;
+      },
+      json: (data: any) => {
+        if (!authHeadersSent && !authEnded) {
+          authResponseBody = JSON.stringify(data);
+          authHeadersSent = true;
+          authRes.end();
+        }
+      },
+      send: (data: any) => {
+        if (!authHeadersSent && !authEnded) {
+          authResponseBody = typeof data === 'string' ? data : JSON.stringify(data);
+          authHeadersSent = true;
+          authRes.end();
+        }
+      },
+      end: (data?: any) => {
+        if (!authEnded) {
+          if (data) authResponseBody += typeof data === 'string' ? data : JSON.stringify(data);
+          authEnded = true;
+          authHeadersSent = true;
+        }
+      },
+      setHeader: (name: string, value: string) => {
+        if (!authHeadersSent) {
+          authHeaders[name] = value;
+        }
+      },
+      getHeader: (name: string) => authHeaders[name],
+      headersSent: false,
+      get headersSent() {
+        return authHeadersSent;
+      },
+      writable: true,
+      writableEnded: false,
+      destroyed: false,
+      on: () => authRes,
+      once: () => authRes,
+      removeListener: () => authRes,
+      removeAllListeners: () => authRes,
+      write: (chunk: any) => {
+        if (!authHeadersSent && !authEnded) {
+          authResponseBody += chunk;
+          return true;
+        }
+        return false;
+      },
+      writeHead: (code: number, headers?: Record<string, string>) => {
+        if (!authHeadersSent) {
+          authStatusCode = code;
+          if (headers) {
+            Object.assign(authHeaders, headers);
+          }
+        }
+        return authRes;
+      },
+    } as any;
+
+    await vercelHandler(authReq, authRes);
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    if (authStatusCode !== 200) {
+      return {
+        success: false,
+        message: `GET /api/auth/user failed with status ${authStatusCode}`,
+        details: { status: authStatusCode, response: authResponseBody.substring(0, 200) },
+      };
+    }
+
+    let authData;
+    try {
+      authData = JSON.parse(authResponseBody);
+    } catch (e) {
+      return {
+        success: false,
+        message: 'Failed to parse auth/user response',
+        details: { response: authResponseBody.substring(0, 200) },
+      };
+    }
+
+    if (authData.authenticated !== true) {
+      return {
+        success: false,
+        message: `authenticated is ${authData.authenticated}, expected true`,
+        details: { response: authData },
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Session cookie correctly emitted and reused',
+      details: {
+        cookie: cookie.substring(0, 80) + '...',
+        authenticated: authData.authenticated,
+        userType: authData.userType,
+      },
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || 'Unknown error',
+      details: { stack: error.stack },
+    };
+  }
+}
+
 async function testEndpoint(
   method: string, 
   path: string, 
@@ -272,12 +567,37 @@ async function runTests() {
   }
 
   console.log('');
+  // Test spécialisé: persistance de session via cookie
+  console.log('\n📋 Test spécialisé: Persistance de session via cookie');
+  process.stdout.write('   En cours... ');
+  const cookieTest = await testSessionCookie();
+
+  if (cookieTest.success) {
+    console.log('✅ PASSED');
+    console.log(`   ${cookieTest.message}`);
+    if (cookieTest.details) {
+      console.log(`   Cookie: ${cookieTest.details.cookie || 'N/A'}`);
+      console.log(`   Authenticated: ${cookieTest.details.authenticated}`);
+      console.log(`   User Type: ${cookieTest.details.userType || 'N/A'}`);
+    }
+    passed++;
+  } else {
+    console.log('❌ FAILED');
+    console.log(`   ${cookieTest.message}`);
+    if (cookieTest.details) {
+      console.log(`   Details: ${JSON.stringify(cookieTest.details, null, 2)}`);
+    }
+    failed++;
+  }
+
+  console.log('');
   console.log('='.repeat(60));
   console.log(`Résultats: ${passed} passés, ${failed} échoués`);
   console.log('='.repeat(60));
 
   if (failed === 0) {
     console.log('\n✅ Tous les tests sont passés !');
+    console.log('✅ La persistance de session via cookie fonctionne correctement\n');
     process.exit(0);
   } else {
     console.log(`\n❌ ${failed} test(s) ont échoué`);

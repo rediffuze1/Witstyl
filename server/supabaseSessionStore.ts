@@ -6,6 +6,7 @@
 
 import session from 'express-session';
 import { Client } from 'pg';
+import { createPgClient, executeQueryWithTimeout } from './db/client.js';
 
 interface SessionData {
   sid: string;
@@ -26,24 +27,42 @@ class SupabaseSessionStore extends session.Store {
 
     // Créer une fonction qui retourne un nouveau client PostgreSQL à chaque fois
     // (pour éviter les problèmes de connexion persistante dans un environnement serverless)
+    // Utilise la configuration optimisée pour Supabase Pooler avec timeout strict
+    const isVercel = !!process.env.VERCEL;
+    const isProduction = process.env.NODE_ENV === 'production';
+    const connectionTimeoutMs = (isVercel || isProduction) ? 3000 : 10000; // 3s en prod, 10s en dev
+
     this.getClient = async () => {
-      const client = new Client({
-        connectionString: DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' 
-          ? { rejectUnauthorized: false } // Pour les certificats auto-signés Supabase
-          : false,
+      const client = createPgClient(DATABASE_URL);
+      
+      // Timeout strict pour la connexion
+      const connectPromise = client.connect();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          client.end().catch(() => {});
+          reject(new Error(`Connection timeout after ${connectionTimeoutMs}ms`));
+        }, connectionTimeoutMs);
       });
-      await client.connect();
-      return client;
+
+      try {
+        await Promise.race([connectPromise, timeoutPromise]);
+        return client;
+      } catch (error: any) {
+        await client.end().catch(() => {});
+        throw error;
+      }
     };
   }
 
   async get(sid: string, callback: (err?: any, session?: session.SessionData | null) => void) {
-    const client = await this.getClient();
+    let client: Client | null = null;
     try {
-      const result = await client.query(
+      client = await this.getClient();
+      const result = await executeQueryWithTimeout(
+        client,
         'SELECT sess, expire FROM express_sessions WHERE sid = $1',
-        [sid]
+        [sid],
+        3000 // 3s max pour récupérer une session
       );
 
       if (result.rows.length === 0) {
@@ -55,39 +74,59 @@ class SupabaseSessionStore extends session.Store {
       // Vérifier si la session a expiré
       const expire = new Date(row.expire);
       if (expire < new Date()) {
-        // Supprimer la session expirée
-        await this.destroy(sid);
+        // Supprimer la session expirée (sans attendre)
+        this.destroy(sid, () => {}); // Fire and forget
         return callback(null, null);
       }
 
       callback(null, row.sess);
     } catch (err: any) {
-      console.error('[SupabaseSessionStore] Exception lors de la récupération de la session:', err);
-      // En cas d'exception, on retourne null plutôt que de propager l'erreur
+      const isTimeout = err.message?.includes('timeout');
+      if (isTimeout) {
+        console.warn('[SupabaseSessionStore] Timeout lors de la récupération de la session (DB lente ou indisponible)');
+      } else {
+        console.error('[SupabaseSessionStore] Exception lors de la récupération de la session:', err.message);
+      }
+      // En cas d'exception/timeout, on retourne null plutôt que de propager l'erreur
+      // Cela permet à l'app de continuer même si le store est indisponible
       callback(null, null);
     } finally {
-      await client.end();
+      if (client) {
+        await client.end().catch(() => {}); // Ignorer les erreurs de fermeture
+      }
     }
   }
 
   async set(sid: string, session: session.SessionData, callback?: (err?: any) => void) {
-    const client = await this.getClient();
+    let client: Client | null = null;
     try {
+      client = await this.getClient();
       const expire = new Date(Date.now() + (session.cookie?.maxAge || 24 * 60 * 60 * 1000));
 
-      await client.query(
+      await executeQueryWithTimeout(
+        client,
         `INSERT INTO express_sessions (sid, sess, expire)
          VALUES ($1, $2, $3)
          ON CONFLICT (sid) DO UPDATE SET sess = $2, expire = $3`,
-        [sid, JSON.stringify(session), expire.toISOString()]
+        [sid, JSON.stringify(session), expire.toISOString()],
+        3000 // 3s max pour sauvegarder une session
       );
 
       callback?.();
     } catch (err: any) {
-      console.error('[SupabaseSessionStore] Exception lors de la sauvegarde de session:', err);
+      const isTimeout = err.message?.includes('timeout');
+      if (isTimeout) {
+        console.warn('[SupabaseSessionStore] Timeout lors de la sauvegarde de session (DB lente ou indisponible)');
+      } else {
+        console.error('[SupabaseSessionStore] Exception lors de la sauvegarde de session:', err.message);
+      }
+      // En cas d'erreur/timeout, on appelle le callback avec l'erreur
+      // Express-session peut alors utiliser un fallback ou ignorer l'erreur
       callback?.(err);
     } finally {
-      await client.end();
+      if (client) {
+        await client.end().catch(() => {}); // Ignorer les erreurs de fermeture
+      }
     }
   }
 

@@ -24,6 +24,7 @@
     "mcp:reload": "echo 'toggle MCP in Cursor Tools & MCP puis Reload Window'",
     "test:calendar": "echo 'Tests unitaires calendrier - À implémenter avec vitest'",
     "test:db": "tsx scripts/test-db-connection.ts",
+    "test:login-cookie": "NODE_ENV=production VERCEL=1 tsx scripts/test-login-cookie.ts",
     "print:db-instructions": "tsx scripts/print-supabase-db-instructions.ts"
   },
   "dependencies": {

@@ -123,7 +123,7 @@ import { SalonAuthService, ClientAuthService, supabaseAdmin } from "./supabaseSe
 import { healthRouter } from "./routes/health.js";
 import { setupClientAuth } from "./clientAuth.js";
 import session from "express-session";
-import { getSessionStoreSync } from "./sessionStore.js";
+import { getSessionStoreSync, getSessionStoreStatus } from "./sessionStore";
 import publicRouter from "./routes/public.js";
 import salonsRouter from "./routes/salons.js";
 // @ts-ignore - voice-agent.js est un fichier JS avec export default router
@@ -814,7 +814,6 @@ const sessionMiddleware = session({
     // Ne pas spécifier de domaine pour que le cookie fonctionne sur tous les domaines
     domain: undefined
   },
-  name: 'connect.sid', // Nom explicite du cookie de session
 });
 
 // Appliquer le middleware de session uniquement aux routes NON publiques
@@ -1925,7 +1924,6 @@ app.post('/api/salon/register', express.json(), async (req, res) => {
 app.post('/api/salon/login', express.json(), requireBackendReady, async (req, res) => {
   const startTime = Date.now();
   console.log('[Route] /api/salon/login start');
-  const { getSessionStoreStatus } = await import('./sessionStore.js');
   const storeStatus = getSessionStoreStatus();
   console.log('[Route] Session store status:', storeStatus.status === 'ok' ? 'PG store OK' : 'MemoryStore fallback');
   // S'assurer que la réponse est toujours en JSON

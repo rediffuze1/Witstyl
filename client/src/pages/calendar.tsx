@@ -548,9 +548,8 @@ const normalizedClosedDates = useMemo(() => {
       const response = await fetch(`/api/appointments/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-        body: JSON.stringify(data),
         credentials: "include",
+        body: JSON.stringify(data),
       });
       
       if (!response.ok) {

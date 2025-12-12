@@ -4,7 +4,7 @@
  */
 
 import 'dotenv/config';
-import { Client } from 'pg';
+import { createPgClient, validateDatabaseUrl } from '../server/db/client.js';
 
 async function testDatabaseConnection() {
   console.log('🔍 Test de connexion à la base de données PostgreSQL\n');
@@ -28,41 +28,33 @@ async function testDatabaseConnection() {
   const maskedUrl = DATABASE_URL.replace(/:[^:@]+@/, ':****@');
   console.log(`✅ DATABASE_URL trouvée: ${maskedUrl}\n`);
 
-  // Vérifier le format de l'URL
-  const isPoolerUrl = DATABASE_URL.includes('pooler.supabase.com');
-  const isDirectUrl = DATABASE_URL.includes('db.') && DATABASE_URL.includes('.supabase.co');
-  const hasPort6543 = DATABASE_URL.includes(':6543');
-  const hasPgbouncer = DATABASE_URL.includes('pgbouncer=true');
-
-  if (isDirectUrl && !isPoolerUrl) {
-    console.warn('⚠️  ATTENTION: Vous utilisez une connexion directe (db.*.supabase.co)');
-    console.warn('   Cette méthode peut échouer sur Vercel/serverless avec des erreurs DNS.');
-    console.warn('   Recommandation: Utilisez le pooler Supavisor (Transaction Mode)');
-    console.warn('   Exécutez: npm run print:db-instructions\n');
-  } else if (isPoolerUrl) {
-    console.log('✅ Format pooler détecté (recommandé pour Vercel/serverless)');
-    if (!hasPort6543) {
-      console.warn('⚠️  Port 6543 non détecté. Assurez-vous d\'utiliser Transaction Mode pour serverless.');
-    }
-    if (!hasPgbouncer) {
-      console.warn('⚠️  Paramètre pgbouncer=true manquant. Ajoutez-le à l\'URL.');
-    }
+  // Valider l'URL avec la fonction utilitaire
+  const validation = validateDatabaseUrl(DATABASE_URL);
+  if (!validation.valid) {
+    console.warn('⚠️  Avertissements sur DATABASE_URL:');
+    validation.warnings.forEach(warning => console.warn(`   ${warning}`));
     console.log('');
+  } else {
+    console.log('✅ Format DATABASE_URL valide pour Supabase Pooler\n');
   }
 
-  // Créer un client PostgreSQL
-  // Configuration SSL selon le type de connexion
-  const isPooler = DATABASE_URL.includes('pooler.supabase.com');
-  const sslConfig = isPooler 
-    ? { rejectUnauthorized: false } // Pooler nécessite SSL
-    : process.env.NODE_ENV === 'production' 
-      ? { rejectUnauthorized: false } // Pour les certificats auto-signés Supabase
-      : false;
+  // Extraire les paramètres de l'URL pour affichage (sans mot de passe)
+  try {
+    const urlObj = new URL(DATABASE_URL);
+    console.log('📊 Paramètres de connexion détectés:');
+    console.log(`   Host: ${urlObj.hostname}`);
+    console.log(`   Port: ${urlObj.port || '5432 (défaut)'}`);
+    console.log(`   Database: ${urlObj.pathname.replace('/', '') || 'postgres (défaut)'}`);
+    console.log(`   SSL Mode: ${urlObj.searchParams.get('sslmode') || 'non spécifié'}`);
+    console.log(`   PgBouncer: ${urlObj.searchParams.get('pgbouncer') || 'non spécifié'}`);
+    console.log(`   Connection Limit: ${urlObj.searchParams.get('connection_limit') || 'non spécifié'}`);
+    console.log('');
+  } catch (e) {
+    console.warn('⚠️  Impossible de parser l\'URL pour afficher les paramètres');
+  }
 
-  const client = new Client({
-    connectionString: DATABASE_URL,
-    ssl: sslConfig,
-  });
+  // Utiliser la configuration optimisée pour Supabase Pooler
+  const client = createPgClient(DATABASE_URL);
 
   try {
     console.log('🔄 Tentative de connexion...');
