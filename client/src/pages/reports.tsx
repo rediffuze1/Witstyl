@@ -204,8 +204,8 @@ export default function Reports() {
       return chartData;
     }
     // Sinon, retourner les données par défaut à zéro
-    return getDefaultChartData;
-  }, [chartData, range.granularity, getDefaultChartData]);
+    return defaultChartData;
+  }, [chartData, range.granularity, defaultChartData]);
 
   const getAppointmentsTitle = () => {
     switch (range.granularity) {
