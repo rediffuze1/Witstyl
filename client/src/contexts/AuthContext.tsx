@@ -260,12 +260,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
+      // Attendre un peu pour que les cookies soient propagés par le navigateur
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Restaurer la session après login
       await restoreSession();
       
       // Attendre un peu pour que React propage les changements d'état
       // Les setState sont asynchrones, donc on attend que le statut soit mis à jour
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Vérifier que la session est bien restaurée
       // Note: on ne peut pas lire directement status/userType ici car ils sont dans le closure

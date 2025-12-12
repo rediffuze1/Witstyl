@@ -506,7 +506,7 @@ app.use(session({
   cookie: {
     secure: isHTTPS, // true sur Vercel/HTTPS, false en dev local
     httpOnly: true, // Sécuriser les cookies
-    sameSite: isHTTPS ? 'lax' : 'lax', // 'lax' fonctionne bien sur Vercel (même domaine)
+    sameSite: isHTTPS ? 'none' : 'lax', // 'none' pour Vercel (cross-site), 'lax' pour local
     maxAge: 24 * 60 * 60 * 1000, // 24 heures
     path: '/', // Le cookie est disponible pour tous les chemins
     // Ne pas spécifier de domaine pour que le cookie fonctionne sur tous les domaines
