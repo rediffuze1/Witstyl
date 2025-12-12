@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,16 @@ export default function SalonLogin() {
   const authContext = useAuthContext();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const loginSuccessRef = useRef(false);
+
+  // Effet pour rediriger automatiquement quand l'authentification est prête après un login réussi
+  useEffect(() => {
+    if (loginSuccessRef.current && !authContext.isHydrating && authContext.status === 'authenticated' && authContext.userType === 'owner') {
+      console.log('[salon-login] ✅ Session restaurée (via useEffect), navigation vers dashboard');
+      loginSuccessRef.current = false; // Réinitialiser pour éviter les redirections multiples
+      setLocation("/dashboard", { replace: true });
+    }
+  }, [authContext.isHydrating, authContext.status, authContext.userType, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,52 +53,13 @@ export default function SalonLogin() {
         return;
       }
       
-      // Attendre que l'hydratation soit complète avant de naviguer
-      // Le AuthContext met isHydrating à true pendant restoreSession()
-      // On attend qu'il soit remis à false et que le statut soit authenticated
-      // Attendre jusqu'à ce que l'hydratation soit terminée
-      let attempts = 0;
-      const maxAttempts = 30; // 3 secondes max (30 * 100ms)
-      
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-        
-        // Vérifier le statut actuel depuis le contexte (déjà déclaré au niveau du composant)
-        // Note: authContext est déclaré au niveau du composant, donc on peut l'utiliser ici
-        const currentAuth = authContext;
-        if (!currentAuth.isHydrating && currentAuth.status === 'authenticated' && currentAuth.userType === 'owner') {
-          console.log('[salon-login] ✅ Session restaurée, navigation vers dashboard');
-          setLocation("/dashboard", { replace: true });
-          setIsSubmitting(false);
-          return;
-        }
-      }
-      
-      // Si on arrive ici, l'hydratation a pris trop de temps
-      // Vérifier manuellement la session avant de naviguer
-      console.warn('[salon-login] ⚠️ Hydratation longue, vérification manuelle...');
-      
-      try {
-        const checkResponse = await fetch('/api/auth/user', {
-          credentials: 'include'
-        });
-        if (checkResponse.ok) {
-          const checkData = await checkResponse.json();
-          if (checkData.authenticated && checkData.userType === 'owner') {
-            console.log('[salon-login] ✅ Session vérifiée manuellement, navigation vers dashboard');
-            setLocation("/dashboard", { replace: true });
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      } catch (checkError) {
-        console.warn('[salon-login] Erreur vérification session:', checkError);
-      }
-      
-      // Si tout échoue, afficher une erreur
-      setError("Erreur lors de la restauration de la session. Veuillez réessayer.");
+      // Marquer que le login a réussi - l'effet useEffect gérera la redirection
+      loginSuccessRef.current = true;
       setIsSubmitting(false);
+      
+      // L'effet useEffect écoutera les changements de authContext et redirigera automatiquement
+      // quand isHydrating devient false et status devient authenticated
+      console.log('[salon-login] ✅ Login réussi, attente de la restauration de session...');
     } catch (error: any) {
       setError(error?.message || "Erreur de connexion. Veuillez réessayer.");
       console.error("Erreur de connexion:", error);
