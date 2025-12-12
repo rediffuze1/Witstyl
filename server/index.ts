@@ -506,14 +506,18 @@ let sessionStore: session.Store;
 try {
   if (isVercel || isProduction) {
     console.log('[SESSION] Utilisation de SupabaseSessionStore pour la persistance');
+    console.log('[SESSION] VERCEL:', isVercel, 'PRODUCTION:', isProduction);
     sessionStore = new SupabaseSessionStore();
+    console.log('[SESSION] ✅ SupabaseSessionStore créé avec succès');
   } else {
     console.log('[SESSION] Utilisation de MemoryStore pour le développement local');
     const MemoryStore = session.MemoryStore;
     sessionStore = new MemoryStore();
   }
 } catch (error: any) {
-  console.warn('[SESSION] Erreur lors de la création du store, utilisation de MemoryStore:', error.message);
+  console.error('[SESSION] ❌ Erreur lors de la création du SupabaseSessionStore:', error);
+  console.error('[SESSION] Stack:', error.stack);
+  console.warn('[SESSION] Fallback vers MemoryStore (ne fonctionnera pas sur Vercel)');
   const MemoryStore = session.MemoryStore;
   sessionStore = new MemoryStore();
 }

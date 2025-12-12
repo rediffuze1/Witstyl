@@ -68,11 +68,13 @@ class SupabaseSessionStore extends session.Store {
         });
 
       if (error) {
+        console.error('[SupabaseSessionStore] Erreur lors de la sauvegarde de session:', error);
         return callback?.(error);
       }
 
       callback?.();
     } catch (err) {
+      console.error('[SupabaseSessionStore] Exception lors de la sauvegarde de session:', err);
       callback?.(err);
     }
   }
