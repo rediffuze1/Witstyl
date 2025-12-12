@@ -30,7 +30,7 @@ class SupabaseSessionStore extends session.Store {
   async get(sid: string, callback: (err?: any, session?: session.SessionData | null) => void) {
     try {
       const { data, error } = await this.supabase
-        .from('sessions')
+        .from('express_sessions')
         .select('sess, expire')
         .eq('sid', sid)
         .single();
@@ -58,7 +58,7 @@ class SupabaseSessionStore extends session.Store {
       const expire = new Date(Date.now() + (session.cookie?.maxAge || 24 * 60 * 60 * 1000));
 
       const { error } = await this.supabase
-        .from('sessions')
+        .from('express_sessions')
         .upsert({
           sid,
           sess: session,
@@ -80,7 +80,7 @@ class SupabaseSessionStore extends session.Store {
   async destroy(sid: string, callback?: (err?: any) => void) {
     try {
       const { error } = await this.supabase
-        .from('sessions')
+        .from('express_sessions')
         .delete()
         .eq('sid', sid);
 
@@ -99,7 +99,7 @@ class SupabaseSessionStore extends session.Store {
       const expire = new Date(Date.now() + (session.cookie?.maxAge || 24 * 60 * 60 * 1000));
 
       const { error } = await this.supabase
-        .from('sessions')
+        .from('express_sessions')
         .update({ expire: expire.toISOString() })
         .eq('sid', sid);
 
@@ -116,7 +116,7 @@ class SupabaseSessionStore extends session.Store {
   async all(callback: (err?: any, obj?: { [sid: string]: session.SessionData } | null) => void) {
     try {
       const { data, error } = await this.supabase
-        .from('sessions')
+        .from('express_sessions')
         .select('sid, sess, expire');
 
       if (error) {
@@ -142,7 +142,7 @@ class SupabaseSessionStore extends session.Store {
   async length(callback: (err?: any, length?: number) => void) {
     try {
       const { count, error } = await this.supabase
-        .from('sessions')
+        .from('express_sessions')
         .select('*', { count: 'exact', head: true })
         .gte('expire', new Date().toISOString());
 
@@ -159,7 +159,7 @@ class SupabaseSessionStore extends session.Store {
   async clear(callback?: (err?: any) => void) {
     try {
       const { error } = await this.supabase
-        .from('sessions')
+        .from('express_sessions')
         .delete()
         .neq('sid', ''); // Supprimer toutes les sessions
 
