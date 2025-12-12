@@ -494,20 +494,27 @@ app.use(express.urlencoded({ extended: false }));
   });
 
 // 👉 Middleware de session pour l'authentification client
+// Configuration adaptée pour Vercel (HTTPS) et développement local (HTTP)
+const isVercel = !!process.env.VERCEL;
+const isProduction = process.env.NODE_ENV === 'production';
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'witstyl-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Toujours false pour localhost (http://)
+    secure: isVercel || isProduction, // true sur Vercel/HTTPS, false en dev local
     httpOnly: true, // Sécuriser les cookies
-    sameSite: 'lax', // Lax pour développement local (fonctionne avec http://localhost)
+    sameSite: isVercel ? 'none' : 'lax', // 'none' pour Vercel (cross-site), 'lax' pour local
     maxAge: 24 * 60 * 60 * 1000, // 24 heures
     path: '/', // Le cookie est disponible pour tous les chemins
-    // Ne pas spécifier de domaine pour que le cookie fonctionne sur tous les ports localhost
+    // Ne pas spécifier de domaine pour que le cookie fonctionne sur tous les domaines
     domain: undefined
   },
-  name: 'connect.sid' // Nom explicite du cookie de session
+  name: 'connect.sid', // Nom explicite du cookie de session
+  // Sur Vercel, MemoryStore ne persiste pas entre les invocations
+  // Mais les cookies signés permettent de maintenir la session
+  // Note: Pour une vraie persistance, il faudrait utiliser un store externe (Redis, Supabase, etc.)
 }));
 
 // 👉 Routes de santé
