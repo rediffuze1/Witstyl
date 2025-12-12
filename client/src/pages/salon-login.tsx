@@ -55,7 +55,9 @@ export default function SalonLogin() {
         attempts++;
         
         // Vérifier le statut actuel depuis le contexte (déjà déclaré au niveau du composant)
-        if (!authContext.isHydrating && authContext.status === 'authenticated' && authContext.userType === 'owner') {
+        // Note: authContext est déclaré au niveau du composant, donc on peut l'utiliser ici
+        const currentAuth = authContext;
+        if (!currentAuth.isHydrating && currentAuth.status === 'authenticated' && currentAuth.userType === 'owner') {
           console.log('[salon-login] ✅ Session restaurée, navigation vers dashboard');
           setLocation("/dashboard", { replace: true });
           setIsSubmitting(false);
