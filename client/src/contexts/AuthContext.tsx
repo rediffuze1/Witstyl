@@ -262,6 +262,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Restaurer la session après login
       await restoreSession();
+      
+      // Attendre un peu pour que React propage les changements d'état
+      // Les setState sont asynchrones, donc on attend que le statut soit mis à jour
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Vérifier que la session est bien restaurée
+      // Note: on ne peut pas lire directement status/userType ici car ils sont dans le closure
+      // Mais restoreSession() devrait les avoir mis à jour
+      console.log('[AuthContext] loginOwner - Session restaurée, isHydrating sera remis à false par restoreSession');
+      
       return true;
     } catch (error) {
       console.error('[AuthContext] loginOwner - Erreur:', error);

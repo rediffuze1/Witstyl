@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Scissors, ArrowLeft, Users, User } from "lucide-react";
 
@@ -17,6 +18,7 @@ export default function SalonLogin() {
   
   // Tous les hooks doivent être appelés de manière inconditionnelle
   const { login } = useAuth();
+  const authContext = useAuthContext();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -33,29 +35,58 @@ export default function SalonLogin() {
     setError(null);
     
     try {
-      await login({ email, password });
+      const loginSuccess = await login({ email, password });
       
-      // Attendre un peu pour que la session soit propagée et que la query soit rafraîchie
-      await new Promise(resolve => setTimeout(resolve, 300));
+      if (!loginSuccess) {
+        setError("Email ou mot de passe incorrect.");
+        setIsSubmitting(false);
+        return;
+      }
       
-      // Vérifier que l'authentification est bien prise en compte
-      // (optionnel, non bloquant - le SalonRouteGuard gérera la redirection si nécessaire)
+      // Attendre que l'hydratation soit complète avant de naviguer
+      // Le AuthContext met isHydrating à true pendant restoreSession()
+      // On attend qu'il soit remis à false et que le statut soit authenticated
+      // Attendre jusqu'à ce que l'hydratation soit terminée
+      let attempts = 0;
+      const maxAttempts = 30; // 3 secondes max (30 * 100ms)
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+        
+        // Vérifier le statut actuel depuis le contexte (déjà déclaré au niveau du composant)
+        if (!authContext.isHydrating && authContext.status === 'authenticated' && authContext.userType === 'owner') {
+          console.log('[salon-login] ✅ Session restaurée, navigation vers dashboard');
+          setLocation("/dashboard", { replace: true });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // Si on arrive ici, l'hydratation a pris trop de temps
+      // Vérifier manuellement la session avant de naviguer
+      console.warn('[salon-login] ⚠️ Hydratation longue, vérification manuelle...');
+      
       try {
         const checkResponse = await fetch('/api/auth/user', {
           credentials: 'include'
         });
         if (checkResponse.ok) {
           const checkData = await checkResponse.json();
-          if (checkData.authenticated) {
-            console.log('[salon-login] ✅ Session vérifiée, navigation vers dashboard');
+          if (checkData.authenticated && checkData.userType === 'owner') {
+            console.log('[salon-login] ✅ Session vérifiée manuellement, navigation vers dashboard');
+            setLocation("/dashboard", { replace: true });
+            setIsSubmitting(false);
+            return;
           }
         }
       } catch (checkError) {
-        console.warn('[salon-login] Vérification session non bloquante:', checkError);
+        console.warn('[salon-login] Erreur vérification session:', checkError);
       }
       
-      // Naviguer vers le dashboard
-      setLocation("/dashboard");
+      // Si tout échoue, afficher une erreur
+      setError("Erreur lors de la restauration de la session. Veuillez réessayer.");
+      setIsSubmitting(false);
     } catch (error: any) {
       setError(error?.message || "Erreur de connexion. Veuillez réessayer.");
       console.error("Erreur de connexion:", error);
