@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -61,13 +62,14 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { email: string; password: string }) => {
-      const response = await fetch("/api/salon/login", {
+      const response = await fetchWithTimeout("/api/salon/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
         body: JSON.stringify(credentials),
+        timeout: 10000, // 10 secondes de timeout
       });
 
       // Vérifier le content-type avant de parser le JSON
@@ -127,6 +129,11 @@ export function useAuth() {
       });
     },
     onError: (error: any) => {
+      // Ne pas afficher de toast pour les timeouts - le composant le gère
+      if (error.code === 'TIMEOUT' || error.message === 'TIMEOUT') {
+        return; // Le composant affichera le message d'erreur avec bouton "Réessayer"
+      }
+      
       toast({
         title: "Erreur de connexion",
         description: error.message || "Une erreur est survenue lors de la connexion.",

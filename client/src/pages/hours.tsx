@@ -371,9 +371,8 @@ export default function Hours() {
       const response = await fetch(`/api/salons/${salon.id}/hours`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-        body: JSON.stringify({ hours: hoursToSave }),
         credentials: "include",
+        body: JSON.stringify({ hours: hoursToSave }),
       });
       if (!response.ok) {
         const error = await response.json();
@@ -418,9 +417,8 @@ export default function Hours() {
       const response = await fetch(`/api/salons/${salon.id}/stylist-hours/${stylistId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-        body: JSON.stringify({ hours }),
         credentials: "include",
+        body: JSON.stringify({ hours }),
       });
       
       if (!response.ok) {
@@ -605,7 +603,6 @@ export default function Hours() {
       if (!salon?.id) throw new Error("Salon ID manquant");
       const response = await fetch(`/api/salons/${salon.id}/closed-dates/${dateId}`, {
         method: "DELETE",
-        credentials: 'include',
         credentials: "include",
       });
       if (!response.ok) {

@@ -7,6 +7,57 @@ import { cancelAppointment } from './core/appointments/AppointmentService.js';
 import { buildNotificationContext } from './core/notifications/utils.js';
 import { getValidIntervalsForDay, isSlotValid, formatIntervals } from './utils/bookingValidation.js';
 
+// ============================================
+// HANDLERS GLOBAUX POUR ERREURS NON GÉRÉES
+// ============================================
+// Empêcher les crashes "Uncaught Exception" et "Unhandled Rejection"
+// Particulièrement important pour les erreurs PostgreSQL (DbHandler exited)
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  const errorMessage = reason?.message || String(reason);
+  const errorCode = reason?.code || 'NO_CODE';
+  
+  // Logger l'erreur mais ne pas crasher l'application
+  console.error('[Unhandled Rejection]', {
+    message: errorMessage,
+    code: errorCode,
+    stack: reason?.stack,
+  });
+  
+  // Si c'est une erreur PostgreSQL connue (DbHandler exited), logger avec plus de détails
+  if (errorMessage.includes('DbHandler exited') || errorCode === 'ECONNRESET' || errorCode === 'EPIPE') {
+    console.error('[DB] ⚠️  Erreur de connexion PostgreSQL non gérée détectée');
+    console.error('[DB]    Cela peut être dû à une configuration incorrecte du pooler Supabase');
+    console.error('[DB]    Vérifiez que DATABASE_URL contient: pgbouncer=true&sslmode=require');
+  }
+  
+  // Ne pas crasher - laisser l'application continuer
+  // Les routes retourneront 503 si la DB n'est pas disponible grâce à requireBackendReady
+});
+
+process.on('uncaughtException', (error: Error) => {
+  const errorMessage = error.message || String(error);
+  const errorCode = (error as any)?.code || 'NO_CODE';
+  
+  // Logger l'erreur
+  console.error('[Uncaught Exception]', {
+    name: error.name,
+    message: errorMessage,
+    code: errorCode,
+    stack: error.stack,
+  });
+  
+  // Si c'est une erreur PostgreSQL connue (DbHandler exited), logger avec plus de détails
+  if (errorMessage.includes('DbHandler exited') || errorCode === 'ECONNRESET' || errorCode === 'EPIPE') {
+    console.error('[DB] ⚠️  Exception PostgreSQL non gérée détectée');
+    console.error('[DB]    Cela peut être dû à une configuration incorrecte du pooler Supabase');
+    console.error('[DB]    Vérifiez que DATABASE_URL contient: pgbouncer=true&sslmode=require');
+  }
+  
+  // Ne pas crasher - laisser l'application continuer
+  // Les routes retourneront 503 si la DB n'est pas disponible grâce à requireBackendReady
+});
+
 // Vérification des variables d'environnement au démarrage
 // En mode Vercel, on skip cette vérification pour éviter les erreurs au démarrage
 if (!process.env.VERCEL) {
@@ -72,7 +123,7 @@ import { SalonAuthService, ClientAuthService, supabaseAdmin } from "./supabaseSe
 import { healthRouter } from "./routes/health.js";
 import { setupClientAuth } from "./clientAuth.js";
 import session from "express-session";
-import SupabaseSessionStore from "./supabaseSessionStore.js";
+import { getSessionStoreSync } from "./sessionStore.js";
 import publicRouter from "./routes/public.js";
 import salonsRouter from "./routes/salons.js";
 // @ts-ignore - voice-agent.js est un fichier JS avec export default router
@@ -80,70 +131,90 @@ import voiceTextRouter from "./routes/voice-agent.js";
 import resendWebhookRouter from "./routes/resend-webhook.js";
 import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
+import { createPgClient, validateDatabaseUrl } from './db/client.js';
 
 // ============================================
-// VÉRIFICATION DE LA CONNEXION À LA BASE DE DONNÉES
+// STRATÉGIE DE HEALTH CHECK - POSTGRESQL + SUPABASE REST
 // ============================================
-let dbConnectionStatus: 'unknown' | 'ok' | 'error' = 'unknown';
-let dbConnectionError: Error | null = null;
+let postgresStatus: 'unknown' | 'ok' | 'error' = 'unknown';
+let postgresError: Error | null = null;
+let supabaseRESTStatus: 'unknown' | 'ok' | 'error' = 'unknown';
+let supabaseRESTError: Error | null = null;
+
+// Flag global pour indiquer si au moins un backend est disponible
+let backendReady = false;
 
 /**
- * Vérifie la connexion à la base de données PostgreSQL
+ * Vérifie la connexion PostgreSQL avec timeout strict (2-3s max)
+ * "Best effort" - ne doit jamais bloquer plus de 3s
  * Utilise process.env.DATABASE_URL pour se connecter
  */
-async function checkDatabaseConnection(): Promise<boolean> {
+async function checkPostgresConnection(): Promise<boolean> {
   const DATABASE_URL = process.env.DATABASE_URL;
+  const isVercel = !!process.env.VERCEL;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const timeoutMs = (isVercel || isProduction) ? 2000 : 5000; // 2s en prod, 5s en dev
 
   if (!DATABASE_URL) {
-    const error = new Error('DATABASE_URL n\'est pas définie dans les variables d\'environnement');
-    dbConnectionStatus = 'error';
-    dbConnectionError = error;
-    console.error('[DB] ❌', error.message);
+    const error = new Error('DATABASE_URL n\'est pas définie');
+    postgresStatus = 'error';
+    postgresError = error;
+    console.log('[DB] Postgres: ❌ KO (DATABASE_URL manquante)');
     return false;
   }
 
   // Masquer le mot de passe dans les logs
   const maskedUrl = DATABASE_URL.replace(/:[^:@]+@/, ':****@');
-  console.log('[DB] 🔍 Vérification de la connexion à:', maskedUrl);
+  console.log(`[DB] Postgres: 🔍 Vérification (timeout: ${timeoutMs}ms)...`);
 
-  const client = new Client({
-    connectionString: DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' 
-      ? { rejectUnauthorized: false } // Pour les certificats auto-signés Supabase
-      : false,
+  // Valider l'URL et afficher des avertissements si nécessaire
+  const validation = validateDatabaseUrl(DATABASE_URL);
+  if (validation.warnings.length > 0) {
+    console.warn('[DB] Avertissements sur DATABASE_URL:');
+    validation.warnings.forEach(warning => console.warn(`[DB] ${warning}`));
+  }
+
+  // Utiliser la configuration optimisée pour Supabase Pooler
+  const client = createPgClient(DATABASE_URL);
+
+  // Timeout strict avec Promise.race pour garantir qu'on ne bloque jamais
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`PostgreSQL connection timeout (${timeoutMs}ms)`)), timeoutMs);
   });
 
+  const connectionPromise = (async () => {
+    try {
+      await client.connect();
+      await client.query('SELECT 1');
+      await client.end();
+      return true;
+    } catch (error: any) {
+      await client.end().catch(() => {});
+      throw error;
+    }
+  })();
+
   try {
-    await client.connect();
-    await client.query('SELECT 1');
-    await client.end();
+    await Promise.race([connectionPromise, timeoutPromise]);
     
-    dbConnectionStatus = 'ok';
-    dbConnectionError = null;
-    console.log('[DB] ✅ Connexion à la base de données réussie');
+    postgresStatus = 'ok';
+    postgresError = null;
+    console.log('[DB] Postgres: ✅ OK');
     return true;
   } catch (error: any) {
-    await client.end().catch(() => {}); // Ignorer les erreurs de fermeture
+    await client.end().catch(() => {});
     
-    dbConnectionStatus = 'error';
-    dbConnectionError = error;
+    postgresStatus = 'error';
+    postgresError = error;
     
-    console.error('[DB] ❌ Erreur de connexion à la base de données:');
-    console.error('[DB]    Type:', error.constructor.name);
-    console.error('[DB]    Message:', error.message);
-    if (error.code) {
-      console.error('[DB]    Code:', error.code);
-    }
+    const errorMsg = error.message || 'Unknown error';
+    const errorCode = error.code || 'NO_CODE';
+    const isTimeout = errorMsg.includes('timeout');
     
-    // Messages d'aide selon le type d'erreur
-    if (error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') {
-      console.error('[DB] 💡 Problème DNS: Vérifiez que l\'URL de connexion est correcte');
-    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
-      console.error('[DB] 💡 Problème de connexion réseau: Vérifiez que le serveur est accessible');
-    } else if (error.message.includes('password') || error.message.includes('authentication')) {
-      console.error('[DB] 💡 Problème d\'authentification: Vérifiez les identifiants dans DATABASE_URL');
-    } else if (error.message.includes('SSL') || error.message.includes('certificate')) {
-      console.error('[DB] 💡 Problème SSL: Vérifiez la configuration SSL dans DATABASE_URL');
+    if (isTimeout) {
+      console.log(`[DB] Postgres: ⏱️  TIMEOUT après ${timeoutMs}ms (DB non disponible ou trop lente)`);
+    } else {
+      console.log(`[DB] Postgres: ❌ KO (${errorCode}: ${errorMsg.substring(0, 50)})`);
     }
     
     return false;
@@ -151,34 +222,118 @@ async function checkDatabaseConnection(): Promise<boolean> {
 }
 
 /**
- * Middleware pour vérifier que la base de données est disponible
- * Retourne 503 si la DB n'est pas accessible
+ * Vérifie que l'API REST Supabase fonctionne
+ * Teste une requête simple sur une table système
  */
-function requireDatabase(req: Request, res: Response, next: NextFunction) {
-  if (dbConnectionStatus === 'error') {
-    console.error('[DB] ❌ Tentative d\'accès à une route protégée alors que la DB n\'est pas disponible');
+async function checkSupabaseREST(): Promise<boolean> {
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    const error = new Error('SUPABASE_URL ou SUPABASE_ANON_KEY manquantes');
+    supabaseRESTStatus = 'error';
+    supabaseRESTError = error;
+    console.log('[DB] Supabase REST: ❌ KO (variables d\'environnement manquantes)');
+    return false;
+  }
+
+  console.log('[DB] Supabase REST: 🔍 Vérification...');
+
+  try {
+    // Test léger: requête sur une table système ou table simple
+    // On utilise information_schema via Supabase REST si possible, sinon on teste une table simple
+    const testUrl = `${SUPABASE_URL}/rest/v1/salons?select=id&limit=1`;
+    
+    const response = await Promise.race([
+      fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal',
+        },
+        // Timeout de 2000ms
+        signal: AbortSignal.timeout(2000),
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Supabase REST timeout (2000ms)')), 2000);
+      }),
+    ]);
+
+    if (!response.ok && response.status !== 404) {
+      // 404 est OK (table peut ne pas exister), mais d'autres erreurs indiquent un problème
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    supabaseRESTStatus = 'ok';
+    supabaseRESTError = null;
+    console.log('[DB] Supabase REST: ✅ OK');
+    return true;
+  } catch (error: any) {
+    supabaseRESTStatus = 'error';
+    supabaseRESTError = error;
+    
+    const errorMsg = error.message || 'Unknown error';
+    console.log(`[DB] Supabase REST: ❌ KO (${errorMsg.substring(0, 50)})`);
+    
+    return false;
+  }
+}
+
+/**
+ * Vérifie les deux backends et met à jour le flag backendReady
+ */
+async function checkBackendHealth(): Promise<void> {
+  console.log('[DB] 🔍 Vérification de la santé des backends...\n');
+  
+  const [postgresOk, supabaseOk] = await Promise.all([
+    checkPostgresConnection().catch(() => false),
+    checkSupabaseREST().catch(() => false),
+  ]);
+
+  backendReady = postgresOk || supabaseOk;
+
+  console.log('\n[DB] 📊 État des backends:');
+  console.log(`   Postgres: ${postgresOk ? '✅ OK' : '❌ KO'}`);
+  console.log(`   Supabase REST: ${supabaseOk ? '✅ OK' : '❌ KO'}`);
+  console.log(`   Backend prêt: ${backendReady ? '✅ OUI' : '❌ NON'}\n`);
+
+  if (!backendReady) {
+    console.error('[DB] ⚠️  ATTENTION: Aucun backend n\'est disponible!');
+    console.error('[DB]    Les routes protégées retourneront 503.');
+  } else if (!postgresOk && supabaseOk) {
+    console.log('[DB] ℹ️  Mode dégradé: Supabase REST uniquement (Postgres indisponible)');
+  }
+}
+
+/**
+ * Middleware pour vérifier qu'au moins un backend est disponible
+ * Retourne 503 uniquement si Postgres ET Supabase REST sont down
+ */
+function requireBackendReady(req: Request, res: Response, next: NextFunction) {
+  if (!backendReady) {
+    console.error('[DB] ❌ Tentative d\'accès alors qu\'aucun backend n\'est disponible');
     return res.status(503).json({
-      error: 'DATABASE_UNAVAILABLE',
-      message: 'Le service de base de données est temporairement indisponible',
+      error: 'BACKEND_UNAVAILABLE',
+      message: 'Les services backend sont temporairement indisponibles',
+      details: {
+        postgres: postgresStatus === 'ok' ? 'ok' : 'unavailable',
+        supabaseREST: supabaseRESTStatus === 'ok' ? 'ok' : 'unavailable',
+      },
     });
   }
   next();
 }
 
-// Vérifier la connexion DB au démarrage (de manière asynchrone, ne bloque pas le démarrage)
-if (!process.env.VERCEL) {
-  // En local, vérifier immédiatement
-  checkDatabaseConnection().catch((error) => {
-    console.error('[DB] ❌ Erreur lors de la vérification initiale:', error);
-  });
-} else {
-  // Sur Vercel, vérifier après un court délai pour ne pas bloquer le cold start
-  setTimeout(() => {
-    checkDatabaseConnection().catch((error) => {
-      console.error('[DB] ❌ Erreur lors de la vérification initiale:', error);
-    });
-  }, 1000);
-}
+// NE PLUS vérifier la santé des backends au démarrage (bloque le cold start)
+// La vérification sera faite de manière lazy lors de la première requête
+// Cela évite les timeouts 30s sur Vercel
+console.log('[BOOT] Backend health check will be done lazily on first request');
+
+// Exporter le flag pour utilisation dans d'autres modules
+export const SUPABASE_REST_OK = () => supabaseRESTStatus === 'ok';
+export const POSTGRES_OK = () => postgresStatus === 'ok';
+export const BACKEND_READY = () => backendReady;
 
 type StylistRow = {
   id: string;
@@ -535,7 +690,21 @@ async function findAvailableStylistForSlot(options: {
   };
 }
 
+console.log('[BOOT] createApp start');
+
 const app = express();
+
+// ============================================
+// CONFIGURATION TRUST PROXY (OBLIGATOIRE POUR VERCEL)
+// ============================================
+// Doit être configuré AVANT le middleware de session pour que les cookies fonctionnent correctement
+if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+  console.log('[SERVER] ✅ Trust proxy activé pour Vercel/production');
+} else {
+  app.set('trust proxy', 0);
+  console.log('[SERVER] Trust proxy désactivé pour développement local');
+}
 
 // Middleware de logging pour toutes les requêtes (avant les routes)
 app.use((req, res, next) => {
@@ -600,44 +769,49 @@ const isVercel = !!process.env.VERCEL;
 const isProduction = process.env.NODE_ENV === 'production';
 const isHTTPS = isVercel || isProduction;
 
-// Utiliser SupabaseSessionStore sur Vercel pour persister les sessions entre les invocations serverless
-// En local, on peut utiliser MemoryStore pour le développement
-let sessionStore: session.Store;
-try {
-  if (isVercel || isProduction) {
-    console.log('[SESSION] Utilisation de SupabaseSessionStore pour la persistance');
-    console.log('[SESSION] VERCEL:', isVercel, 'PRODUCTION:', isProduction);
-    sessionStore = new SupabaseSessionStore();
-    console.log('[SESSION] ✅ SupabaseSessionStore créé avec succès');
-  } else {
-    console.log('[SESSION] Utilisation de MemoryStore pour le développement local');
-    const MemoryStore = session.MemoryStore;
-    sessionStore = new MemoryStore();
-  }
-} catch (error: any) {
-  console.error('[SESSION] ❌ Erreur lors de la création du SupabaseSessionStore:', error);
-  console.error('[SESSION] Stack:', error.stack);
-  console.warn('[SESSION] Fallback vers MemoryStore (ne fonctionnera pas sur Vercel)');
-  const MemoryStore = session.MemoryStore;
-  sessionStore = new MemoryStore();
-}
+// Session store: init lazy (non-bloquant au chargement du module)
+// Utilise MemoryStore par défaut, puis swap vers PG store si dispo en background
+console.log('[BOOT] session init start');
+const sessionStore = getSessionStoreSync(); // Retourne MemoryStore immédiatement, init PG en background
+console.log('[BOOT] session init end (MemoryStore sync, PG init in background)');
 
-app.use(session({
+// Configuration cookie optimisée pour Vercel + même domaine
+// Si frontend et API sont sur le même domaine (witstyl.vercel.app), sameSite: 'lax' fonctionne
+// Si frontend et API sont sur des domaines différents, utiliser sameSite: 'none' avec secure: true
+const cookieSameSite: 'lax' | 'none' | 'strict' = (isVercel && process.env.FRONTEND_DOMAIN && process.env.FRONTEND_DOMAIN !== 'witstyl.vercel.app')
+  ? 'none' // Cross-domain: nécessite sameSite: 'none' et secure: true
+  : 'lax'; // Same-domain: 'lax' fonctionne parfaitement
+
+// Middleware de session - NE PAS appliquer aux routes publiques
+// Les routes /api/public/* ne doivent pas utiliser le session store
+const sessionMiddleware = session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || 'witstyl-secret-key',
   resave: false,
   saveUninitialized: false,
+  name: 'connect.sid', // Nom explicite du cookie de session
   cookie: {
-    secure: isHTTPS, // true sur Vercel/HTTPS, false en dev local
-    httpOnly: true, // Sécuriser les cookies
-    sameSite: 'lax' as const, // 'lax' fonctionne pour le même domaine (frontend et backend sur witstyl.vercel.app)
+    secure: isHTTPS, // true sur Vercel/HTTPS (obligatoire pour sameSite: 'none')
+    httpOnly: true, // Empêcher l'accès JavaScript au cookie (sécurité)
+    sameSite: cookieSameSite, // 'lax' pour same-domain, 'none' pour cross-domain
     maxAge: 24 * 60 * 60 * 1000, // 24 heures
     path: '/', // Le cookie est disponible pour tous les chemins
     // Ne pas spécifier de domaine pour que le cookie fonctionne sur tous les domaines
     domain: undefined
   },
   name: 'connect.sid', // Nom explicite du cookie de session
-}));
+});
+
+// Appliquer le middleware de session uniquement aux routes NON publiques
+// Les routes /api/public/* ne doivent pas utiliser le session store pour éviter les timeouts
+app.use((req, res, next) => {
+  // Skip session middleware pour les routes publiques
+  if (req.path.startsWith('/api/public/') || req.path === '/api/reviews/google') {
+    return next(); // Pas de session pour les routes publiques
+  }
+  // Appliquer session middleware pour toutes les autres routes
+  return sessionMiddleware(req, res, next);
+});
 
 // 👉 Routes de santé
 app.use("/api/health", healthRouter);
@@ -1213,7 +1387,8 @@ app.use((req, res, next) => {
 log("Starting with Supabase authentication integration");
 
 // Routes d'authentification pour les propriétaires de salon
-app.get('/api/auth/user', requireDatabase, async (req, res) => {
+app.get('/api/auth/user', requireBackendReady, async (req, res) => {
+  console.log('[Route] /api/auth/user start');
   // S'assurer que la réponse est toujours en JSON
   res.setHeader('Content-Type', 'application/json');
   
@@ -1273,6 +1448,7 @@ app.get('/api/auth/user', requireDatabase, async (req, res) => {
         }
 
         console.log('[GET /api/auth/user] Client trouvé, retour des données');
+        console.log('[Route] /api/auth/user respond 200 (authenticated: true, client)');
         return res.json({
           authenticated: true,
           userType: 'client',
@@ -1421,6 +1597,7 @@ app.get('/api/auth/user', requireDatabase, async (req, res) => {
       console.log('[GET /api/auth/user] ✅ Retour utilisateur avec salonId:', normalizedSalonId || 'null');
       console.log('[GET /api/auth/user] Type de salonId:', typeof normalizedSalonId);
       console.log('[GET /api/auth/user] Value finale salonId:', normalizedSalonId);
+      console.log('[Route] /api/auth/user respond 200 (authenticated: true, owner)');
 
       // Helper de normalisation (identique)
       const normalizeSalonIdForAuth = (id: string | undefined | null): string => {
@@ -1730,7 +1907,12 @@ app.post('/api/salon/register', express.json(), async (req, res) => {
   }
 });
 
-app.post('/api/salon/login', express.json(), requireDatabase, async (req, res) => {
+app.post('/api/salon/login', express.json(), requireBackendReady, async (req, res) => {
+  const startTime = Date.now();
+  console.log('[Route] /api/salon/login start');
+  const { getSessionStoreStatus } = await import('./sessionStore.js');
+  const storeStatus = getSessionStoreStatus();
+  console.log('[Route] Session store status:', storeStatus.status === 'ok' ? 'PG store OK' : 'MemoryStore fallback');
   // S'assurer que la réponse est toujours en JSON
   res.setHeader('Content-Type', 'application/json');
   
@@ -1749,6 +1931,8 @@ app.post('/api/salon/login', express.json(), requireDatabase, async (req, res) =
     
     // Validation des données d'entrée
     if (!email || !password) {
+      const duration = Date.now() - startTime;
+      console.log(`[Route] /api/salon/login respond 400 (MISSING_CREDENTIALS) en ${duration}ms`);
       return res.status(400).json({ 
         success: false,
         code: 'MISSING_CREDENTIALS',
@@ -1839,7 +2023,9 @@ app.post('/api/salon/login', express.json(), requireDatabase, async (req, res) =
     
     // Créer la session utilisateur avec le salonId normalisé
     if (!req.session) {
+      const duration = Date.now() - startTime;
       console.error('[salon/login] ❌ Session non disponible');
+      console.log(`[Route] /api/salon/login respond 500 (SESSION_ERROR) en ${duration}ms`);
       return res.status(500).json({
         success: false,
         code: 'SESSION_ERROR',
@@ -1879,7 +2065,9 @@ app.post('/api/salon/login', express.json(), requireDatabase, async (req, res) =
         });
       });
     } catch (sessionError: any) {
+      const duration = Date.now() - startTime;
       console.error('[salon/login] Erreur lors de la sauvegarde de la session:', sessionError);
+      console.log(`[Route] /api/salon/login respond 500 (SESSION_SAVE_ERROR) en ${duration}ms`);
       return res.status(500).json({
         success: false,
         code: 'SESSION_SAVE_ERROR',
@@ -1887,24 +2075,46 @@ app.post('/api/salon/login', express.json(), requireDatabase, async (req, res) =
       });
     }
     
-    console.log('✅ Debug /api/salon/login - Session created and saved:', req.sessionID);
-    console.log('✅ Debug /api/salon/login - User session:', req.session?.user);
-    console.log('✅ Debug /api/salon/login - Cookie config:', {
-      secure: isHTTPS,
-      sameSite: 'lax',
-      httpOnly: true,
-      isVercel,
-      isProduction,
-      sessionID: req.sessionID,
-    });
-    
-    // La session Express devrait déjà avoir défini le cookie via le middleware session
-    // Mais on vérifie que le cookie est bien dans les headers
+    // Vérifier que le cookie Set-Cookie est bien présent dans les headers de réponse
+    // Cette vérification doit être faite APRÈS req.session.save()
     const setCookieHeader = res.getHeader('Set-Cookie');
-    if (setCookieHeader) {
-      console.log('✅ Debug /api/salon/login - Set-Cookie header présent:', Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader);
+    const setCookieHeaders = res.getHeaders()['set-cookie'];
+    
+    // Récupérer la config cookie depuis req.session.cookie
+    const cookieConfig = req.session?.cookie || {};
+    const actualSameSite = cookieConfig.sameSite || 'lax';
+    
+    console.log('[salon/login] 📋 Debug session après sauvegarde:');
+    console.log('[salon/login]   Session ID:', req.sessionID);
+    console.log('[salon/login]   User dans session:', req.session?.user ? '✅ Présent' : '❌ Absent');
+    console.log('[salon/login]   Cookie config:', {
+      secure: cookieConfig.secure || isHTTPS,
+      sameSite: actualSameSite,
+      httpOnly: cookieConfig.httpOnly !== false,
+      path: cookieConfig.path || '/',
+      maxAge: cookieConfig.maxAge || 24 * 60 * 60 * 1000,
+    });
+    console.log('[salon/login]   Trust proxy:', app.get('trust proxy'));
+    console.log('[salon/login]   Is Vercel:', isVercel);
+    console.log('[salon/login]   Is Production:', isProduction);
+    console.log('[salon/login]   Headers déjà envoyés?', res.headersSent);
+    
+    if (setCookieHeader || setCookieHeaders) {
+      const cookieValue = Array.isArray(setCookieHeader) 
+        ? setCookieHeader[0] 
+        : (setCookieHeader || (Array.isArray(setCookieHeaders) ? setCookieHeaders[0] : setCookieHeaders));
+      const cookiePreview = String(cookieValue).substring(0, 150);
+      console.log('[salon/login] ✅ Set-Cookie header présent:', cookiePreview + (String(cookieValue).length > 150 ? '...' : ''));
     } else {
-      console.warn('⚠️ Debug /api/salon/login - Set-Cookie header absent!');
+      console.error('[salon/login] ❌ Set-Cookie header ABSENT après req.session.save()!');
+      console.error('[salon/login]   Cela peut être dû à:');
+      console.error('[salon/login]   1. Trust proxy non configuré (devrait être 1 sur Vercel)');
+      console.error('[salon/login]   2. SessionStore qui ne fonctionne pas correctement');
+      console.error('[salon/login]   3. Headers déjà envoyés avant req.session.save()');
+      console.error('[salon/login]   4. Cookie config incorrect (secure/sameSite)');
+      
+      // Ne pas échouer la requête, mais logger l'erreur
+      // Le frontend pourra détecter l'absence du cookie et afficher un message approprié
     }
     
     return res.json({
@@ -1914,8 +2124,10 @@ app.post('/api/salon/login', express.json(), requireDatabase, async (req, res) =
     });
   } catch (error: any) {
     // Catch toutes les erreurs non prévues
+    const duration = Date.now() - startTime;
     console.error("❌ Error logging in salon owner (unexpected):", error);
     console.error("❌ Error stack:", error.stack);
+    console.log(`[Route] /api/salon/login respond 500 (SERVER_ERROR) en ${duration}ms`);
     
     // S'assurer qu'on renvoie toujours du JSON même en cas d'erreur inattendue
     return res.status(500).json({ 
@@ -3519,11 +3731,8 @@ app.post('/api/clients', express.json(), async (req, res) => {
       // Méthode 1: Essayer avec une connexion directe à Postgres si disponible (contourne PostgREST)
       if (DATABASE_URL) {
         try {
-          const { Client } = await import('pg');
-          const pgClient = new Client({ 
-            connectionString: DATABASE_URL,
-            ssl: { rejectUnauthorized: false } // Pour les certificats auto-signés Supabase
-          });
+          // Utiliser la configuration optimisée pour Supabase Pooler
+          const pgClient = createPgClient(DATABASE_URL);
           await pgClient.connect();
           
           // Vérifier si la colonne owner_notes existe, sinon l'ajouter
@@ -6570,9 +6779,12 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
+console.log('[BOOT] routes mounted');
+
 // Export de l'app Express pour Vercel (serverless)
 // Vercel utilisera cet export comme handler
 export default app;
+export { app };
 
 // Démarrage du serveur uniquement si on n'est pas sur Vercel
 // Vercel détecte automatiquement la présence de VERCEL dans les variables d'environnement

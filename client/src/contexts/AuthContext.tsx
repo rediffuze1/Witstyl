@@ -7,6 +7,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useLocation } from 'wouter';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 
 // Types
 export type UserType = 'owner' | 'client' | null;
@@ -218,11 +219,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsHydrating(true);
       
-      const response = await fetch('/api/salon/login', {
+      const response = await fetchWithTimeout('/api/salon/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ email, password }),
+        timeout: 10000, // 10 secondes de timeout
       });
       
       // Vérifier le content-type avant de parser le JSON
@@ -276,9 +278,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[AuthContext] loginOwner - Session restaurée, isHydrating sera remis à false par restoreSession');
       
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthContext] loginOwner - Erreur:', error);
       setIsHydrating(false);
+      
+      // Propager l'erreur de timeout pour qu'elle soit gérée par le composant
+      if (error.code === 'TIMEOUT' || error.message === 'TIMEOUT') {
+        throw error; // Re-throw pour que le composant puisse l'attraper
+      }
+      
       return false;
     }
   }, [restoreSession]);

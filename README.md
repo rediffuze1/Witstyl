@@ -44,6 +44,23 @@ Witstyl/
 
 Voir `CONTRIBUTING.md` pour la configuration complète.
 
+### ⚠️ Configuration Vercel + Supabase
+
+**IMPORTANT:** Pour les déploiements sur Vercel, vous **DEVEZ** utiliser le pooler Supavisor (Transaction Mode) au lieu de la connexion PostgreSQL directe.
+
+**Pourquoi?**
+- La connexion directe (`db.*.supabase.co`) peut échouer avec des erreurs DNS sur Vercel
+- Le pooler est optimisé pour les environnements serverless
+- Supporte IPv4 (la connexion directe nécessite IPv6)
+
+**Comment configurer:**
+1. Exécutez `npm run print:db-instructions` pour afficher les instructions détaillées
+2. Obtenez l'URL du pooler depuis Supabase Dashboard > Settings > Database > Connect > Transaction Mode
+3. Configurez `DATABASE_URL` dans Vercel avec cette URL (format: `postgres://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`)
+4. Testez avec `npm run test:db`
+
+Voir `FIX_VERCEL_POOLER.md` pour plus de détails.
+
 ## 📅 Calendrier interne
 
 Le calendrier interne permet de gérer les rendez-vous directement dans l'application, sans dépendance externe.

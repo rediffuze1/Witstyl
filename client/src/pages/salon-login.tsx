@@ -15,6 +15,7 @@ export default function SalonLogin() {
   const [userType, setUserType] = useState<'salon' | 'client' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTimeoutError, setIsTimeoutError] = useState(false);
   
   // Tous les hooks doivent être appelés de manière inconditionnelle
   const { login } = useAuth();
@@ -43,6 +44,7 @@ export default function SalonLogin() {
     
     setIsSubmitting(true);
     setError(null);
+    setIsTimeoutError(false);
     
     try {
       const loginSuccess = await login({ email, password });
@@ -61,11 +63,30 @@ export default function SalonLogin() {
       // quand isHydrating devient false et status devient authenticated
       console.log('[salon-login] ✅ Login réussi, attente de la restauration de session...');
     } catch (error: any) {
-      setError(error?.message || "Erreur de connexion. Veuillez réessayer.");
+      // Gérer spécifiquement les erreurs de timeout
+      if (error?.code === 'TIMEOUT' || error?.message === 'TIMEOUT') {
+        setIsTimeoutError(true);
+        setError("Le serveur met trop de temps à répondre. Veuillez réessayer.");
+      } else {
+        setError(error?.message || "Erreur de connexion. Veuillez réessayer.");
+        setIsTimeoutError(false);
+      }
       console.error("Erreur de connexion:", error);
-    } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleRetry = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsTimeoutError(false);
+    setError(null);
+    // Réessayer en appelant directement handleSubmit avec un événement mock
+    const mockEvent = {
+      preventDefault: () => {},
+      stopPropagation: () => {},
+    } as React.FormEvent;
+    handleSubmit(mockEvent);
   };
 
   const handleUserTypeSelection = (type: 'salon' | 'client') => {
@@ -155,8 +176,18 @@ export default function SalonLogin() {
               
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                    {error}
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm space-y-2">
+                    <p>{error}</p>
+                    {isTimeoutError && (
+                      <Button
+                        type="button"
+                        onClick={handleRetry}
+                        className="w-full mt-2 bg-red-600 hover:bg-red-700 text-white"
+                        disabled={isSubmitting}
+                      >
+                        Réessayer
+                      </Button>
+                    )}
                   </div>
                 )}
                 

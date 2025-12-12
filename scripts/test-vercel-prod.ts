@@ -29,8 +29,21 @@ async function loadHandler() {
 
 // Liste des endpoints à tester (exactement comme dans test-api-prod.ts)
 const endpoints = [
-  { method: 'GET', path: '/api/auth/user', description: 'GET /api/auth/user (non authentifié)' },
-  { method: 'POST', path: '/api/salon/login', description: 'POST /api/salon/login', body: { email: 'test@example.com', password: 'test' } },
+  { 
+    method: 'GET', 
+    path: '/api/auth/user', 
+    description: 'GET /api/auth/user (non authentifié)',
+    expectedStatus: [200], // Doit retourner 200 (non 503) même si Postgres est down, tant que Supabase REST est OK
+    mustNotBe: [503], // Ne doit JAMAIS retourner 503 si Supabase REST est OK
+  },
+  { 
+    method: 'POST', 
+    path: '/api/salon/login', 
+    description: 'POST /api/salon/login',
+    body: { email: 'test@example.com', password: 'test' },
+    expectedStatus: [200, 401], // Doit retourner 200 (succès) ou 401 (mauvais credentials), mais jamais 503
+    mustNotBe: [503], // Ne doit JAMAIS retourner 503 si Supabase REST est OK
+  },
   { method: 'GET', path: '/api/public/salon', description: 'GET /api/public/salon' },
   { method: 'GET', path: '/api/public/salon/stylistes', description: 'GET /api/public/salon/stylistes' },
   { method: 'GET', path: '/api/reviews/google', description: 'GET /api/reviews/google' },
@@ -39,7 +52,13 @@ const endpoints = [
   { method: 'GET', path: '/salon1.jpg', description: 'GET /salon1.jpg (fichier statique - 404 attendu sur Vercel)' },
 ];
 
-async function testEndpoint(method: string, path: string, body?: any): Promise<{ status: number; ok: boolean; error?: string; response?: string }> {
+async function testEndpoint(
+  method: string, 
+  path: string, 
+  body?: any,
+  expectedStatus?: number[],
+  mustNotBe?: number[]
+): Promise<{ status: number; ok: boolean; error?: string; response?: string; validationError?: string }> {
   return new Promise(async (resolve) => {
     try {
       const vercelHandler = await loadHandler();
@@ -128,7 +147,22 @@ async function testEndpoint(method: string, path: string, body?: any): Promise<{
             ended = true;
             headersSent = true;
             const ok = statusCode < 500; // On accepte 4xx mais pas 5xx
-            resolve({ status: statusCode, ok, error: ok ? undefined : `Status ${statusCode}: ${responseBody.substring(0, 200)}`, response: responseBody });
+            let validationError: string | undefined;
+            
+            // Validation spécifique pour les routes d'auth
+            if (mustNotBe && mustNotBe.includes(statusCode)) {
+              validationError = `Status ${statusCode} interdit (doit être ${expectedStatus?.join(' ou ') || '200/401'})`;
+            } else if (expectedStatus && !expectedStatus.includes(statusCode)) {
+              validationError = `Status ${statusCode} inattendu (attendu: ${expectedStatus.join(' ou ')})`;
+            }
+            
+            resolve({ 
+              status: statusCode, 
+              ok: ok && !validationError, 
+              error: ok ? undefined : `Status ${statusCode}: ${responseBody.substring(0, 200)}`, 
+              response: responseBody,
+              validationError,
+            });
           }
         },
         setHeader: (name: string, value: string) => {
@@ -213,14 +247,23 @@ async function runTests() {
 
   for (const endpoint of endpoints) {
     process.stdout.write(`Testing ${endpoint.description}... `);
-    const result = await testEndpoint(endpoint.method, endpoint.path, endpoint.body);
+    const result = await testEndpoint(
+      endpoint.method, 
+      endpoint.path, 
+      endpoint.body,
+      (endpoint as any).expectedStatus,
+      (endpoint as any).mustNotBe
+    );
 
-    if (result.ok) {
+    if (result.ok && !result.validationError) {
       console.log(`✅ OK (${result.status})`);
       passed++;
     } else {
       console.log(`❌ FAILED`);
       console.log(`   Status: ${result.status}`);
+      if (result.validationError) {
+        console.log(`   ⚠️  Validation: ${result.validationError}`);
+      }
       if (result.error) {
         console.log(`   Error: ${result.error}`);
       }
