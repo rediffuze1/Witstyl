@@ -79,6 +79,106 @@ import salonsRouter from "./routes/salons.js";
 import voiceTextRouter from "./routes/voice-agent.js";
 import resendWebhookRouter from "./routes/resend-webhook.js";
 import { createClient } from '@supabase/supabase-js';
+import { Client } from 'pg';
+
+// ============================================
+// VÉRIFICATION DE LA CONNEXION À LA BASE DE DONNÉES
+// ============================================
+let dbConnectionStatus: 'unknown' | 'ok' | 'error' = 'unknown';
+let dbConnectionError: Error | null = null;
+
+/**
+ * Vérifie la connexion à la base de données PostgreSQL
+ * Utilise process.env.DATABASE_URL pour se connecter
+ */
+async function checkDatabaseConnection(): Promise<boolean> {
+  const DATABASE_URL = process.env.DATABASE_URL;
+
+  if (!DATABASE_URL) {
+    const error = new Error('DATABASE_URL n\'est pas définie dans les variables d\'environnement');
+    dbConnectionStatus = 'error';
+    dbConnectionError = error;
+    console.error('[DB] ❌', error.message);
+    return false;
+  }
+
+  // Masquer le mot de passe dans les logs
+  const maskedUrl = DATABASE_URL.replace(/:[^:@]+@/, ':****@');
+  console.log('[DB] 🔍 Vérification de la connexion à:', maskedUrl);
+
+  const client = new Client({
+    connectionString: DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' 
+      ? { rejectUnauthorized: false } // Pour les certificats auto-signés Supabase
+      : false,
+  });
+
+  try {
+    await client.connect();
+    await client.query('SELECT 1');
+    await client.end();
+    
+    dbConnectionStatus = 'ok';
+    dbConnectionError = null;
+    console.log('[DB] ✅ Connexion à la base de données réussie');
+    return true;
+  } catch (error: any) {
+    await client.end().catch(() => {}); // Ignorer les erreurs de fermeture
+    
+    dbConnectionStatus = 'error';
+    dbConnectionError = error;
+    
+    console.error('[DB] ❌ Erreur de connexion à la base de données:');
+    console.error('[DB]    Type:', error.constructor.name);
+    console.error('[DB]    Message:', error.message);
+    if (error.code) {
+      console.error('[DB]    Code:', error.code);
+    }
+    
+    // Messages d'aide selon le type d'erreur
+    if (error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') {
+      console.error('[DB] 💡 Problème DNS: Vérifiez que l\'URL de connexion est correcte');
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
+      console.error('[DB] 💡 Problème de connexion réseau: Vérifiez que le serveur est accessible');
+    } else if (error.message.includes('password') || error.message.includes('authentication')) {
+      console.error('[DB] 💡 Problème d\'authentification: Vérifiez les identifiants dans DATABASE_URL');
+    } else if (error.message.includes('SSL') || error.message.includes('certificate')) {
+      console.error('[DB] 💡 Problème SSL: Vérifiez la configuration SSL dans DATABASE_URL');
+    }
+    
+    return false;
+  }
+}
+
+/**
+ * Middleware pour vérifier que la base de données est disponible
+ * Retourne 503 si la DB n'est pas accessible
+ */
+function requireDatabase(req: Request, res: Response, next: NextFunction) {
+  if (dbConnectionStatus === 'error') {
+    console.error('[DB] ❌ Tentative d\'accès à une route protégée alors que la DB n\'est pas disponible');
+    return res.status(503).json({
+      error: 'DATABASE_UNAVAILABLE',
+      message: 'Le service de base de données est temporairement indisponible',
+    });
+  }
+  next();
+}
+
+// Vérifier la connexion DB au démarrage (de manière asynchrone, ne bloque pas le démarrage)
+if (!process.env.VERCEL) {
+  // En local, vérifier immédiatement
+  checkDatabaseConnection().catch((error) => {
+    console.error('[DB] ❌ Erreur lors de la vérification initiale:', error);
+  });
+} else {
+  // Sur Vercel, vérifier après un court délai pour ne pas bloquer le cold start
+  setTimeout(() => {
+    checkDatabaseConnection().catch((error) => {
+      console.error('[DB] ❌ Erreur lors de la vérification initiale:', error);
+    });
+  }, 1000);
+}
 
 type StylistRow = {
   id: string;
@@ -1113,7 +1213,7 @@ app.use((req, res, next) => {
 log("Starting with Supabase authentication integration");
 
 // Routes d'authentification pour les propriétaires de salon
-app.get('/api/auth/user', async (req, res) => {
+app.get('/api/auth/user', requireDatabase, async (req, res) => {
   // S'assurer que la réponse est toujours en JSON
   res.setHeader('Content-Type', 'application/json');
   
@@ -1630,7 +1730,7 @@ app.post('/api/salon/register', express.json(), async (req, res) => {
   }
 });
 
-app.post('/api/salon/login', express.json(), async (req, res) => {
+app.post('/api/salon/login', express.json(), requireDatabase, async (req, res) => {
   // S'assurer que la réponse est toujours en JSON
   res.setHeader('Content-Type', 'application/json');
   

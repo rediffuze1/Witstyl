@@ -22,7 +22,8 @@
     "health": "tsx scripts/check-supabase.ts",
     "normalize:phones": "tsx scripts/normalize-phone-numbers.ts",
     "mcp:reload": "echo 'toggle MCP in Cursor Tools & MCP puis Reload Window'",
-    "test:calendar": "echo 'Tests unitaires calendrier - À implémenter avec vitest'"
+    "test:calendar": "echo 'Tests unitaires calendrier - À implémenter avec vitest'",
+    "test:db": "tsx scripts/test-db-connection.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
