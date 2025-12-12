@@ -72,6 +72,7 @@ import { SalonAuthService, ClientAuthService, supabaseAdmin } from "./supabaseSe
 import { healthRouter } from "./routes/health.js";
 import { setupClientAuth } from "./clientAuth.js";
 import session from "express-session";
+import SupabaseSessionStore from "./supabaseSessionStore.js";
 import publicRouter from "./routes/public.js";
 import salonsRouter from "./routes/salons.js";
 // @ts-ignore - voice-agent.js est un fichier JS avec export default router
@@ -499,7 +500,26 @@ const isVercel = !!process.env.VERCEL;
 const isProduction = process.env.NODE_ENV === 'production';
 const isHTTPS = isVercel || isProduction;
 
+// Utiliser SupabaseSessionStore sur Vercel pour persister les sessions entre les invocations serverless
+// En local, on peut utiliser MemoryStore pour le développement
+let sessionStore: session.Store;
+try {
+  if (isVercel || isProduction) {
+    console.log('[SESSION] Utilisation de SupabaseSessionStore pour la persistance');
+    sessionStore = new SupabaseSessionStore();
+  } else {
+    console.log('[SESSION] Utilisation de MemoryStore pour le développement local');
+    const MemoryStore = session.MemoryStore;
+    sessionStore = new MemoryStore();
+  }
+} catch (error: any) {
+  console.warn('[SESSION] Erreur lors de la création du store, utilisation de MemoryStore:', error.message);
+  const MemoryStore = session.MemoryStore;
+  sessionStore = new MemoryStore();
+}
+
 app.use(session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'witstyl-secret-key',
   resave: false,
   saveUninitialized: false,
@@ -513,10 +533,6 @@ app.use(session({
     domain: undefined
   },
   name: 'connect.sid', // Nom explicite du cookie de session
-  // Sur Vercel, MemoryStore ne persiste pas entre les invocations
-  // Mais les cookies signés permettent de maintenir la session si les cookies sont correctement envoyés
-  // Note: Pour une vraie persistance, il faudrait utiliser un store externe (Redis, Supabase, etc.)
-  // Pour l'instant, on utilise les cookies signés qui fonctionnent si secure et sameSite sont correctement configurés
 }));
 
 // 👉 Routes de santé
