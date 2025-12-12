@@ -497,15 +497,16 @@ app.use(express.urlencoded({ extended: false }));
 // Configuration adaptée pour Vercel (HTTPS) et développement local (HTTP)
 const isVercel = !!process.env.VERCEL;
 const isProduction = process.env.NODE_ENV === 'production';
+const isHTTPS = isVercel || isProduction;
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'witstyl-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: isVercel || isProduction, // true sur Vercel/HTTPS, false en dev local
+    secure: isHTTPS, // true sur Vercel/HTTPS, false en dev local
     httpOnly: true, // Sécuriser les cookies
-    sameSite: isVercel ? 'none' : 'lax', // 'none' pour Vercel (cross-site), 'lax' pour local
+    sameSite: isHTTPS ? 'lax' : 'lax', // 'lax' fonctionne bien sur Vercel (même domaine)
     maxAge: 24 * 60 * 60 * 1000, // 24 heures
     path: '/', // Le cookie est disponible pour tous les chemins
     // Ne pas spécifier de domaine pour que le cookie fonctionne sur tous les domaines
@@ -513,8 +514,9 @@ app.use(session({
   },
   name: 'connect.sid', // Nom explicite du cookie de session
   // Sur Vercel, MemoryStore ne persiste pas entre les invocations
-  // Mais les cookies signés permettent de maintenir la session
+  // Mais les cookies signés permettent de maintenir la session si les cookies sont correctement envoyés
   // Note: Pour une vraie persistance, il faudrait utiliser un store externe (Redis, Supabase, etc.)
+  // Pour l'instant, on utilise les cookies signés qui fonctionnent si secure et sameSite sont correctement configurés
 }));
 
 // 👉 Routes de santé
@@ -1745,6 +1747,13 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
             reject(err);
           } else {
             console.log("[salon/login] ✅ Session sauvegardée pour user:", result.user.id);
+            console.log("[salon/login] Session ID:", req.sessionID);
+            console.log("[salon/login] Cookie sera envoyé avec:", {
+              secure: isHTTPS,
+              sameSite: isHTTPS ? 'lax' : 'lax',
+              httpOnly: true,
+              maxAge: 24 * 60 * 60 * 1000,
+            });
             resolve();
           }
         });
@@ -1760,6 +1769,16 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
     
     console.log('✅ Debug /api/salon/login - Session created and saved:', req.sessionID);
     console.log('✅ Debug /api/salon/login - User session:', req.session?.user);
+    console.log('✅ Debug /api/salon/login - Headers Set-Cookie:', res.getHeader('Set-Cookie'));
+    
+    // S'assurer que les headers de cookie sont bien envoyés
+    res.cookie('connect.sid', req.sessionID, {
+      secure: isHTTPS,
+      httpOnly: true,
+      sameSite: isHTTPS ? 'lax' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/',
+    });
     
     return res.json({
       success: true,
