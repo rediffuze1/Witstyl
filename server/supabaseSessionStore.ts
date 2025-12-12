@@ -24,7 +24,23 @@ class SupabaseSessionStore extends session.Store {
       throw new Error('SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont requis pour SupabaseSessionStore');
     }
 
-    this.supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    // Créer le client Supabase avec des options explicites pour éviter les erreurs 406
+    this.supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      db: {
+        schema: 'public',
+      },
+      global: {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_SERVICE_KEY,
+        },
+      },
+    });
   }
 
   async get(sid: string, callback: (err?: any, session?: session.SessionData | null) => void) {
@@ -35,7 +51,26 @@ class SupabaseSessionStore extends session.Store {
         .eq('sid', sid)
         .single();
 
-      if (error || !data) {
+      if (error) {
+        // Log l'erreur pour debugging, mais ne la propage pas si c'est juste "not found"
+        if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
+          // Session non trouvée, c'est normal
+          return callback(null, null);
+        }
+        console.error('[SupabaseSessionStore] Erreur lors de la récupération de la session:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        // Pour les erreurs 406, on retourne null plutôt que de propager l'erreur
+        if (error.code === '406' || error.message?.includes('406')) {
+          return callback(null, null);
+        }
+        return callback(error);
+      }
+
+      if (!data) {
         return callback(null, null);
       }
 
@@ -48,8 +83,10 @@ class SupabaseSessionStore extends session.Store {
       }
 
       callback(null, data.sess);
-    } catch (err) {
-      callback(err);
+    } catch (err: any) {
+      console.error('[SupabaseSessionStore] Exception lors de la récupération de la session:', err);
+      // En cas d'exception, on retourne null plutôt que de propager l'erreur
+      callback(null, null);
     }
   }
 
@@ -68,12 +105,17 @@ class SupabaseSessionStore extends session.Store {
         });
 
       if (error) {
-        console.error('[SupabaseSessionStore] Erreur lors de la sauvegarde de session:', error);
+        console.error('[SupabaseSessionStore] Erreur lors de la sauvegarde de session:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
         return callback?.(error);
       }
 
       callback?.();
-    } catch (err) {
+    } catch (err: any) {
       console.error('[SupabaseSessionStore] Exception lors de la sauvegarde de session:', err);
       callback?.(err);
     }
