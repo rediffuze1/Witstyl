@@ -120,39 +120,92 @@ export default function Reports() {
 
   // Données pour les graphiques (même source que les KPIs)
   const chartData = data?.chartData || [];
+  
+  // Générer des données par défaut à zéro selon la granularité
+  const getDefaultChartData = useMemo(() => {
+    if (range.granularity === "day") {
+      // 24 heures de 7h à 23h
+      return Array.from({ length: 17 }, (_, i) => ({
+        label: `${String(7 + i).padStart(2, '0')}:00`,
+        revenue: 0,
+        appointments: 0,
+      }));
+    } else if (range.granularity === "week") {
+      // 7 jours de la semaine
+      const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+      return days.map((day) => ({
+        label: day,
+        revenue: 0,
+        appointments: 0,
+      }));
+    } else if (range.granularity === "month") {
+      // 4-5 semaines dans un mois
+      const weeksInMonth = Math.ceil((range.endDate.getTime() - range.startDate.getTime()) / (1000 * 60 * 60 * 24 * 7));
+      return Array.from({ length: Math.max(4, weeksInMonth) }, (_, i) => ({
+        label: `Sem. ${i + 1}`,
+        revenue: 0,
+        appointments: 0,
+      }));
+    } else if (range.granularity === "year") {
+      // 12 mois
+      const months = [
+        "Janvier",
+        "Février",
+        "Mars",
+        "Avril",
+        "Mai",
+        "Juin",
+        "Juillet",
+        "Août",
+        "Septembre",
+        "Octobre",
+        "Novembre",
+        "Décembre",
+      ];
+      return months.map((label) => ({ label, revenue: 0, appointments: 0 }));
+    }
+    return [];
+  }, [range.granularity, range.startDate, range.endDate]);
+  
   const normalizedChartData = useMemo(() => {
-    if (range.granularity !== "year") {
+    // Si on a des données, les utiliser
+    if (chartData.length > 0) {
+      if (range.granularity === "year") {
+        // Pour l'année, on doit mapper les données sur les 12 mois
+        const months = [
+          "Janvier",
+          "Février",
+          "Mars",
+          "Avril",
+          "Mai",
+          "Juin",
+          "Juillet",
+          "Août",
+          "Septembre",
+          "Octobre",
+          "Novembre",
+          "Décembre",
+        ];
+        const base = months.map((label) => ({ label, revenue: 0, appointments: 0 }));
+        chartData.forEach((point) => {
+          const idx = months.findIndex(
+            (month) =>
+              month === point.label ||
+              month.startsWith(point.label || "") ||
+              (point.label && month.startsWith(point.label?.slice(0, 3)))
+          );
+          if (idx >= 0) {
+            base[idx].revenue = point.revenue;
+            base[idx].appointments = point.appointments;
+          }
+        });
+        return base;
+      }
       return chartData;
     }
-    const months = [
-      "Janvier",
-      "Février",
-      "Mars",
-      "Avril",
-      "Mai",
-      "Juin",
-      "Juillet",
-      "Août",
-      "Septembre",
-      "Octobre",
-      "Novembre",
-      "Décembre",
-    ];
-    const base = months.map((label) => ({ label, revenue: 0, appointments: 0 }));
-    chartData.forEach((point) => {
-      const idx = months.findIndex(
-        (month) =>
-          month === point.label ||
-          month.startsWith(point.label || "") ||
-          (point.label && month.startsWith(point.label?.slice(0, 3)))
-      );
-      if (idx >= 0) {
-        base[idx].revenue = point.revenue;
-        base[idx].appointments = point.appointments;
-      }
-    });
-    return base;
-  }, [chartData, range.granularity]);
+    // Sinon, retourner les données par défaut à zéro
+    return getDefaultChartData;
+  }, [chartData, range.granularity, getDefaultChartData]);
 
   const getAppointmentsTitle = () => {
     switch (range.granularity) {
@@ -377,10 +430,6 @@ export default function Reports() {
                 <div className="h-[300px] flex items-center justify-center">
                   <Skeleton className="h-full w-full" />
                 </div>
-              ) : normalizedChartData.length === 0 ? (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  Aucune donnée disponible pour cette période
-                </div>
               ) : (
               <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={normalizedChartData}>
@@ -412,10 +461,6 @@ export default function Reports() {
               {isLoading ? (
                 <div className="h-[300px] flex items-center justify-center">
                   <Skeleton className="h-full w-full" />
-                </div>
-              ) : normalizedChartData.length === 0 ? (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  Aucune donnée disponible pour cette période
                 </div>
               ) : (
               <ResponsiveContainer width="100%" height={300}>

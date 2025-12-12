@@ -115,23 +115,8 @@ export function TopStylists({
     );
   }
 
-  if (topStylists.length === 0) {
-    return (
-      <Card className="glassmorphism-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Coiffeur·euse·s avec le plus de rendez-vous
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-            Aucun résultat sur la période
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Toujours afficher le composant, même avec une liste vide
+  // Les graphiques seront à zéro mais visibles
 
   return (
     <Card className="glassmorphism-card">
@@ -142,6 +127,11 @@ export function TopStylists({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {topStylists.length === 0 ? (
+          <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+            Aucun coiffeur·euse sur cette période
+          </div>
+        ) : (
         <div className="space-y-3">
           {topStylists.map((stylist) => {
             const percentage = getPercentage(stylist.appointments);
@@ -200,6 +190,7 @@ export function TopStylists({
             );
           })}
         </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -78,23 +78,8 @@ export function TopServices({
     );
   }
 
-  if (topServices.length === 0) {
-    return (
-      <Card className="glassmorphism-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Scissors className="h-5 w-5 text-primary" />
-            Services les plus demandés
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-            Aucun résultat sur la période
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Toujours afficher le composant, même avec une liste vide
+  // Les graphiques seront à zéro mais visibles
 
   return (
     <Card className="glassmorphism-card">
@@ -105,6 +90,11 @@ export function TopServices({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {topServices.length === 0 ? (
+          <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+            Aucun service sur cette période
+          </div>
+        ) : (
         <div className="space-y-4">
           {topServices.map((service, index) => {
             const percentage = getPercentage(service.bookings);
@@ -154,6 +144,7 @@ export function TopServices({
             );
           })}
         </div>
+        )}
       </CardContent>
     </Card>
   );
