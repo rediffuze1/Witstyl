@@ -122,7 +122,7 @@ export default function Reports() {
   const chartData = data?.chartData || [];
   
   // Générer des données par défaut à zéro selon la granularité
-  const getDefaultChartData = useMemo(() => {
+  const defaultChartData = useMemo(() => {
     if (range.granularity === "day") {
       // 24 heures de 7h à 23h
       return Array.from({ length: 17 }, (_, i) => ({
@@ -432,9 +432,15 @@ export default function Reports() {
                 </div>
               ) : (
               <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={normalizedChartData}>
+                  <BarChart data={normalizedChartData} margin={{ bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
+                    <XAxis 
+                      dataKey="label" 
+                      angle={range.granularity === "year" ? -45 : 0}
+                      textAnchor={range.granularity === "year" ? "end" : "middle"}
+                      height={range.granularity === "year" ? 80 : 30}
+                      interval={0}
+                    />
                   <YAxis />
                   <Tooltip 
                       formatter={(value: number) => [
@@ -464,9 +470,15 @@ export default function Reports() {
                 </div>
               ) : (
               <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={normalizedChartData}>
+                  <LineChart data={normalizedChartData} margin={{ bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
+                    <XAxis 
+                      dataKey="label" 
+                      angle={range.granularity === "year" ? -45 : 0}
+                      textAnchor={range.granularity === "year" ? "end" : "middle"}
+                      height={range.granularity === "year" ? 80 : 30}
+                      interval={0}
+                    />
                   <YAxis />
                   <Tooltip 
                     formatter={(value: number) => [value, 'Rendez-vous']}
