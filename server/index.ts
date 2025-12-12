@@ -310,9 +310,24 @@ async function checkBackendHealth(): Promise<void> {
  * Middleware pour vérifier qu'au moins un backend est disponible
  * Retourne 503 uniquement si Postgres ET Supabase REST sont down
  */
-function requireBackendReady(req: Request, res: Response, next: NextFunction) {
+async function requireBackendReady(req: Request, res: Response, next: NextFunction) {
+  // Si backendReady est unknown, faire un check rapide (lazy init) avec timeout strict (500ms max)
+  if (backendReady === false && postgresStatus === 'unknown' && supabaseRESTStatus === 'unknown') {
+    // Check rapide avec timeout strict (500ms max)
+    const quickCheck = Promise.race([
+      checkBackendHealth(),
+      new Promise<void>((resolve) => setTimeout(() => resolve(), 500)), // Timeout 500ms
+    ]).catch(() => {
+      // Ignorer les erreurs, on continue avec backendReady = false
+    });
+    await quickCheck;
+  }
+  
+  // Vérification synchrone - ne bloque jamais
   if (!backendReady) {
-    console.error('[DB] ❌ Tentative d\'accès alors qu\'aucun backend n\'est disponible');
+    const route = req.path || req.url || 'unknown';
+    console.error(`[DB] ❌ Route ${route} - Backend non disponible (réponse 503 immédiate)`);
+    console.log(`[Route] ${route} respond 503 (BACKEND_UNAVAILABLE)`);
     return res.status(503).json({
       error: 'BACKEND_UNAVAILABLE',
       message: 'Les services backend sont temporairement indisponibles',
