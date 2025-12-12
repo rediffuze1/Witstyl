@@ -1769,16 +1769,22 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
     
     console.log('✅ Debug /api/salon/login - Session created and saved:', req.sessionID);
     console.log('✅ Debug /api/salon/login - User session:', req.session?.user);
-    console.log('✅ Debug /api/salon/login - Headers Set-Cookie:', res.getHeader('Set-Cookie'));
-    
-    // S'assurer que les headers de cookie sont bien envoyés
-    res.cookie('connect.sid', req.sessionID, {
+    console.log('✅ Debug /api/salon/login - Cookie config:', {
       secure: isHTTPS,
+      sameSite: 'lax',
       httpOnly: true,
-      sameSite: isHTTPS ? 'lax' : 'lax',
-      maxAge: 24 * 60 * 60 * 1000,
-      path: '/',
+      isVercel,
+      isProduction,
     });
+    
+    // La session Express devrait déjà avoir défini le cookie via le middleware session
+    // Mais on vérifie que le cookie est bien dans les headers
+    const setCookieHeader = res.getHeader('Set-Cookie');
+    if (setCookieHeader) {
+      console.log('✅ Debug /api/salon/login - Set-Cookie header présent:', Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader);
+    } else {
+      console.warn('⚠️ Debug /api/salon/login - Set-Cookie header absent!');
+    }
     
     return res.json({
       success: true,
