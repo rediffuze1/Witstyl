@@ -506,7 +506,7 @@ app.use(session({
   cookie: {
     secure: isHTTPS, // true sur Vercel/HTTPS, false en dev local
     httpOnly: true, // Sécuriser les cookies
-    sameSite: isHTTPS ? 'none' : 'lax', // 'none' pour Vercel (cross-site), 'lax' pour local
+    sameSite: 'lax' as const, // 'lax' fonctionne pour le même domaine (frontend et backend sur witstyl.vercel.app)
     maxAge: 24 * 60 * 60 * 1000, // 24 heures
     path: '/', // Le cookie est disponible pour tous les chemins
     // Ne pas spécifier de domaine pour que le cookie fonctionne sur tous les domaines
@@ -1775,6 +1775,7 @@ app.post('/api/salon/login', express.json(), async (req, res) => {
       httpOnly: true,
       isVercel,
       isProduction,
+      sessionID: req.sessionID,
     });
     
     // La session Express devrait déjà avoir défini le cookie via le middleware session
