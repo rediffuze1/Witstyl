@@ -6,7 +6,8 @@
 
 import express from "express";
 import { createClient } from '@supabase/supabase-js';
-import { getValidIntervalsForDay, isSlotValid, TimeSlot } from '../utils/bookingValidation';
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
+import { getValidIntervalsForDay, isSlotValid, TimeSlot } from '../utils/bookingValidation.js';
 
 const publicRouter = express.Router();
 

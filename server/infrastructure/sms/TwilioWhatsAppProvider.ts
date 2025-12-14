@@ -9,6 +9,7 @@
  * 3. Modifier server/core/notifications/index.ts pour utiliser TwilioWhatsAppProvider
  */
 
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { SmsProvider } from '../../core/notifications/types.js';
 
 type TwilioWhatsAppProviderConfig = {

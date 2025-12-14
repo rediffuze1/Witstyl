@@ -58,7 +58,7 @@ export async function sendConfirmationEmail(
     // Envoyer l'email via NotificationService
     // Note: NotificationService.sendBookingConfirmation envoie email + SMS
     // Ici, on veut seulement l'email, donc on va utiliser directement le provider email
-    const notificationModule = await import('./index.js');
+    const notificationModule = await import('./index');
     const notificationServiceInstance = notificationModule.notificationService;
     
     // Accéder au emailProvider via la méthode publique
@@ -75,10 +75,10 @@ export async function sendConfirmationEmail(
     const settingsRepo = settingsRepoFactory(context.salonId);
     const settings = await settingsRepo.getSettings(context.salonId);
     
-    const { renderTemplate } = await import('./templateRenderer.js');
+    const { renderTemplate } = await import('./templateRenderer');
     const { format } = await import('date-fns');
     const { fr } = await import('date-fns/locale');
-    const { DEFAULT_NOTIFICATION_TEMPLATES } = await import('./defaultTemplates.js');
+    const { DEFAULT_NOTIFICATION_TEMPLATES } = await import('./defaultTemplates');
     
     const formattedDate = format(context.startDate, "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr });
     const formattedTime = format(context.startDate, "HH:mm", { locale: fr });

@@ -6,6 +6,7 @@
 
 import session from 'express-session';
 import { Client } from 'pg';
+// IMPORTANT: En ESM, les imports relatifs doivent inclure l'extension .js
 import { createPgClient, executeQueryWithTimeout } from './db/client.js';
 
 interface SessionData {

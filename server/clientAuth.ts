@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { supabaseAdmin } from "./supabaseService.js";
 import { notificationService } from './core/notifications/index.js';
 import { cancelAppointment } from './core/appointments/AppointmentService.js';

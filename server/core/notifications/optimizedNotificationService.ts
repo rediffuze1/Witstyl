@@ -49,7 +49,7 @@ async function sendImmediateConfirmationSms(
   }
 
   // Construire le SMS avec le template standardisé (sans accents, <= 160 caractères)
-  const { buildConfirmationSms, formatDateForSms, formatTimeForSms, formatWeekdayForSms } = await import('./smsTemplates.js');
+  const { buildConfirmationSms, formatDateForSms, formatTimeForSms, formatWeekdayForSms } = await import('./smsTemplates');
   
   const smsContext = {
     clientFirstName: context.clientName.split(' ')[0] || context.clientName,

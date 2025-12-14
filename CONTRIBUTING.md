@@ -1,234 +1,188 @@
-# Guide de Contribution - Witstyl
+# 🤝 Guide de Contribution - Witstyl
 
-Ce guide vous aidera à configurer et démarrer le projet Witstyl en local.
+**Règles non négociables pour les contributions**
 
-## 📋 Prérequis
+Ce document liste les règles strictes à respecter pour toute modification du code.
 
-- Node.js 18+ et npm/pnpm/yarn
-- Un compte Supabase (gratuit)
-- Git
+---
 
-## 🚀 Installation
+## ⚠️ Règles ABSOLUES (non négociables)
 
-### 1. Cloner le repository
+### 1. ESM Strict - Imports relatifs avec `.js`
 
-```bash
-git clone https://github.com/rediffuze1/Witstyl.git
-cd Witstyl
+**❌ INTERDIT :**
+```typescript
+import { x } from './module';
+import { y } from '../utils/helper';
 ```
 
-### 2. Installer les dépendances
-
-```bash
-npm install
-# ou
-pnpm install
-# ou
-yarn install
+**✅ OBLIGATOIRE :**
+```typescript
+import { x } from './module.js';
+import { y } from '../utils/helper.js';
 ```
 
-### 3. Configurer les variables d'environnement
+**Pourquoi ?** Vercel transpile TS→JS sans réécrire les specifiers. Node.js ESM exige `.js` pour les imports relatifs.
 
-Copiez le fichier `.env.example` vers `.env` :
-
+**Vérification :**
 ```bash
-cp .env.example .env
+npm run check:esm
 ```
 
-**Note :** Si `.env.example` n'existe pas, vous pouvez utiliser `config.env.example` comme alternative.
+---
 
-Éditez `.env` et remplissez les valeurs obligatoires :
+### 2. Architecture Vercel Serverless
 
-```env
-# Configuration Supabase (OBLIGATOIRE)
-SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+#### ❌ INTERDIT dans `api/index.ts` :
+- `await import()` au top-level
+- Initialisation DB/session au chargement du module
+- Imports dynamiques non nécessaires
 
-# Configuration serveur
-PORT=5001
-NODE_ENV=development
-SESSION_SECRET=your-session-secret-here
+#### ✅ OBLIGATOIRE :
+- Imports statiques uniquement
+- Guard non-API : `if (!path.startsWith('/api/')) return 404;`
+- Routes publiques via `getPublicApp()` (DB-free)
+- Routes protégées via `getFullApp()` (lazy init)
+
+#### ❌ INTERDIT ailleurs :
+- Lazy init (`await import()`) ailleurs que dans `server/index.prod.ts`
+- Routes publiques qui importent DB/session
+
+---
+
+### 3. Routes Publiques DB-Free
+
+**Routes publiques** (`/api/public/*`, `/api/reviews/google`) :
+- ✅ Utilisent `publicApp` (via `server/publicApp.ts`)
+- ✅ Utilisent `publicIsolated.ts` (router isolé)
+- ✅ Utilisent uniquement Supabase REST API
+- ❌ N'importent JAMAIS : `db/client`, `sessionStore`, `index.prod`
+
+**Vérification :**
+```bash
+# Vérifier qu'aucune route publique n'importe DB
+grep -r "from.*db/client" server/routes/publicIsolated.ts
+# Devrait retourner vide
 ```
 
-**Où trouver les clés Supabase :**
-1. Allez sur [supabase.com](https://supabase.com)
-2. Créez un projet ou sélectionnez un projet existant
-3. Allez dans **Settings** > **API**
-4. Copiez :
-   - **Project URL** → `SUPABASE_URL` et `VITE_SUPABASE_URL`
-   - **anon public** key → `VITE_SUPABASE_ANON_KEY` et `SUPABASE_ANON_KEY`
-   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (⚠️ NE JAMAIS exposer côté client)
+---
 
-**Générer un SESSION_SECRET :**
-```bash
-openssl rand -base64 32
+### 4. Configuration Cookie/Session
+
+**Obligatoire en production (Vercel) :**
+```typescript
+app.set('trust proxy', 1); // AVANT session()
 ```
 
-### 4. Créer les tables Supabase
+**Cookie config :**
+- `secure`: Détecté via `isRequestSecure(req)` (req.secure + x-forwarded-proto)
+- `sameSite`: 'lax' par défaut, 'none' si cross-domain
+- ❌ Ne JAMAIS forcer `https` par défaut (utiliser `isRequestSecure()`)
 
-1. Dans votre projet Supabase, allez dans **SQL Editor**
-2. Cliquez sur **New Query**
-3. Copiez le contenu du fichier `supabase_complete_setup.sql`
-4. Collez-le dans l'éditeur et cliquez sur **Run**
+**Middleware unique :**
+- Config cookie modifiée UNIQUEMENT dans un middleware après `session()`
+- ❌ Ne PAS modifier `req.session.cookie.*` dans les routes
 
-## 🏃 Démarrer l'application
+---
 
-### Mode développement
+### 5. Timeouts PostgreSQL
 
-```bash
-npm run dev
+**Obligatoire pour toutes les opérations DB :**
+```typescript
+connectionTimeoutMillis: 3000  // 3s max
+query_timeout: 3000            // 3s max
+idleTimeoutMillis: 10000        // 10s max
 ```
 
-L'application sera accessible sur **http://localhost:5001/**
+**SSL pour Supabase pooler :**
+```typescript
+ssl: { rejectUnauthorized: false }  // Obligatoire pour Supabase
+```
 
-Le serveur démarre automatiquement et affiche :
-- ✅ Les variables d'environnement configurées
-- ⚠️ Les variables manquantes ou avec des valeurs d'exemple
-- 📝 Le statut de chaque variable
+**Time-boxed operations :**
+- Toute opération DB doit être dans `Promise.race()` avec timeout
+- Si DB KO : répondre 503 en < 1s (pas 30s)
 
-### Mode production
+---
+
+## ✅ Checklist avant PR
+
+Avant de créer une Pull Request, exécutez :
 
 ```bash
+# 1. Vérifier les imports ESM
+npm run check:esm
+
+# 2. Build
 npm run build
-npm start
+
+# 3. Smoke test post-build
+npm run smoke:dist
+
+# 4. Tests Vercel (simulation production)
+npm run test:vercel-prod
+
+# 5. TypeScript check
+npm run check
 ```
 
-## 📜 Scripts disponibles
+**Tous doivent passer ✅**
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Démarre le serveur en mode développement (port 5001) |
-| `npm run build` | Compile l'application pour la production |
-| `npm start` | Démarre le serveur en mode production |
-| `npm run check` | Vérifie les types TypeScript |
-| `npm run db:generate` | Génère les migrations Drizzle |
-| `npm run db:push` | Pousse les migrations vers la base de données |
-| `npm run db:studio` | Ouvre Drizzle Studio |
-| `npm run health` | Vérifie la connexion Supabase |
+---
 
-## 🔧 Configuration
+## 📋 Checklist de Code Review
 
-### Port du serveur
+### Backend (`server/`, `api/`)
 
-Le port par défaut est **5001**. Pour le changer :
+- [ ] Tous les imports relatifs utilisent `.js`
+- [ ] Aucun `await import()` dans `api/index.ts`
+- [ ] Routes publiques n'importent pas DB/session
+- [ ] `trust proxy` configuré en prod
+- [ ] Opérations DB time-boxées (3s max)
+- [ ] SSL configuré pour Supabase pooler
+- [ ] Session cookie configurée via middleware unique
 
-1. Modifiez `PORT` dans `.env`
-2. Ou utilisez la variable d'environnement : `PORT=3000 npm run dev`
+### Frontend (`client/`)
 
-Le serveur écoute sur `0.0.0.0:PORT` pour accepter les connexions depuis n'importe quelle interface réseau.
+- [ ] `credentials: "include"` sur toutes les requêtes API
+- [ ] Gestion d'erreurs 401 → redirect login
+- [ ] Timeout client-side (10s max) pour requêtes longues
 
-### Variables d'environnement
+### Tests
 
-#### Variables obligatoires
+- [ ] Tests utilisent vrai serveur HTTP (pas de mocks `res`)
+- [ ] Tests simulent HTTPS via `X-Forwarded-Proto: https`
+- [ ] Tous les tests passent (7/7)
 
-- `SUPABASE_URL` : URL de votre projet Supabase
-- `VITE_SUPABASE_URL` : Même valeur que `SUPABASE_URL` (pour le client)
-- `VITE_SUPABASE_ANON_KEY` : Clé anonyme Supabase (pour le client)
-- `SUPABASE_ANON_KEY` : Même valeur que `VITE_SUPABASE_ANON_KEY` (pour le serveur)
+---
 
-#### Variables optionnelles
+## 🚫 Ce qu'il ne faut JAMAIS faire
 
-- `SUPABASE_SERVICE_ROLE_KEY` : Clé service role (pour opérations admin)
-- `PORT` : Port du serveur (défaut: 5001)
-- `NODE_ENV` : Environnement (development | production)
-- `SESSION_SECRET` : Secret pour les sessions Express
-- `OPENAI_API_KEY` : Clé API OpenAI (pour fonctionnalités vocales)
-- `VOICE_MODE` : Mode vocal (off | browser | openai)
-- `DATABASE_URL` : URL PostgreSQL (optionnel si Supabase uniquement)
+1. ❌ Enlever `.js` des imports relatifs TypeScript
+2. ❌ Ajouter `await import()` dans `api/index.ts`
+3. ❌ Importer DB/session dans routes publiques
+4. ❌ Forcer `https` par défaut (utiliser `isRequestSecure()`)
+5. ❌ Modifier cookie config à plusieurs endroits
+6. ❌ Opérations DB sans timeout
+7. ❌ CommonJS (`require`, `module.exports`)
 
-## 🐛 Dépannage
-
-### Erreur : Variables d'environnement manquantes
-
-Si vous voyez des erreurs au démarrage :
-
-1. Vérifiez que le fichier `.env` existe à la racine du projet
-2. Vérifiez que toutes les variables obligatoires sont définies
-3. Redémarrez le serveur après avoir modifié `.env`
-
-### Erreur 401 Unauthorized
-
-Si vous rencontrez des erreurs 401 :
-
-1. Vérifiez que `VITE_SUPABASE_ANON_KEY` et `SUPABASE_ANON_KEY` sont identiques
-2. Vérifiez que les clés sont correctes dans Supabase
-3. Vérifiez que les politiques RLS (Row Level Security) sont configurées dans Supabase
-4. Vérifiez que les cookies de session sont bien envoyés (credentials: 'include')
-
-### Le serveur ne démarre pas
-
-1. Vérifiez que le port 5001 n'est pas déjà utilisé :
-   ```bash
-   lsof -i :5001
-   ```
-2. Changez le port dans `.env` si nécessaire
-3. Vérifiez les logs du serveur pour les erreurs
-
-### Flicker lors des transitions de page
-
-Le composant `PageTransition` a été optimisé pour éviter le flicker. Si vous voyez encore des problèmes :
-
-1. Vérifiez que vous n'utilisez pas `display: none` ou `opacity: 0` sur les containers racine
-2. Vérifiez que les animations utilisent `will-change` pour de meilleures performances
-3. Vérifiez que les transitions sont rapides (< 300ms)
-
-## 📁 Structure du projet
-
-```
-Witstyl/
-├── client/              # Application React/Vite
-│   ├── src/
-│   │   ├── components/  # Composants réutilisables
-│   │   ├── pages/       # Pages de l'application
-│   │   ├── hooks/       # Hooks React personnalisés
-│   │   └── lib/         # Utilitaires et clients API
-│   └── public/          # Fichiers statiques
-├── server/              # Serveur Express
-│   ├── routes/          # Routes API
-│   ├── db/              # Schéma de base de données
-│   └── mcp/             # Intégration MCP
-├── shared/              # Code partagé client/serveur
-├── .env.example         # Exemple de configuration (variables d'environnement)
-├── config.env.example    # Exemple de configuration (alternative)
-└── package.json         # Dépendances et scripts
-```
-
-## 🔐 Sécurité
-
-### Variables d'environnement
-
-- ⚠️ **NE JAMAIS** commiter le fichier `.env` dans Git
-- ⚠️ **NE JAMAIS** exposer `SUPABASE_SERVICE_ROLE_KEY` côté client
-- ✅ Les clés `VITE_*` sont exposées côté client mais sécurisées par RLS
-- ✅ Utilisez `SESSION_SECRET` fort en production
-
-### Clés API
-
-- Les clés `anon` sont publiques et sécurisées par RLS
-- La clé `service_role` bypass RLS - gardez-la secrète
-- Utilisez des secrets différents pour développement et production
+---
 
 ## 📚 Ressources
 
-- [Documentation Supabase](https://supabase.com/docs)
-- [Documentation React Query](https://tanstack.com/query/latest)
-- [Documentation Framer Motion](https://www.framer.com/motion/)
-- [Documentation Vite](https://vitejs.dev/)
+- **Architecture complète** : `ARCHITECTURE_GUIDE.md`
+- **Scripts de test** : `scripts/test-vercel-prod.ts`
+- **Vérification ESM** : `scripts/check-esm-imports.ts`
 
-## 🤝 Contribution
+---
 
-1. Créez une branche pour votre fonctionnalité
-2. Faites vos modifications
-3. Testez localement
-4. Créez une pull request
+## 🐛 En cas de problème
 
-## 📝 Notes
+1. **ERR_MODULE_NOT_FOUND** : Vérifier avec `npm run check:esm`
+2. **Timeout 30s** : Vérifier timeouts DB (3s max)
+3. **Cookie non émis** : Vérifier `trust proxy` + `isRequestSecure()`
+4. **Tests échouent** : Vérifier que tests utilisent vrai serveur HTTP
 
-- Le serveur vérifie automatiquement les variables d'environnement au démarrage
-- Les erreurs 401 déclenchent automatiquement un refresh token
-- Les transitions de page sont optimisées pour éviter le flicker
-- Le port par défaut est 5001 mais peut être changé via `PORT` dans `.env`
+---
 
+**Dernière mise à jour** : Après correction des red flags ESM/cookies (7/7 tests ✅)

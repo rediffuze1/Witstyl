@@ -4,6 +4,7 @@ import express from "express";
 import voiceTextRouter from "./voice-agent.js";
 import voiceAudio from "./voice-audio.js";
 import { createClient } from '@supabase/supabase-js';
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { getValidIntervalsForDay, isSlotValid, TimeSlot } from '../utils/bookingValidation.js';
 
 const publicRouter = express.Router();
@@ -141,7 +142,7 @@ publicRouter.get("/public-config", async (req, res) => {
 publicRouter.get("/health/openai", async (req, res) => {
   try {
     // @ts-ignore - config-direct.js est un fichier JS
-    const { hasOpenAI, openAIHeaders } = await import("../config-direct.js");
+    const { hasOpenAI, openAIHeaders } = await import("../config-direct");
     if (!hasOpenAI) return res.status(500).json({ ok: false, reason: "NO_OPENAI_KEY" });
     const fetch = (await import("node-fetch")).default;
     const r = await fetch("https://api.openai.com/v1/models", { headers: openAIHeaders() });

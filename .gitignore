@@ -47,3 +47,5 @@ NODE_ENV=development
 # Backup files with secrets
 .env.backup*
 .env.secure_backup
+.vercel
+.env*.local

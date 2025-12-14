@@ -693,7 +693,7 @@ Cet email a été envoyé automatiquement par ${ctx.salonName}
     const settings = await settingsRepo.getSettings(salonId);
 
     // Construire un contexte de test
-    const { buildAppointmentTemplateContextForTest } = await import('./utils.js');
+    const { buildAppointmentTemplateContextForTest } = await import('./utils');
     const templateContext = buildAppointmentTemplateContextForTest(salonId, salonName);
 
     // Récupérer les templates bruts

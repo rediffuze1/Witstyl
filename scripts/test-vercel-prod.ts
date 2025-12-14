@@ -4,6 +4,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { URL } from 'url';
+import http from 'node:http';
 
 // Forcer l'environnement de production comme Vercel
 process.env.VERCEL = '1';
@@ -48,8 +49,9 @@ const endpoints = [
   { method: 'GET', path: '/api/public/salon/stylistes', description: 'GET /api/public/salon/stylistes' },
   { method: 'GET', path: '/api/reviews/google', description: 'GET /api/reviews/google' },
   { method: 'GET', path: '/api/salons/test-salon-id/reports?view=week&date=2025-12-08', description: 'GET /api/salons/:salonId/reports (sans session - 401 attendu)' },
-  { method: 'GET', path: '/team/emma.jpg', description: 'GET /team/emma.jpg (fichier statique - 404 attendu sur Vercel)' },
-  { method: 'GET', path: '/salon1.jpg', description: 'GET /salon1.jpg (fichier statique - 404 attendu sur Vercel)' },
+  // Note: Les fichiers statiques (/team/emma.jpg, /salon1.jpg) ne sont pas testés car
+  // sur Vercel, ils sont servis directement par Vercel, pas par notre handler API
+  // Le handler rejette immédiatement les requêtes non-API avec 404
 ];
 
 // Credentials de test depuis les variables d'environnement
@@ -57,292 +59,141 @@ const TEST_EMAIL = process.env.TEST_LOGIN_EMAIL || 'veignatpierre@gmail.com';
 const TEST_PASSWORD = process.env.TEST_LOGIN_PASSWORD || 'Pa$$w0rd';
 
 /**
+ * Helper pour créer un serveur HTTP réel et tester avec fetch
+ * Permet à express-session de fonctionner correctement (hooks on-headers, on-finished)
+ */
+async function withServer(
+  handler: (req: any, res: any) => any,
+  run: (baseUrl: string) => Promise<{ success: boolean; message: string; details?: any }>
+): Promise<{ success: boolean; message: string; details?: any }> {
+  const server = http.createServer((req, res) => handler(req, res));
+  
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve());
+  });
+
+  const addr = server.address();
+  if (!addr || typeof addr === 'string') {
+    throw new Error('Failed to bind server');
+  }
+  
+  const baseUrl = `http://127.0.0.1:${addr.port}`;
+
+  try {
+    return await run(baseUrl);
+  } finally {
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+}
+
+/**
  * Test spécialisé pour vérifier la persistance de session via cookie
+ * Utilise un vrai serveur HTTP pour que express-session fonctionne correctement
  */
 async function testSessionCookie(): Promise<{ success: boolean; message: string; details?: any }> {
   try {
     const vercelHandler = await loadHandler();
     
-    // Étape 1: POST /api/salon/login
-    const loginReqHeaders: Record<string, string> = {
-      'content-type': 'application/json',
-      'host': 'localhost:3002',
-    };
-    
-    const loginReq = {
-      method: 'POST',
-      url: '/api/salon/login',
-      headers: loginReqHeaders,
-      readable: true,
-      readableEnded: false,
-      destroyed: false,
-      on: (event: string, callback: Function) => {
-        if (event === 'data') {
-          setTimeout(() => callback(JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD })), 0);
-        }
-        if (event === 'end') {
-          setTimeout(() => callback(), 0);
-        }
-        return loginReq;
-      },
-      once: (event: string, callback: Function) => {
-        if (event === 'end') {
-          setTimeout(() => callback(), 0);
-        }
-        return loginReq;
-      },
-      removeListener: () => loginReq,
-      removeAllListeners: () => loginReq,
-      path: '/api/salon/login',
-      query: {},
-      params: {},
-      body: { email: TEST_EMAIL, password: TEST_PASSWORD },
-      originalUrl: '/api/salon/login',
-      protocol: 'http',
-      hostname: 'localhost',
-      ip: '127.0.0.1',
-      get: (name: string) => loginReqHeaders[name.toLowerCase()],
-      baseUrl: '',
-      route: null,
-    } as any;
+    return await withServer(vercelHandler, async (baseUrl) => {
+      // Step 1: login
+      const loginRes = await fetch(`${baseUrl}/api/salon/login`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-proto': 'https', // Simuler HTTPS pour les tests
+          'origin': 'http://localhost:5001',
+        },
+        body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
+      });
 
-    let loginStatusCode = 200;
-    let loginResponseBody = '';
-    const loginHeaders: Record<string, string> = {};
-    let loginHeadersSent = false;
-    let loginEnded = false;
+      const loginBody = await loginRes.text();
+      if (!loginRes.ok) {
+        return {
+          success: false,
+          message: `Login failed with status ${loginRes.status}`,
+          details: { status: loginRes.status, response: loginBody.slice(0, 200) },
+        };
+      }
 
-    const loginRes = {
-      statusCode: 200,
-      status: (code: number) => {
-        if (!loginHeadersSent) {
-          loginStatusCode = code;
-        }
-        return loginRes;
-      },
-      json: (data: any) => {
-        if (!loginHeadersSent && !loginEnded) {
-          loginResponseBody = JSON.stringify(data);
-          loginHeadersSent = true;
-          loginRes.end();
-        }
-      },
-      send: (data: any) => {
-        if (!loginHeadersSent && !loginEnded) {
-          loginResponseBody = typeof data === 'string' ? data : JSON.stringify(data);
-          loginHeadersSent = true;
-          loginRes.end();
-        }
-      },
-      end: (data?: any) => {
-        if (!loginEnded) {
-          if (data) loginResponseBody += typeof data === 'string' ? data : JSON.stringify(data);
-          loginEnded = true;
-          loginHeadersSent = true;
-        }
-      },
-      setHeader: (name: string, value: string) => {
-        if (!loginHeadersSent) {
-          loginHeaders[name] = value;
-        }
-      },
-      getHeader: (name: string) => loginHeaders[name],
-      headersSent: false,
-      get headersSent() {
-        return loginHeadersSent;
-      },
-      writable: true,
-      writableEnded: false,
-      destroyed: false,
-      on: () => loginRes,
-      once: () => loginRes,
-      removeListener: () => loginRes,
-      removeAllListeners: () => loginRes,
-      write: (chunk: any) => {
-        if (!loginHeadersSent && !loginEnded) {
-          loginResponseBody += chunk;
-          return true;
-        }
-        return false;
-      },
-      writeHead: (code: number, headers?: Record<string, string>) => {
-        if (!loginHeadersSent) {
-          loginStatusCode = code;
-          if (headers) {
-            Object.assign(loginHeaders, headers);
-          }
-        }
-        return loginRes;
-      },
-    } as any;
+      // IMPORTANT: Node fetch ne donne pas toujours set-cookie via headers.get()
+      // Donc on lit via headers.getSetCookie() si disponible (undici/Node 20+),
+      // sinon fallback brute.
+      const anyHeaders: any = loginRes.headers;
+      const setCookies: string[] =
+        typeof anyHeaders.getSetCookie === 'function'
+          ? anyHeaders.getSetCookie()
+          : (loginRes.headers.get('set-cookie') ? [loginRes.headers.get('set-cookie')!] : []);
 
-    await vercelHandler(loginReq, loginRes);
-    await new Promise(resolve => setTimeout(resolve, 200));
+      if (!setCookies.length) {
+        return {
+          success: false,
+          message: 'Set-Cookie header absent dans la réponse de login',
+          details: { 
+            status: loginRes.status, 
+            headers: Object.fromEntries(loginRes.headers.entries()),
+            response: loginBody.slice(0, 200),
+          },
+        };
+      }
 
-    if (loginStatusCode !== 200) {
+      // Extraire le nom=valeur du cookie (sans les attributs)
+      const cookieHeader = setCookies.map((c) => c.split(';')[0]).join('; ');
+
+      // Step 2: call auth endpoint with cookie
+      const meRes = await fetch(`${baseUrl}/api/auth/user`, {
+        method: 'GET',
+        headers: {
+          'cookie': cookieHeader,
+          'x-forwarded-proto': 'https',
+          'origin': 'http://localhost:5001',
+        },
+      });
+
+      const meBody = await meRes.text();
+      if (!meRes.ok) {
+        return {
+          success: false,
+          message: `Auth/user failed with status ${meRes.status}`,
+          details: { status: meRes.status, response: meBody.slice(0, 200) },
+        };
+      }
+
+      let meData;
+      try {
+        meData = JSON.parse(meBody);
+      } catch (e) {
+        return {
+          success: false,
+          message: 'Failed to parse auth/user response',
+          details: { response: meBody.slice(0, 200) },
+        };
+      }
+
+      if (meData.authenticated !== true) {
+        return {
+          success: false,
+          message: `authenticated is ${meData.authenticated}, expected true`,
+          details: { response: meData },
+        };
+      }
+
       return {
-        success: false,
-        message: `Login failed with status ${loginStatusCode}`,
-        details: { status: loginStatusCode, response: loginResponseBody.substring(0, 200) },
+        success: true,
+        message: 'Session cookie correctly emitted and reused',
+        details: {
+          cookie: cookieHeader.substring(0, 80) + '...',
+          authenticated: meData.authenticated,
+          userType: meData.userType,
+        },
       };
-    }
-
-    // Récupérer le Set-Cookie
-    const setCookieHeader = loginHeaders['set-cookie'] || loginRes.getHeader('Set-Cookie');
-    if (!setCookieHeader) {
-      return {
-        success: false,
-        message: 'Set-Cookie header absent dans la réponse de login',
-        details: { headers: loginHeaders },
-      };
-    }
-
-    const cookie = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
-
-    // Étape 2: GET /api/auth/user avec le cookie
-    const authReqHeaders: Record<string, string> = {
-      'host': 'localhost:3002',
-      'cookie': cookie,
-    };
-
-    const authReq = {
-      method: 'GET',
-      url: '/api/auth/user',
-      headers: authReqHeaders,
-      readable: true,
-      readableEnded: false,
-      destroyed: false,
-      on: () => authReq,
-      once: () => authReq,
-      removeListener: () => authReq,
-      removeAllListeners: () => authReq,
-      path: '/api/auth/user',
-      query: {},
-      params: {},
-      body: {},
-      originalUrl: '/api/auth/user',
-      protocol: 'http',
-      hostname: 'localhost',
-      ip: '127.0.0.1',
-      get: (name: string) => authReqHeaders[name.toLowerCase()],
-      baseUrl: '',
-      route: null,
-    } as any;
-
-    let authStatusCode = 200;
-    let authResponseBody = '';
-    const authHeaders: Record<string, string> = {};
-    let authHeadersSent = false;
-    let authEnded = false;
-
-    const authRes = {
-      statusCode: 200,
-      status: (code: number) => {
-        if (!authHeadersSent) {
-          authStatusCode = code;
-        }
-        return authRes;
-      },
-      json: (data: any) => {
-        if (!authHeadersSent && !authEnded) {
-          authResponseBody = JSON.stringify(data);
-          authHeadersSent = true;
-          authRes.end();
-        }
-      },
-      send: (data: any) => {
-        if (!authHeadersSent && !authEnded) {
-          authResponseBody = typeof data === 'string' ? data : JSON.stringify(data);
-          authHeadersSent = true;
-          authRes.end();
-        }
-      },
-      end: (data?: any) => {
-        if (!authEnded) {
-          if (data) authResponseBody += typeof data === 'string' ? data : JSON.stringify(data);
-          authEnded = true;
-          authHeadersSent = true;
-        }
-      },
-      setHeader: (name: string, value: string) => {
-        if (!authHeadersSent) {
-          authHeaders[name] = value;
-        }
-      },
-      getHeader: (name: string) => authHeaders[name],
-      headersSent: false,
-      get headersSent() {
-        return authHeadersSent;
-      },
-      writable: true,
-      writableEnded: false,
-      destroyed: false,
-      on: () => authRes,
-      once: () => authRes,
-      removeListener: () => authRes,
-      removeAllListeners: () => authRes,
-      write: (chunk: any) => {
-        if (!authHeadersSent && !authEnded) {
-          authResponseBody += chunk;
-          return true;
-        }
-        return false;
-      },
-      writeHead: (code: number, headers?: Record<string, string>) => {
-        if (!authHeadersSent) {
-          authStatusCode = code;
-          if (headers) {
-            Object.assign(authHeaders, headers);
-          }
-        }
-        return authRes;
-      },
-    } as any;
-
-    await vercelHandler(authReq, authRes);
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    if (authStatusCode !== 200) {
-      return {
-        success: false,
-        message: `GET /api/auth/user failed with status ${authStatusCode}`,
-        details: { status: authStatusCode, response: authResponseBody.substring(0, 200) },
-      };
-    }
-
-    let authData;
-    try {
-      authData = JSON.parse(authResponseBody);
-    } catch (e) {
-      return {
-        success: false,
-        message: 'Failed to parse auth/user response',
-        details: { response: authResponseBody.substring(0, 200) },
-      };
-    }
-
-    if (authData.authenticated !== true) {
-      return {
-        success: false,
-        message: `authenticated is ${authData.authenticated}, expected true`,
-        details: { response: authData },
-      };
-    }
-
-    return {
-      success: true,
-      message: 'Session cookie correctly emitted and reused',
-      details: {
-        cookie: cookie.substring(0, 80) + '...',
-        authenticated: authData.authenticated,
-        userType: authData.userType,
-      },
-    };
+    });
   } catch (error: any) {
     return {
       success: false,
-      message: error.message || 'Unknown error',
-      details: { stack: error.stack },
+      message: `Test failed with error: ${error.message}`,
+      details: { error: error.stack },
     };
   }
 }
@@ -620,4 +471,6 @@ runTests().catch((error) => {
   console.error('❌ Erreur lors du démarrage des tests:', error);
   process.exit(1);
 });
+
+
 

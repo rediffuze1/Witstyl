@@ -62,3 +62,4 @@ Une fois les variables configurées et le code déployé :
 2. Tester le login sur `https://witstyl.vercel.app/salon-login`
 3. Vérifier les logs si nécessaire
 
+

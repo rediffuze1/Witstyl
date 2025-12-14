@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { randomUUID } from 'crypto';
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { printEnvStatus } from './env-check.js';
 import { normalizeClosedDateRecord } from './utils/closed-dates.js';
 import { notificationService } from './core/notifications/index.js';
@@ -119,11 +120,12 @@ function log(message: string, source = "express") {
 
   console.log(`${formattedTime} [${source}] ${message}`);
 }
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { SalonAuthService, ClientAuthService, supabaseAdmin } from "./supabaseService.js";
 import { healthRouter } from "./routes/health.js";
 import { setupClientAuth } from "./clientAuth.js";
 import session from "express-session";
-import { getSessionStoreSync, getSessionStoreStatus } from "./sessionStore";
+import { getSessionStoreSync, getSessionStoreStatus } from "./sessionStore.js";
 import publicRouter from "./routes/public.js";
 import salonsRouter from "./routes/salons.js";
 // @ts-ignore - voice-agent.js est un fichier JS avec export default router
@@ -143,6 +145,13 @@ let supabaseRESTError: Error | null = null;
 
 // Flag global pour indiquer si au moins un backend est disponible
 let backendReady = false;
+
+// Cache TTL pour éviter les checks trop fréquents (10 secondes)
+let lastBackendCheckTime = 0;
+const BACKEND_CHECK_TTL_MS = 10000; // 10 secondes
+
+// Protection contre les checks concurrents
+let checkInFlight: Promise<void> | null = null;
 
 /**
  * Vérifie la connexion PostgreSQL avec timeout strict (2-3s max)
@@ -309,18 +318,44 @@ async function checkBackendHealth(): Promise<void> {
 /**
  * Middleware pour vérifier qu'au moins un backend est disponible
  * Retourne 503 uniquement si Postgres ET Supabase REST sont down
+ * 
+ * Stratégie :
+ * - Cache TTL de 10s pour éviter les checks trop fréquents
+ * - Protection contre les checks concurrents (checkInFlight)
+ * - Retente même si les status sont "error" (erreurs transitoires en serverless)
+ * - Timeout strict (1-2s max) pour ne jamais bloquer
  */
 async function requireBackendReady(req: Request, res: Response, next: NextFunction) {
-  // Si backendReady est unknown, faire un check rapide (lazy init) avec timeout strict (500ms max)
-  if (backendReady === false && postgresStatus === 'unknown' && supabaseRESTStatus === 'unknown') {
-    // Check rapide avec timeout strict (500ms max)
-    const quickCheck = Promise.race([
-      checkBackendHealth(),
-      new Promise<void>((resolve) => setTimeout(() => resolve(), 500)), // Timeout 500ms
-    ]).catch(() => {
-      // Ignorer les erreurs, on continue avec backendReady = false
-    });
-    await quickCheck;
+  const now = Date.now();
+  const timeSinceLastCheck = now - lastBackendCheckTime;
+  
+  // Si backendReady est false ET (cache expiré OU status unknown), faire un check
+  const shouldCheck = !backendReady && (
+    timeSinceLastCheck >= BACKEND_CHECK_TTL_MS || 
+    postgresStatus === 'unknown' || 
+    supabaseRESTStatus === 'unknown'
+  );
+  
+  if (shouldCheck) {
+    // Protection contre les checks concurrents
+    if (!checkInFlight) {
+      const isVercel = !!process.env.VERCEL;
+      const isProduction = process.env.NODE_ENV === 'production';
+      const timeoutMs = (isVercel || isProduction) ? 1500 : 2000; // 1.5s en prod, 2s en dev
+      
+      checkInFlight = Promise.race([
+        checkBackendHealth(),
+        new Promise<void>((resolve) => setTimeout(() => resolve(), timeoutMs)),
+      ]).catch(() => {
+        // Ignorer les erreurs, on continue avec backendReady = false
+      }).finally(() => {
+        lastBackendCheckTime = Date.now();
+        checkInFlight = null;
+      });
+    }
+    
+    // Attendre le check en cours (ou timeout)
+    await checkInFlight;
   }
   
   // Vérification synchrone - ne bloque jamais
@@ -782,7 +817,27 @@ app.use(express.urlencoded({ extended: false }));
 // Configuration adaptée pour Vercel (HTTPS) et développement local (HTTP)
 const isVercel = !!process.env.VERCEL;
 const isProduction = process.env.NODE_ENV === 'production';
-const isHTTPS = isVercel || isProduction;
+
+/**
+ * Détermine si la requête est sécurisée (HTTPS) sans jamais "inventer" https
+ * Utilise req.secure (rempli par Express si trust proxy est configuré) + x-forwarded-proto
+ * Ne force jamais https par défaut, même en prod
+ */
+function isRequestSecure(req: Request): boolean {
+  // Express remplit req.secure si trust proxy est configuré
+  if (req.secure) return true;
+  
+  // Vérifier X-Forwarded-Proto (peut être une liste séparée par virgule)
+  const xfProto = req.headers['x-forwarded-proto'];
+  if (typeof xfProto === 'string') {
+    // Prendre la première valeur si c'est une liste
+    const firstProto = xfProto.split(',')[0].trim();
+    return firstProto === 'https';
+  }
+  
+  // Ne jamais inventer https - si on ne peut pas le déterminer, c'est http
+  return false;
+}
 
 // Session store: init lazy (non-bloquant au chargement du module)
 // Utilise MemoryStore par défaut, puis swap vers PG store si dispo en background
@@ -793,12 +848,15 @@ console.log('[BOOT] session init end (MemoryStore sync, PG init in background)')
 // Configuration cookie optimisée pour Vercel + même domaine
 // Si frontend et API sont sur le même domaine (witstyl.vercel.app), sameSite: 'lax' fonctionne
 // Si frontend et API sont sur des domaines différents, utiliser sameSite: 'none' avec secure: true
+// Note: cookieSameSite est calculé au boot, mais secure sera adaptatif via le middleware
 const cookieSameSite: 'lax' | 'none' | 'strict' = (isVercel && process.env.FRONTEND_DOMAIN && process.env.FRONTEND_DOMAIN !== 'witstyl.vercel.app')
   ? 'none' // Cross-domain: nécessite sameSite: 'none' et secure: true
   : 'lax'; // Same-domain: 'lax' fonctionne parfaitement
 
 // Middleware de session - NE PAS appliquer aux routes publiques
 // Les routes /api/public/* ne doivent pas utiliser le session store
+// La config cookie.secure sera adaptée dynamiquement selon le protocole détecté
+// Note: secure par défaut à false pour permettre les tests, sera adapté dans le middleware
 const sessionMiddleware = session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || 'witstyl-secret-key',
@@ -806,7 +864,7 @@ const sessionMiddleware = session({
   saveUninitialized: false,
   name: 'connect.sid', // Nom explicite du cookie de session
   cookie: {
-    secure: isHTTPS, // true sur Vercel/HTTPS (obligatoire pour sameSite: 'none')
+    secure: false, // Sera adapté dynamiquement dans le middleware selon le protocole réel
     httpOnly: true, // Empêcher l'accès JavaScript au cookie (sécurité)
     sameSite: cookieSameSite, // 'lax' pour same-domain, 'none' pour cross-domain
     maxAge: 24 * 60 * 60 * 1000, // 24 heures
@@ -823,8 +881,38 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/public/') || req.path === '/api/reviews/google') {
     return next(); // Pas de session pour les routes publiques
   }
-  // Appliquer session middleware pour toutes les autres routes
-  return sessionMiddleware(req, res, next);
+  
+  // Appliquer session middleware
+  sessionMiddleware(req, res, next);
+});
+
+// Middleware unique pour adapter la config cookie selon le protocole réel
+// Appliqué APRÈS session() pour toutes les routes non publiques
+app.use((req, res, next) => {
+  // Skip pour les routes publiques (pas de session)
+  if (req.path.startsWith('/api/public/') || req.path === '/api/reviews/google') {
+    return next();
+  }
+  
+  // Adapter secure dynamiquement selon le protocole réel détecté
+  // Cela permet aux tests de simuler HTTPS via X-Forwarded-Proto
+  if (req.session) {
+    const secure = isRequestSecure(req);
+    
+    // Mettre à jour la config cookie AVANT que le cookie ne soit émis
+    req.session.cookie.secure = secure;
+    
+    // Si secure: false, sameSite ne peut pas être 'none' (règle du navigateur)
+    // Si secure: true, on peut utiliser 'none' pour cross-domain
+    if (!secure) {
+      req.session.cookie.sameSite = 'lax';
+    } else if (cookieSameSite === 'none') {
+      // Garder 'none' si configuré pour cross-domain
+      req.session.cookie.sameSite = 'none';
+    }
+  }
+  
+  next();
 });
 
 // 👉 Routes de santé
@@ -1348,7 +1436,7 @@ console.log('[SERVER] ✅ Route webhook disponible: POST /api/notifications/rese
 (async () => {
   if (process.env.NODE_ENV !== 'production') {
     try {
-      const devSimulateRouter = await import('./routes/dev-simulate-email-opened.js');
+      const devSimulateRouter = await import('./routes/dev-simulate-email-opened');
       app.use("/api/dev", devSimulateRouter.default);
       console.log('[SERVER] ✅ Route dev disponible: POST /api/dev/simulate-email-opened');
     } catch (error: any) {
@@ -2057,6 +2145,14 @@ app.post('/api/salon/login', express.json(), requireBackendReady, async (req, re
     
     console.log('[salon/login] ✅ SalonId attaché à la session:', normalizedSalonId || 'undefined');
     
+    // La config cookie est déjà adaptée par le middleware (isRequestSecure)
+    // Log pour debug
+    console.log('[salon/login] 🔐 Cookie config:', {
+      secure: req.session.cookie.secure,
+      sameSite: req.session.cookie.sameSite,
+      isRequestSecure: isRequestSecure(req),
+    });
+    
     // Sauvegarder explicitement la session AVANT de répondre
     try {
       await new Promise<void>((resolve, reject) => {
@@ -2067,9 +2163,10 @@ app.post('/api/salon/login', express.json(), requireBackendReady, async (req, re
           } else {
             console.log("[salon/login] ✅ Session sauvegardée pour user:", result.user.id);
             console.log("[salon/login] Session ID:", req.sessionID);
+            const secure = isRequestSecure(req);
             console.log("[salon/login] Cookie sera envoyé avec:", {
-              secure: isHTTPS,
-              sameSite: isHTTPS ? 'lax' : 'lax',
+              secure,
+              sameSite: req.session.cookie.sameSite || 'lax',
               httpOnly: true,
               maxAge: 24 * 60 * 60 * 1000,
             });
@@ -2100,8 +2197,9 @@ app.post('/api/salon/login', express.json(), requireBackendReady, async (req, re
     console.log('[salon/login] 📋 Debug session après sauvegarde:');
     console.log('[salon/login]   Session ID:', req.sessionID);
     console.log('[salon/login]   User dans session:', req.session?.user ? '✅ Présent' : '❌ Absent');
+    const secure = isRequestSecure(req);
     console.log('[salon/login]   Cookie config:', {
-      secure: cookieConfig.secure || isHTTPS,
+      secure: cookieConfig.secure || secure,
       sameSite: actualSameSite,
       httpOnly: cookieConfig.httpOnly !== false,
       path: cookieConfig.path || '/',
@@ -5256,7 +5354,7 @@ app.post('/api/appointments', express.json(), async (req, res) => {
         const appointmentDate = new Date(newAppointment.appointment_date);
         const createdAt = new Date(newAppointment.created_at || new Date());
         
-        const { sendAppointmentCreationNotifications } = await import('./core/notifications/optimizedNotificationService.js');
+        const { sendAppointmentCreationNotifications } = await import('./core/notifications/optimizedNotificationService');
         const notificationResult = await sendAppointmentCreationNotifications(
           newAppointment.id,
           appointmentDate,
@@ -5762,7 +5860,7 @@ app.get('/api/owner/notification-settings', async (req, res) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository.js');
+    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository');
     const settingsRepo = createNotificationSettingsRepository(supabase);
 
     const settings = await settingsRepo.getSettings(salonId);
@@ -5889,7 +5987,7 @@ app.put('/api/owner/notification-settings', express.json(), async (req, res) => 
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository.js');
+    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository');
     const settingsRepo = createNotificationSettingsRepository(supabase);
 
     const updatedSettings = await settingsRepo.updateSettings(salonId, updateData);
@@ -6000,7 +6098,7 @@ app.post('/api/owner/notifications/send-test-email', express.json(), async (req,
     const salonName = salon?.name || 'Salon de Test';
 
     // Envoyer l'email de test via NotificationService
-    const { notificationService } = await import('./core/notifications/index.js');
+    const { notificationService } = await import('./core/notifications/index');
     const result = await notificationService.sendTestConfirmationEmail({
       to: emailToUse,
       salonId,
@@ -6089,7 +6187,7 @@ app.post('/api/owner/notifications/test-confirmation-sms', express.json(), async
       });
     }
 
-    const { sendSmsConfirmationIfNeeded } = await import('./core/notifications/smsService.js');
+    const { sendSmsConfirmationIfNeeded } = await import('./core/notifications/smsService');
     const result = await sendSmsConfirmationIfNeeded(appointmentId);
 
     if (!result.success) {
@@ -6142,7 +6240,7 @@ app.post('/api/owner/notifications/test-reminder-sms', express.json(), async (re
       });
     }
 
-    const { sendSmsReminderIfNeeded } = await import('./core/notifications/smsService.js');
+    const { sendSmsReminderIfNeeded } = await import('./core/notifications/smsService');
     const result = await sendSmsReminderIfNeeded(appointmentId);
 
     if (!result.success) {
@@ -6253,7 +6351,7 @@ app.post('/api/owner/notifications/send-test-sms', express.json(), async (req, r
     console.log('[POST /api/owner/notifications/send-test-sms] 📱 To:', testPhone);
     console.log('[POST /api/owner/notifications/send-test-sms] 📱 Message:', testMessage);
     
-    const { notificationService } = await import('./core/notifications/index.js');
+    const { notificationService } = await import('./core/notifications/index');
     const result = await notificationService.sendSms({
       to: testPhone,
       message: testMessage,
@@ -6324,8 +6422,8 @@ app.get('/api/notifications/send-reminders', async (req, res) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { buildNotificationContext } = await import('./core/notifications/utils.js');
-    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository.js');
+    const { buildNotificationContext } = await import('./core/notifications/utils');
+    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository');
     const { subHours } = await import('date-fns');
 
     // Récupérer tous les rendez-vous confirmés dans les prochaines 48h
@@ -6716,7 +6814,7 @@ const server = (process.env.NODE_ENV === 'production' && !process.env.VERCEL) ? 
       // Toutes les heures à la minute 0
       cronDefault.schedule('0 * * * *', async () => {
         try {
-          await import('./cron/check-email-opened-and-send-sms.js');
+          await import('./cron/check-email-opened-and-send-sms');
         } catch (error: any) {
           console.error('[Cron] ❌ Erreur lors de l\'exécution du cron job check-email-opened:', error);
         }
@@ -6727,7 +6825,7 @@ const server = (process.env.NODE_ENV === 'production' && !process.env.VERCEL) ? 
       // Toutes les heures à la minute 0
       cronDefault.schedule('0 * * * *', async () => {
         try {
-          await import('./cron/send-reminder-sms.js');
+          await import('./cron/send-reminder-sms');
         } catch (error: any) {
           console.error('[Cron] ❌ Erreur lors de l\'exécution du cron job send-reminder:', error);
         }

@@ -1,4 +1,5 @@
 import express from 'express';
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { createPgClient } from '../db/client.js';
 
 export const healthRouter = express.Router();

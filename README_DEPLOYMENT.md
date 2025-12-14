@@ -69,3 +69,4 @@ Une fois configuré, Vercel :
 
 **Une fois cette checklist complétée, vous n'avez plus qu'à faire `git push` !** 🚀
 
+

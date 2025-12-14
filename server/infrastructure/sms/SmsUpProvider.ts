@@ -9,6 +9,7 @@
  * 3. Aucune autre modification nécessaire
  */
 
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { SmsProvider } from '../../core/notifications/types.js';
 
 type SmsUpProviderConfig = {

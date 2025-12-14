@@ -158,3 +158,4 @@ Rappel de RDV: Bonjour Colette, votre service Service Modifie chez HairPlay est 
 ✅ **Intégration complète** : Tous les services utilisent les nouveaux templates
 
 
+

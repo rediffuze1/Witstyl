@@ -225,3 +225,4 @@ Si vous avez besoin d'aide :
 3. Vérifiez la console du navigateur
 4. Documentez les erreurs rencontrées
 
+

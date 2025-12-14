@@ -122,7 +122,7 @@ export class NotificationSettingsRepository {
       // Pour confirmationEmailHtml: générer depuis le texte si absent
       let confirmationEmailHtml = data.confirmation_email_html;
       if (!confirmationEmailHtml && confirmationEmailText) {
-        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator.js');
+        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator');
         confirmationEmailHtml = generateEmailHtmlFromText(confirmationEmailText);
       } else if (!confirmationEmailHtml) {
         confirmationEmailHtml = '';
@@ -216,7 +216,7 @@ export class NotificationSettingsRepository {
         // IMPORTANT: Sauvegarder exactement ce qui est envoyé, même si c'est une chaîne vide
         updateData.confirmation_email_text = partial.confirmationEmailText;
         // Générer automatiquement le HTML depuis le texte
-        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator.js');
+        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator');
         updateData.confirmation_email_html = generateEmailHtmlFromText(partial.confirmationEmailText);
         
         // Log pour debug - TOUJOURS activé
@@ -280,7 +280,7 @@ export class NotificationSettingsRepository {
       } else {
         // Création avec les valeurs par défaut + les valeurs fournies
       // Générer le HTML depuis le texte si confirmationEmailText est fourni
-      const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator.js');
+      const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator');
       const confirmationEmailText = partial.confirmationEmailText ?? DEFAULT_NOTIFICATION_TEMPLATES.confirmationEmailText;
       const confirmationEmailHtml = partial.confirmationEmailHtml ?? generateEmailHtmlFromText(confirmationEmailText);
 
@@ -333,7 +333,7 @@ export class NotificationSettingsRepository {
       // Générer le HTML depuis le texte si nécessaire
       let confirmationEmailHtml = result.confirmation_email_html;
       if (!confirmationEmailHtml && confirmationEmailText) {
-        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator.js');
+        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator');
         confirmationEmailHtml = generateEmailHtmlFromText(confirmationEmailText);
       } else if (!confirmationEmailHtml) {
         confirmationEmailHtml = '';
@@ -381,7 +381,7 @@ export class NotificationSettingsRepository {
    */
   private async createDefaultSettings(salonId: string): Promise<NotificationSettings> {
     try {
-      const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator.js');
+      const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator');
       const confirmationEmailText = DEFAULT_NOTIFICATION_TEMPLATES.confirmationEmailText;
       const confirmationEmailHtml = generateEmailHtmlFromText(confirmationEmailText);
 
@@ -439,7 +439,7 @@ export class NotificationSettingsRepository {
    * Retourne les valeurs par défaut sans les persister
    */
   private async getDefaultSettings(salonId: string): Promise<NotificationSettings> {
-    const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator.js');
+    const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator');
     const confirmationEmailText = DEFAULT_NOTIFICATION_TEMPLATES.confirmationEmailText;
     const confirmationEmailHtml = generateEmailHtmlFromText(confirmationEmailText);
     

@@ -322,3 +322,4 @@ cron.schedule('0 * * * *', async () => {
 - [ ] Vérifier que les cron jobs s'exécutent correctement
 
 
+

@@ -9,6 +9,7 @@
  * 3. Aucune autre modification nécessaire
  */
 
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { EmailProvider } from '../../core/notifications/types.js';
 
 // @ts-ignore - Resend peut avoir des problèmes de types avec moduleResolution

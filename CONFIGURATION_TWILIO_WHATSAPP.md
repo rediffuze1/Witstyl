@@ -187,3 +187,4 @@ Si vous voulez recevoir des réponses des clients :
 - [Guide d'approbation des templates](https://www.twilio.com/docs/whatsapp/tutorial/send-whatsapp-notification-messages-templates)
 
 
+

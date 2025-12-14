@@ -64,18 +64,42 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   const isVercel = !!process.env.VERCEL;
   const isProduction = process.env.NODE_ENV === 'production';
   
-  // Configuration SSL - FORCER SSL pour Supabase (pooler OU direct)
-  // sslmode=require dans l'URL ne suffit pas, il faut forcer côté code
-  // Pour Supabase (pooler ou direct), SSL est TOUJOURS requis avec rejectUnauthorized: false
-  // Pour Vercel/production, SSL est requis même avec connexion directe
-  const sslConfig = (isPooler || isSupabase || isVercel || isProduction)
-    ? { rejectUnauthorized: false } // Certificats auto-signés Supabase (obligatoire)
-    : false;
+  // Extraire le host pour les logs
+  let dbHost = 'unknown';
+  try {
+    const urlObj = new URL(DATABASE_URL);
+    dbHost = urlObj.hostname;
+  } catch (e) {
+    // Ignorer si l'URL ne peut pas être parsée
+  }
   
-  // Log SSL pour diagnostic
-  if ((isPooler || isSupabase) && !sslConfig) {
-    console.error('[DB] ⚠️  PROBLÈME SSL: Supabase détecté mais SSL non configuré côté code!');
-    console.error('[DB] 💡 Solution: ssl: { rejectUnauthorized: false } doit être défini');
+  // Configuration SSL - FORCER SSL "no-verify" pour Supabase pooler uniquement
+  // Pour Supabase pooler, SSL est TOUJOURS requis avec rejectUnauthorized: false
+  // On ne force pas pour les autres providers (sécurité)
+  let sslConfig: { rejectUnauthorized: false } | false = false;
+  let sslMode = 'DISABLED';
+  
+  if (isPooler || isSupabase) {
+    // Supabase pooler/direct : SSL obligatoire avec certificats auto-signés
+    // IMPORTANT: rejectUnauthorized: false est OBLIGATOIRE pour Supabase (certificats auto-signés)
+    sslConfig = { rejectUnauthorized: false };
+    sslMode = 'ENABLED (rejectUnauthorized: false) - Supabase pooler';
+  } else if (isVercel || isProduction) {
+    // Autres providers en prod : SSL standard (vérification activée)
+    // Pour les autres providers, on utilise SSL standard (pas de rejectUnauthorized: false)
+    sslConfig = true as any; // pg accepte true pour SSL standard
+    sslMode = 'ENABLED (standard verification)';
+  }
+  
+  // Log SSL explicite pour diagnostic
+  if (isVercel || isProduction) {
+    console.log('[DB] 🔐 Configuration SSL:', {
+      sslMode,
+      rejectUnauthorized: sslConfig === false ? 'N/A' : (sslConfig as any).rejectUnauthorized === false ? 'false (no-verify)' : 'true (standard)',
+      host: dbHost,
+      isPooler,
+      isSupabase,
+    });
   }
   
   // Timeouts agressifs pour éviter les FUNCTION_INVOCATION_TIMEOUT sur Vercel
@@ -86,8 +110,21 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     idleTimeoutMillis: 10000, // 10s max d'inactivité
   } : {};
 
+  // Nettoyer l'URL pour éviter les conflits avec la config SSL côté code
+  // Pour Supabase pooler, on force rejectUnauthorized: false côté code, peu importe ce qui est dans l'URL
+  let cleanConnectionString = DATABASE_URL;
+  
+  // Pour Supabase pooler, s'assurer que sslmode=require est présent dans l'URL (pour compatibilité)
+  // Mais la vraie config SSL est forcée côté code avec rejectUnauthorized: false
+  if ((isPooler || isSupabase) && !DATABASE_URL.includes('sslmode=')) {
+    const separator = cleanConnectionString.includes('?') ? '&' : '?';
+    cleanConnectionString = `${cleanConnectionString}${separator}sslmode=require`;
+  }
+  
   const config: ClientConfig = {
-    connectionString: DATABASE_URL,
+    connectionString: cleanConnectionString,
+    // IMPORTANT: Pour Supabase pooler, on FORCE rejectUnauthorized: false
+    // Cela override toute config SSL dans l'URL (sslmode=require ne force pas rejectUnauthorized: false)
     ssl: sslConfig, // FORCÉ pour pooler Supabase (rejectUnauthorized: false)
     // Configuration optimisée pour serverless
     keepAlive: true, // Maintenir la connexion active (important pour pgbouncer)
@@ -100,12 +137,15 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   // Log de configuration pour diagnostic
   if (isVercel || isProduction) {
     console.log('[DB] ✅ Configuration PG client:', {
-      ssl: sslConfig ? 'ENABLED (rejectUnauthorized: false)' : 'DISABLED',
+      host: dbHost,
+      sslMode,
+      rejectUnauthorized: sslConfig === false ? 'N/A' : (sslConfig as any).rejectUnauthorized === false ? 'false (no-verify)' : 'true (standard)',
       connectionTimeout: timeouts.connectionTimeoutMillis + 'ms',
       queryTimeout: timeouts.query_timeout + 'ms',
       max: config.max || 'unlimited',
       keepAlive: config.keepAlive,
       isPooler: isPooler,
+      isSupabase: isSupabase,
     });
   }
   

@@ -10,6 +10,7 @@
 
 import express, { type Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { markEmailAsOpened } from '../core/notifications/emailService.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

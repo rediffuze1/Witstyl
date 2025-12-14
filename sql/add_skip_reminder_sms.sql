@@ -12,3 +12,4 @@ CREATE INDEX IF NOT EXISTS "idx_appointments_skip_reminder_sms" ON "appointments
 COMMENT ON COLUMN "appointments"."skip_reminder_sms" IS 'Si true, le SMS de rappel ne sera pas envoyé. Utilisé pour les RDV pris moins de 24h avant l''heure du RDV.';
 
 
+

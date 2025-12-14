@@ -204,3 +204,4 @@ if (appointment.skip_reminder_sms) {
 - Fenêtre horaire 6h-20h pour les rappels
 
 
+

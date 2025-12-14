@@ -6,7 +6,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { TwilioSmsProvider } from '../server/infrastructure/sms/TwilioSmsProvider';
+import { TwilioSmsProvider } from '../server/infrastructure/sms/TwilioSmsProvider.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -144,5 +144,6 @@ async function testSms() {
 }
 
 testSms();
+
 
 

@@ -5,7 +5,8 @@
  */
 
 import session from 'express-session';
-import SupabaseSessionStore from './supabaseSessionStore';
+// IMPORTANT: En ESM, les imports relatifs doivent inclure l'extension .js
+import SupabaseSessionStore from './supabaseSessionStore.js';
 
 let sessionStoreInstance: session.Store | null = null;
 let sessionStoreStatus: 'unknown' | 'ok' | 'failed' | 'fallback' = 'unknown';

@@ -88,3 +88,4 @@ Si vous avez déjà connecté votre repository GitHub à Vercel et configuré le
 
 Si ce n'est pas encore fait, suivez simplement le guide `GITHUB_VERCEL_SYNC.md` une fois, et ensuite tout sera automatique.
 
+

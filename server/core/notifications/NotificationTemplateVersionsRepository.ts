@@ -198,7 +198,7 @@ export class NotificationTemplateVersionsRepository {
       // Générer le HTML depuis le texte si confirmationEmailText existe
       let confirmationEmailHtml = version.confirmationEmailHtml;
       if (version.confirmationEmailText) {
-        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator.js');
+        const { generateEmailHtmlFromText } = await import('./emailHtmlGenerator');
         confirmationEmailHtml = generateEmailHtmlFromText(version.confirmationEmailText);
       }
 

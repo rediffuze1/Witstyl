@@ -3,7 +3,7 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import { supabaseAdmin } from '../server/supabaseService';
+import { supabaseAdmin } from '../server/supabaseService.js';
 
 const sqlFile = path.join(process.cwd(), 'sql', 'create_client_notifications.sql');
 

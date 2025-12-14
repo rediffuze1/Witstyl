@@ -4,9 +4,11 @@
 
 console.log('[BOOT] api/index.ts module loaded');
 
-// Import dynamique pour éviter les erreurs au top-level
-let publicApp: any = null;
-let fullApp: any = null;
+// Imports statiques pour éviter ERR_MODULE_NOT_FOUND sur Vercel
+// Les fonctions getPublicApp() et getFullApp() gèrent le lazy init avec cache
+// IMPORTANT: En ESM, les imports relatifs doivent inclure l'extension .js
+import { getPublicApp } from '../server/publicApp.js';
+import { getFullApp } from '../server/index.prod.js';
 
 /**
  * Routes publiques qui ne nécessitent pas DB/session
@@ -20,66 +22,20 @@ function isPublicRoute(path: string): boolean {
   return PUBLIC_ROUTES.some(route => path.startsWith(route) || path === route);
 }
 
-async function getPublicApp() {
-  if (!publicApp) {
-    try {
-      console.log('[BOOT] Loading publicApp (no DB/session)...');
-      const { createPublicApp } = await import('../server/publicApp');
-      publicApp = createPublicApp();
-      console.log('[BOOT] publicApp loaded');
-    } catch (error: any) {
-      console.error('[BOOT] ❌ Error loading publicApp:', error.message);
-      throw error;
-    }
-  }
-  return publicApp;
-}
-
-async function getFullApp() {
-  if (!fullApp) {
-    try {
-      // S'assurer que VERCEL est défini pour éviter les initialisations inutiles
-      process.env.VERCEL = '1';
-      process.env.NODE_ENV = 'production';
-      
-      console.log('[BOOT] Loading fullApp (with DB/session)...');
-      console.log('[BOOT] Environment:', {
-        VERCEL: process.env.VERCEL,
-        NODE_ENV: process.env.NODE_ENV,
-      });
-      
-      // Utiliser le point d'entrée production dédié (index.prod.ts)
-      // IMPORTANT: Import sans extension pour que Vercel résolve correctement
-      const serverModule = await import('../server/index.prod');
-      
-      console.log('[BOOT] FullApp module loaded, keys:', Object.keys(serverModule));
-      
-      fullApp = serverModule.default || serverModule.app;
-      
-      if (!fullApp) {
-        console.error('[BOOT] ❌ FullApp not found. Available exports:', Object.keys(serverModule));
-        throw new Error('FullApp not exported correctly. Available: ' + Object.keys(serverModule).join(', '));
-      }
-      
-      console.log('[BOOT] ✅ FullApp loaded');
-    } catch (error: any) {
-      console.error('[BOOT] ❌ Error loading fullApp:', error.message);
-      console.error('[BOOT] Code:', error.code);
-      console.error('[BOOT] Name:', error.name);
-      if (error.stack) {
-        console.error('[BOOT] Stack:', error.stack.split('\n').slice(0, 15).join('\n'));
-      }
-      throw error;
-    }
-  }
-  return fullApp;
-}
-
 // Handler pour Vercel serverless functions
 export default async function handler(req: any, res: any) {
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(7);
   const path = req.url || req.path || '/';
+  
+  // Guard: rejeter immédiatement les requêtes non-API (fichiers statiques, etc.)
+  // Sur Vercel, les fichiers statiques sont servis par Vercel directement, pas par notre handler
+  if (!path.startsWith('/api/')) {
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end('Not Found');
+    return;
+  }
   
   console.log(`[REQ] start [${requestId}] ${req.method} ${path}`);
   
@@ -87,17 +43,17 @@ export default async function handler(req: any, res: any) {
     // Fast path pour routes publiques (bypass DB/session)
     if (isPublicRoute(path)) {
       console.log(`[REQ] [${requestId}] Public route - using publicApp`);
-      const app = await getPublicApp();
-      const result = await app(req, res);
+      const publicApp = await getPublicApp(); // fast, DB-free
+      const result = await publicApp(req, res);
       const duration = Date.now() - startTime;
       console.log(`[REQ] end [${requestId}] ${req.method} ${path} (${duration}ms) - public`);
       return result;
     }
     
-    // Full app pour routes protégées
+    // Full app pour routes protégées (lazy, only when needed)
     console.log(`[REQ] [${requestId}] Protected route - using fullApp`);
-    const app = await getFullApp();
-    const result = await app(req, res);
+    const fullApp = await getFullApp(); // lazy, only when needed
+    const result = await fullApp(req, res);
     const duration = Date.now() - startTime;
     console.log(`[REQ] end [${requestId}] ${req.method} ${path} (${duration}ms) - protected`);
     return result;

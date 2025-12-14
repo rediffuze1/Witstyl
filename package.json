@@ -7,7 +7,9 @@
     "dev": "NODE_ENV=development tsx server/devServer.ts",
     "dev:client": "vite --port 5001",
     "dev:full": "npm run dev",
+    "prebuild": "npm run check:esm",
     "build": "vite build",
+    "postbuild": "npm run smoke:dist",
     "start": "NODE_ENV=production tsx server/index.ts",
     "check": "tsc",
     "db:generate": "drizzle-kit generate",
@@ -25,7 +27,9 @@
     "test:calendar": "echo 'Tests unitaires calendrier - À implémenter avec vitest'",
     "test:db": "tsx scripts/test-db-connection.ts",
     "test:login-cookie": "NODE_ENV=production VERCEL=1 tsx scripts/test-login-cookie.ts",
-    "print:db-instructions": "tsx scripts/print-supabase-db-instructions.ts"
+    "print:db-instructions": "tsx scripts/print-supabase-db-instructions.ts",
+    "check:esm": "tsx scripts/check-esm-imports.ts",
+    "smoke:dist": "node scripts/smoke-check-dist.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -118,3 +118,4 @@ curl -X POST http://localhost:5001/api/dev/simulate-email-opened \
    - Si email non ouvert → SMS envoyé automatiquement
 
 
+

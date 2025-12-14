@@ -4,13 +4,22 @@
  */
 
 import 'dotenv/config';
+import type { Express } from 'express';
 import express from 'express';
 // IMPORTANT: Utiliser publicIsolated qui n'importe AUCUN module DB/session
-import publicRouter from './routes/publicIsolated';
+// IMPORTANT: En ESM, les imports relatifs doivent inclure l'extension .js
+import publicRouter from './routes/publicIsolated.js';
 
 console.log('[BOOT] publicApp module loaded');
 
-export function createPublicApp() {
+// Cache pour l'app publique (safe à importer, pas d'init DB/session au top-level)
+let _publicApp: Express | null = null;
+
+/**
+ * Crée l'app Express publique (DB-free, session-free)
+ * Safe à appeler au top-level car n'importe rien de DB/session
+ */
+export function createPublicApp(): Express {
   console.log('[BOOT] createPublicApp start');
   
   const app = express();
@@ -53,5 +62,18 @@ export function createPublicApp() {
   console.log('[BOOT] createPublicApp end - routes mounted');
   
   return app;
+}
+
+/**
+ * Récupère l'app publique avec cache (lazy init)
+ * Safe à importer statiquement car createPublicApp() n'importe rien de DB/session
+ */
+export async function getPublicApp(): Promise<Express> {
+  if (_publicApp) {
+    return _publicApp;
+  }
+  
+  _publicApp = createPublicApp();
+  return _publicApp;
 }
 

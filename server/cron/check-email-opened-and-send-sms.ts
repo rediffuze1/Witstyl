@@ -22,6 +22,7 @@
 
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
+// IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { sendSmsConfirmationIfNeeded } from '../core/notifications/smsService.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

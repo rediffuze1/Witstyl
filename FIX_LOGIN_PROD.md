@@ -129,3 +129,4 @@ git push origin main
 
 Vercel déploiera automatiquement (si configuré selon `GITHUB_VERCEL_SYNC.md`).
 
+
