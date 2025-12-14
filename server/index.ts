@@ -815,8 +815,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // 👉 Middleware de session pour l'authentification client
 // Configuration adaptée pour Vercel (HTTPS) et développement local (HTTP)
-const isVercel = !!process.env.VERCEL;
-const isProduction = process.env.NODE_ENV === 'production';
+// Note: isVercel et isProduction sont déjà définis plus haut (ligne 848-849)
 
 /**
  * Détermine si la requête est sécurisée (HTTPS) sans jamais "inventer" https
@@ -839,11 +838,39 @@ function isRequestSecure(req: Request): boolean {
   return false;
 }
 
-// Session store: init lazy (non-bloquant au chargement du module)
-// Utilise MemoryStore par défaut, puis swap vers PG store si dispo en background
+// Session store: init lazy (bloquant en prod Vercel pour utiliser SupabaseSessionStore)
+// En prod Vercel: utilise SupabaseSessionStore (obligatoire, pas de fallback MemoryStore)
+// En dev local: utilise MemoryStore
 console.log('[BOOT] session init start');
-const sessionStore = getSessionStoreSync(); // Retourne MemoryStore immédiatement, init PG en background
-console.log('[BOOT] session init end (MemoryStore sync, PG init in background)');
+let sessionStore: session.Store;
+
+const isVercel = !!process.env.VERCEL;
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Initialiser le store selon l'environnement
+// En production, on doit utiliser SupabaseSessionStore (pas MemoryStore)
+// En dev local, on utilise MemoryStore
+// Note: En production, index.prod.ts initialise SupabaseSessionStore AVANT d'importer ce fichier
+// donc getSessionStoreSync() retournera le store déjà initialisé
+if (isVercel || isProduction) {
+  // En production, le store devrait déjà être initialisé par index.prod.ts
+  // On utilise getSessionStoreSync() qui retournera le store si déjà initialisé
+  console.log('[BOOT] Production/Vercel: récupération du SupabaseSessionStore...');
+  sessionStore = getSessionStoreSync();
+  
+  // Vérifier que ce n'est pas MemoryStore (si c'est le cas, l'init n'a pas fonctionné)
+  if (sessionStore.constructor.name === 'MemoryStore') {
+    console.error('[BOOT] ❌ MemoryStore détecté en production - SupabaseSessionStore n\'a pas été initialisé');
+    console.error('[BOOT]    Vérifiez que index.prod.ts initialise le store avant d\'importer index.ts');
+    throw new Error('MemoryStore ne peut pas être utilisé en production Vercel');
+  }
+  console.log('[BOOT] ✅ SupabaseSessionStore récupéré');
+} else {
+  // En dev local, utiliser MemoryStore (synchrone)
+  sessionStore = getSessionStoreSync();
+  console.log('[BOOT] ✅ MemoryStore initialisé (dev local)');
+}
+console.log('[BOOT] session init end');
 
 // Configuration cookie optimisée pour Vercel + même domaine
 // Si frontend et API sont sur le même domaine (witstyl.vercel.app), sameSite: 'lax' fonctionne
@@ -853,10 +880,13 @@ const cookieSameSite: 'lax' | 'none' | 'strict' = (isVercel && process.env.FRONT
   ? 'none' // Cross-domain: nécessite sameSite: 'none' et secure: true
   : 'lax'; // Same-domain: 'lax' fonctionne parfaitement
 
+// En production Vercel, secure doit être true par défaut
+// Il sera adapté dynamiquement dans le middleware selon le protocole réel
+const cookieSecureDefault = (isVercel || isProduction) ? true : false;
+
 // Middleware de session - NE PAS appliquer aux routes publiques
 // Les routes /api/public/* ne doivent pas utiliser le session store
 // La config cookie.secure sera adaptée dynamiquement selon le protocole détecté
-// Note: secure par défaut à false pour permettre les tests, sera adapté dans le middleware
 const sessionMiddleware = session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || 'witstyl-secret-key',
@@ -864,7 +894,7 @@ const sessionMiddleware = session({
   saveUninitialized: false,
   name: 'connect.sid', // Nom explicite du cookie de session
   cookie: {
-    secure: false, // Sera adapté dynamiquement dans le middleware selon le protocole réel
+    secure: cookieSecureDefault, // true en prod, false en dev (sera adapté dynamiquement)
     httpOnly: true, // Empêcher l'accès JavaScript au cookie (sécurité)
     sameSite: cookieSameSite, // 'lax' pour same-domain, 'none' pour cross-domain
     maxAge: 24 * 60 * 60 * 1000, // 24 heures
@@ -873,6 +903,16 @@ const sessionMiddleware = session({
     domain: undefined
   },
 });
+
+// Log de la configuration session au boot
+const storeStatus = getSessionStoreStatus();
+console.log('[SESSION] Configuration session:');
+console.log(`[SESSION]   store=${storeStatus.status === 'ok' ? 'SupabaseSessionStore' : 'MemoryStore'}`);
+console.log(`[SESSION]   secure=${cookieSecureDefault} (sera adapté dynamiquement)`);
+console.log(`[SESSION]   sameSite=${cookieSameSite}`);
+console.log(`[SESSION]   httpOnly=true`);
+console.log(`[SESSION]   path=/`);
+console.log(`[SESSION]   trust proxy=${app.get('trust proxy')}`);
 
 // Appliquer le middleware de session uniquement aux routes NON publiques
 // Les routes /api/public/* ne doivent pas utiliser le session store pour éviter les timeouts

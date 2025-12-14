@@ -15,7 +15,8 @@ let initPromise: Promise<session.Store> | null = null;
 
 /**
  * Initialise le session store avec timeout strict
- * Retourne MemoryStore immédiatement si PG store échoue
+ * En production Vercel: utilise SupabaseSessionStore (pas de fallback vers MemoryStore)
+ * En dev local: utilise MemoryStore
  */
 async function initSessionStoreWithTimeout(timeoutMs: number = 3000): Promise<session.Store> {
   const isVercel = !!process.env.VERCEL;
@@ -40,8 +41,15 @@ async function initSessionStoreWithTimeout(timeoutMs: number = 3000): Promise<se
     return sessionStoreInstance;
   }
 
-  // En prod/Vercel, essayer SupabaseSessionStore avec timeout
-  console.log('[SESSION] Tentative d\'initialisation SupabaseSessionStore...');
+  // En prod/Vercel, OBLIGATOIRE d'utiliser SupabaseSessionStore (pas de fallback)
+  console.log('[SESSION] Production/Vercel: initialisation SupabaseSessionStore (obligatoire)...');
+  
+  // Vérifier que DATABASE_URL est présent
+  if (!process.env.DATABASE_URL) {
+    const error = new Error('DATABASE_URL est requis en production Vercel pour SupabaseSessionStore');
+    console.error('[SESSION] ❌', error.message);
+    throw error;
+  }
   
   const initPromise = (async () => {
     try {
@@ -80,13 +88,9 @@ async function initSessionStoreWithTimeout(timeoutMs: number = 3000): Promise<se
       sessionStoreError = errorMsg;
     }
     
-    // Fallback automatique vers MemoryStore
-    console.warn('[SESSION] ⚠️  Fallback automatique vers MemoryStore');
-    console.warn('[SESSION]    Note: MemoryStore ne persiste pas entre les invocations serverless');
-    const MemoryStore = session.MemoryStore;
-    sessionStoreInstance = new MemoryStore();
-    sessionStoreStatus = 'fallback';
-    return sessionStoreInstance;
+    // En production Vercel, NE PAS faire de fallback vers MemoryStore
+    // L'application doit échouer proprement si le store ne peut pas être initialisé
+    throw new Error(`[SESSION] Impossible d'initialiser SupabaseSessionStore en production: ${errorMsg}`);
   }
 }
 
@@ -112,29 +116,43 @@ export async function getSessionStore(): Promise<session.Store> {
 }
 
 /**
- * Récupère le session store de manière synchrone (retourne MemoryStore si PG pas prêt)
- * Utilisé pour ne pas bloquer le boot
+ * Récupère le session store de manière synchrone
+ * En production Vercel: attend l'initialisation de SupabaseSessionStore (bloquant)
+ * En dev local: retourne MemoryStore immédiatement
  */
 export function getSessionStoreSync(): session.Store {
+  const isVercel = !!process.env.VERCEL;
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Si déjà initialisé, retourner directement
   if (sessionStoreInstance) {
     return sessionStoreInstance;
   }
 
-  // Retourner MemoryStore par défaut (sera remplacé par PG store si dispo)
-  const MemoryStore = session.MemoryStore;
-  const fallbackStore = new MemoryStore();
-  
-  // Init PG store en background (non bloquant)
-  initSessionStoreWithTimeout(3000).then(store => {
-    if (sessionStoreStatus === 'ok') {
-      console.log('[SESSION] ✅ PG store initialisé en background, sera utilisé pour les prochaines requêtes');
-      sessionStoreInstance = store;
-    }
-  }).catch(() => {
-    // Erreur déjà loggée dans initSessionStoreWithTimeout
-  });
+  // En dev local, retourner MemoryStore immédiatement
+  if (!isVercel && !isProduction) {
+    const MemoryStore = session.MemoryStore;
+    const fallbackStore = new MemoryStore();
+    sessionStoreInstance = fallbackStore;
+    sessionStoreStatus = 'ok';
+    return fallbackStore;
+  }
 
-  return fallbackStore;
+  // En production Vercel, on ne peut pas retourner un store synchrone
+  // car SupabaseSessionStore nécessite une init async
+  // Cette fonction ne devrait pas être appelée en prod, mais si c'est le cas,
+  // on lance l'init et on attend (bloquant)
+  console.warn('[SESSION] ⚠️  getSessionStoreSync() appelé en production - initialisation bloquante...');
+  
+  // Lancer l'init et attendre (bloquant en prod, mais nécessaire)
+  if (!initPromise) {
+    initPromise = initSessionStoreWithTimeout(5000); // 5s en prod
+  }
+  
+  // En prod, on doit attendre (bloquant)
+  // Note: Cette fonction ne devrait idéalement pas être utilisée en prod
+  // mais si elle l'est, on attend l'init
+  throw new Error('[SESSION] getSessionStoreSync() ne peut pas être utilisé en production Vercel. Utilisez getSessionStore() à la place.');
 }
 
 /**

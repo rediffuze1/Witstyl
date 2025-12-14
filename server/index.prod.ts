@@ -36,11 +36,19 @@ export async function getFullApp(): Promise<Express> {
         NODE_ENV: process.env.NODE_ENV,
       });
       
+      // En production, on doit initialiser SupabaseSessionStore AVANT d'importer index.ts
+      // car index.ts utilise le store dans session()
+      console.log('[BOOT] Initialisation SupabaseSessionStore avant import de index.ts...');
+      const { getSessionStore } = await import('./sessionStore.js');
+      await getSessionStore(); // Attendre que le store soit initialisé
+      console.log('[BOOT] ✅ SupabaseSessionStore initialisé, import de index.ts...');
+      
       // Import dynamique de index.ts (ok ici car dans une fonction async)
       // IMPORTANT: En ESM, les imports relatifs doivent inclure l'extension .js
       const mod = await import('./index.js');
       
       // Extraire l'app depuis les exports (default ou app)
+      // En production, l'app est créée avec SupabaseSessionStore lors de l'import
       const app: Express = (mod as any).default ?? (mod as any).app ?? mod;
       
       if (!app) {
