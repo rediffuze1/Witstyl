@@ -499,8 +499,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error('DATABASE_URL non configuré');
         }
         
-        const { Client } = await import('pg');
-        const client = new Client({ connectionString: DATABASE_URL });
+        // Utiliser createPgClient() pour garantir la config SSL correcte
+        const { createPgClient } = await import('../db/client.js');
+        const client = createPgClient(DATABASE_URL);
         
         try {
           await client.connect();

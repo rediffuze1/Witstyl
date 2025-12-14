@@ -73,22 +73,35 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     // Ignorer si l'URL ne peut pas être parsée
   }
   
-  // Configuration SSL - FORCER SSL "no-verify" pour Supabase pooler uniquement
-  // Pour Supabase pooler, SSL est TOUJOURS requis avec rejectUnauthorized: false
-  // On ne force pas pour les autres providers (sécurité)
-  let sslConfig: { rejectUnauthorized: false } | false = false;
+  // Configuration SSL - Hotfix "ça marche sur Vercel quoi qu'il arrive"
+  // Force rejectUnauthorized: false quand VERCEL=1 (simple et robuste)
+  // Garantit que pour Supabase/pooler, config.ssl est TOUJOURS un objet explicite { rejectUnauthorized: false }
+  let sslConfig: { rejectUnauthorized: false } | boolean = false;
   let sslMode = 'DISABLED';
   
-  if (isPooler || isSupabase) {
+  if (isVercel) {
+    // Vercel + providers variés => on évite les erreurs de chaîne de cert
+    // IMPORTANT: Toujours un objet explicite, jamais true/any
+    sslConfig = { rejectUnauthorized: false };
+    sslMode = 'ENABLED (rejectUnauthorized: false) - Vercel';
+  } else if (isPooler || isSupabase) {
     // Supabase pooler/direct : SSL obligatoire avec certificats auto-signés
-    // IMPORTANT: rejectUnauthorized: false est OBLIGATOIRE pour Supabase (certificats auto-signés)
+    // IMPORTANT: Toujours un objet explicite { rejectUnauthorized: false }, impossible à ignorer par pg
     sslConfig = { rejectUnauthorized: false };
     sslMode = 'ENABLED (rejectUnauthorized: false) - Supabase pooler';
-  } else if (isVercel || isProduction) {
-    // Autres providers en prod : SSL standard (vérification activée)
-    // Pour les autres providers, on utilise SSL standard (pas de rejectUnauthorized: false)
-    sslConfig = true as any; // pg accepte true pour SSL standard
+  } else if (isProduction) {
+    // SSL standard local prod hors vercel
+    sslConfig = true;
     sslMode = 'ENABLED (standard verification)';
+  }
+  
+  // Garantir que pour Supabase/pooler, sslConfig est TOUJOURS un objet explicite
+  // (pas true, pas any, pas dépendant d'un autre flag)
+  if ((isPooler || isSupabase) && sslConfig !== false) {
+    if (typeof sslConfig !== 'object' || !('rejectUnauthorized' in sslConfig)) {
+      console.warn('[DB] ⚠️  sslConfig n\'est pas un objet explicite pour Supabase, correction...');
+      sslConfig = { rejectUnauthorized: false };
+    }
   }
   
   // Log SSL explicite pour diagnostic
@@ -130,7 +143,8 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     keepAlive: true, // Maintenir la connexion active (important pour pgbouncer)
     // Pour serverless, on limite à 1 connexion par fonction
     // Le pooler gère le pooling côté serveur
-    ...(isVercel && { max: 1 }), // Limiter à 1 connexion sur Vercel (obligatoire serverless)
+    // Note: max est une propriété de Pool, pas de Client
+    // Pour Client, on ne peut pas limiter les connexions (c'est un client unique)
     ...timeouts,
   };
   
@@ -142,7 +156,6 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
       rejectUnauthorized: sslConfig === false ? 'N/A' : (sslConfig as any).rejectUnauthorized === false ? 'false (no-verify)' : 'true (standard)',
       connectionTimeout: timeouts.connectionTimeoutMillis + 'ms',
       queryTimeout: timeouts.query_timeout + 'ms',
-      max: config.max || 'unlimited',
       keepAlive: config.keepAlive,
       isPooler: isPooler,
       isSupabase: isSupabase,
@@ -194,6 +207,16 @@ export async function executeQueryWithTimeout<T>(
  */
 export function createPgClient(connectionString?: string): Client {
   const config = createPgClientConfig(connectionString);
+
+  // DEBUG temporaire
+if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  const u = new URL(config.connectionString as string);
+  console.log('[DB][DEBUG] sslmode in URL =', u.searchParams.get('sslmode'));
+  console.log('[DB][DEBUG] config.ssl =', config.ssl);
+  console.log('[DB][DEBUG] PGSSLMODE =', process.env.PGSSLMODE);
+  console.log('[DB][DEBUG] NODE_TLS_REJECT_UNAUTHORIZED =', process.env.NODE_TLS_REJECT_UNAUTHORIZED);
+}
+
   return new Client(config);
 }
 

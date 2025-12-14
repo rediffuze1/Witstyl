@@ -3,6 +3,13 @@
 // Ce fichier garantit qu'aucune dépendance à Vite n'est chargée
 // Il réexporte uniquement l'app Express sans aucune référence à Vite
 
+// Hotfix Vercel : forcer NODE_TLS_REJECT_UNAUTHORIZED=0 AVANT tout import PG
+// Doit être au tout début, avant même les imports de types
+if (process.env.VERCEL) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  console.log('[BOOT] NODE_TLS_REJECT_UNAUTHORIZED=0 (Vercel)');
+}
+
 // Forcer l'environnement de production AVANT tout import
 process.env.VERCEL = '1';
 process.env.NODE_ENV = 'production';

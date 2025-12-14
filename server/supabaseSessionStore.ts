@@ -36,6 +36,18 @@ class SupabaseSessionStore extends session.Store {
     this.getClient = async () => {
       const client = createPgClient(DATABASE_URL);
       
+      // Log runtime de la config SSL juste avant connect()
+      // Important pour diagnostiquer les erreurs SELF_SIGNED_CERT_IN_CHAIN
+      const config = (client as any).connectionParameters || {};
+      const sslConfig = config.ssl;
+      const host = config.host || 'unknown';
+      console.log('[SupabaseSessionStore] Connexion PG:', {
+        host,
+        'typeof config.ssl': typeof sslConfig,
+        'config.ssl.rejectUnauthorized': sslConfig?.rejectUnauthorized,
+        'NODE_TLS_REJECT_UNAUTHORIZED': process.env.NODE_TLS_REJECT_UNAUTHORIZED,
+      });
+      
       // Timeout strict pour la connexion
       const connectPromise = client.connect();
       const timeoutPromise = new Promise<never>((_, reject) => {
