@@ -219,11 +219,23 @@ export function isSlotValid(
   const appointmentHour = appointmentStartTime.getHours(); // Heure locale
   const appointmentMinute = appointmentStartTime.getMinutes(); // Minute locale
   const appointmentStartMinutes = appointmentHour * 60 + appointmentMinute;
+  
+  // IMPORTANT: Calculer l'heure de fin en ajoutant la durée directement aux minutes
+  // Ne pas utiliser appointmentEndTime.getHours() car cela pourrait donner des valeurs incorrectes
+  // si la date dépasse minuit (ex: 23:30 + 30 min = 00:00 le lendemain)
   const appointmentEndMinutes = appointmentStartMinutes + durationMinutes;
-
-  const appointmentEndHour = Math.floor(appointmentEndMinutes / 60);
+  
+  // Pour l'affichage, calculer l'heure de fin en gérant le cas où on dépasse minuit
+  const appointmentEndHour = appointmentEndMinutes >= 1440 
+    ? Math.floor((appointmentEndMinutes % 1440) / 60) 
+    : Math.floor(appointmentEndMinutes / 60);
   const appointmentEndMin = appointmentEndMinutes % 60;
-  console.log(`[isSlotValid] Créneau à valider: ${String(appointmentHour).padStart(2, '0')}:${String(appointmentMinute).padStart(2, '0')} (${appointmentStartMinutes} min) - ${String(appointmentEndHour).padStart(2, '0')}:${String(appointmentEndMin).padStart(2, '0')} (${appointmentEndMinutes} min)`);
+  
+  // Pour la validation, utiliser appointmentEndMinutes directement (en minutes depuis minuit)
+  // Si on dépasse minuit, on considère que c'est invalide (le RDV ne peut pas se terminer le lendemain)
+  const appointmentEndMinutesForValidation = appointmentEndMinutes >= 1440 ? 1440 : appointmentEndMinutes;
+  
+  console.log(`[isSlotValid] Créneau à valider: ${String(appointmentHour).padStart(2, '0')}:${String(appointmentMinute).padStart(2, '0')} (${appointmentStartMinutes} min) - ${String(appointmentEndHour).padStart(2, '0')}:${String(appointmentEndMin).padStart(2, '0')} (${appointmentEndMinutesForValidation} min)`);
   console.log(`[isSlotValid] Durée du rendez-vous: ${durationMinutes} minutes`);
   console.log(`[isSlotValid] Intervalles valides:`, validIntervals.map(i => `${i.start}-${i.end}`));
 
@@ -239,19 +251,26 @@ export function isSlotValid(
 
     console.log(`[isSlotValid]   Vérification intervalle ${interval.start}-${interval.end} (${intervalStart}-${intervalEnd} min)`);
     console.log(`[isSlotValid]     Début RDV (${appointmentStartMinutes}) >= Début intervalle (${intervalStart}) ? ${appointmentStartMinutes >= intervalStart}`);
-    console.log(`[isSlotValid]     Fin RDV (${appointmentEndMinutes}) <= Fin intervalle (${intervalEnd}) ? ${appointmentEndMinutes <= intervalEnd}`);
+    console.log(`[isSlotValid]     Fin RDV (${appointmentEndMinutesForValidation}) <= Fin intervalle (${intervalEnd}) ? ${appointmentEndMinutesForValidation <= intervalEnd}`);
 
     // Le rendez-vous doit être complètement inclus dans l'intervalle
-    const result = appointmentStartMinutes >= intervalStart && appointmentEndMinutes <= intervalEnd;
+    // Utiliser appointmentEndMinutesForValidation pour éviter les problèmes de dépassement de minuit
+    const result = appointmentStartMinutes >= intervalStart && appointmentEndMinutesForValidation <= intervalEnd;
     if (result) {
       console.log(`[isSlotValid]   ✅ Créneau valide dans l'intervalle ${interval.start}-${interval.end}`);
     } else {
       console.log(`[isSlotValid]   ❌ Créneau invalide pour l'intervalle ${interval.start}-${interval.end}`);
-      if (appointmentEndMinutes > intervalEnd) {
-        const overflowMinutes = appointmentEndMinutes - intervalEnd;
+      if (appointmentEndMinutesForValidation > intervalEnd) {
+        const overflowMinutes = appointmentEndMinutesForValidation - intervalEnd;
         const overflowHours = Math.floor(overflowMinutes / 60);
         const overflowMins = overflowMinutes % 60;
         console.log(`[isSlotValid]     ⚠️ Le rendez-vous dépasse de ${overflowHours}h${overflowMins}min l'heure de fermeture`);
+      }
+      if (appointmentStartMinutes < intervalStart) {
+        const underflowMinutes = intervalStart - appointmentStartMinutes;
+        const underflowHours = Math.floor(underflowMinutes / 60);
+        const underflowMins = underflowMinutes % 60;
+        console.log(`[isSlotValid]     ⚠️ Le rendez-vous commence ${underflowHours}h${underflowMins}min avant l'ouverture`);
       }
     }
     return result;

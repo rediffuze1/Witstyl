@@ -145,7 +145,7 @@ export async function cancelAppointment(
     return { success: false, status: 500, error: "Impossible d'annuler le rendez-vous" };
   }
 
-  console.log('[Appointments] ✅ Appointment cancelled in DB:', {
+  console.log('[CANCEL] ✅ Appointment cancelled in DB:', {
     appointmentId,
     cancelledByRole,
     updatedId: updatedAppointment.id,
@@ -158,36 +158,135 @@ export async function cancelAppointment(
       notificationContext.cancellationReason = reason;
       notificationContext.cancelledByRole = cancelledByRole;
       
-      console.log('[Appointments] 📧 Sending cancellation email to client...');
+      console.log('[NOTIF] 📧 Sending cancellation email to client...');
       await deps.notificationService.sendBookingCancellation(notificationContext);
-      console.log('[Appointments] ✅ Client cancellation email sent');
+      console.log('[NOTIF] ✅ Client cancellation email sent');
 
+      // Envoyer l'email au manager si l'annulation vient du client
       if (cancelledByRole === 'client') {
-        const managerContext = await buildManagerCancellationContext(
+        // Ne pas bloquer la réponse HTTP - utiliser void pour fire-and-forget avec timebox
+        void sendManagerCancelEmailWithIdempotence(
           supabase,
+          deps.notificationService,
           notificationContext,
           updatedAppointment.salon_id,
           cancelledByRole,
-        );
-
-        if (managerContext) {
-          console.log('[Appointments] 📧 Sending cancellation info email to manager...');
-          await deps.notificationService.sendBookingCancellationInfoToManager(managerContext);
-          console.log('[Appointments] ✅ Manager informed about cancellation');
-        } else {
-          console.warn(
-            '[Appointments] ⚠️ Manager email unavailable, skipping info notification.',
-          );
-        }
+          appointmentId,
+        ).catch((error) => {
+          // Erreur déjà loggée dans la fonction, juste éviter les unhandled rejections
+          console.error('[MANAGER_EMAIL] ❌ Unhandled error in manager email:', error);
+        });
       }
     } else {
-      console.warn('[Appointments] ⚠️ Unable to build notification context, skipping emails.');
+      console.warn('[NOTIF] ⚠️ Unable to build notification context, skipping emails.');
     }
   } catch (notificationError) {
-    console.error('[Appointments] ❌ Error while sending cancellation notifications:', notificationError);
+    console.error('[NOTIF] ❌ Error while sending cancellation notifications:', notificationError);
   }
 
   return { success: true, appointment: updatedAppointment };
+}
+
+/**
+ * Envoie l'email au manager avec idempotence et timebox (non-bloquant)
+ */
+async function sendManagerCancelEmailWithIdempotence(
+  supabase: SupabaseClient<any, 'public', any>,
+  notificationService: NotificationService,
+  baseContext: BookingNotificationContext,
+  salonId: string,
+  cancelledByRole: CancelledByRole,
+  appointmentId: string,
+): Promise<void> {
+  // Feature flag: désactiver si ENABLE_MANAGER_CANCEL_EMAIL=false
+  const enableManagerEmail = process.env.ENABLE_MANAGER_CANCEL_EMAIL !== 'false';
+  if (!enableManagerEmail) {
+    console.log('[MANAGER_EMAIL] ⚠️ Feature disabled via ENABLE_MANAGER_CANCEL_EMAIL=false');
+    return;
+  }
+
+  const eventType = 'manager_cancel_email';
+
+  // Vérifier l'idempotence : tenter d'insérer l'événement
+  const { error: insertError } = await supabase
+    .from('notification_events')
+    .insert({
+      event_type: eventType,
+      appointment_id: appointmentId,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    // Si erreur de contrainte unique => déjà envoyé
+    if (insertError.code === '23505') {
+      console.log('[MANAGER_EMAIL] ⏭️ Skipped (already sent):', {
+        appointmentId,
+        eventType,
+      });
+      return;
+    }
+    // Autre erreur => log et continuer quand même (ne pas bloquer)
+    console.error('[MANAGER_EMAIL] ⚠️ Error checking idempotence:', {
+      appointmentId,
+      error: insertError,
+    });
+    // On continue quand même pour ne pas perdre l'email si la table n'existe pas encore
+  }
+
+  // Construire le contexte manager
+  const managerContext = await buildManagerCancellationContext(
+    supabase,
+    baseContext,
+    salonId,
+    cancelledByRole,
+  );
+
+  if (!managerContext) {
+    console.warn('[MANAGER_EMAIL] ⚠️ Manager email unavailable, skipping:', {
+      salonId,
+      appointmentId,
+    });
+    return;
+  }
+
+  console.log('[MANAGER_EMAIL] 📧 Preparing to send:', {
+    salonId,
+    managerEmail: managerContext.managerEmail,
+    appointmentId,
+  });
+
+  // Timebox: 2s max pour ne pas bloquer la réponse HTTP
+  const timeoutPromise = new Promise<void>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Manager email timeout after 2000ms'));
+    }, 2000);
+  });
+
+  try {
+    await Promise.race([
+      notificationService.sendBookingCancellationInfoToManager(managerContext),
+      timeoutPromise,
+    ]);
+    console.log('[MANAGER_EMAIL] ✅ Sent successfully:', {
+      appointmentId,
+      managerEmail: managerContext.managerEmail,
+    });
+  } catch (error: any) {
+    if (error.message?.includes('timeout')) {
+      console.warn('[MANAGER_EMAIL] ⏱️ Timeout after 2s (non-blocking):', {
+        appointmentId,
+        managerEmail: managerContext.managerEmail,
+      });
+    } else {
+      console.error('[MANAGER_EMAIL] ❌ Failed to send:', {
+        appointmentId,
+        managerEmail: managerContext.managerEmail,
+        error: error.message || error,
+      });
+    }
+    // Ne pas throw - on continue même si l'email échoue
+  }
 }
 
 async function buildManagerCancellationContext(
@@ -203,7 +302,7 @@ async function buildManagerCancellationContext(
     .maybeSingle();
 
   if (salonError) {
-    console.error('[Appointments] ❌ Impossible de récupérer le salon pour notification manager:', salonError);
+    console.error('[MANAGER_EMAIL] ❌ Impossible de récupérer le salon pour notification manager:', salonError);
     return null;
   }
 
@@ -216,9 +315,15 @@ async function buildManagerCancellationContext(
       .maybeSingle();
 
     if (ownerError) {
-      console.warn('[Appointments] ⚠️ Impossible de récupérer le propriétaire pour notification:', ownerError);
+      console.warn('[MANAGER_EMAIL] ⚠️ Impossible de récupérer le propriétaire pour notification:', ownerError);
     }
     managerEmail = owner?.email || '';
+  }
+
+  // Fallback sur RESEND_TO_OVERRIDE en dev si configuré
+  if (!managerEmail && process.env.RESEND_TO_OVERRIDE) {
+    managerEmail = process.env.RESEND_TO_OVERRIDE;
+    console.log('[MANAGER_EMAIL] 🔧 Using RESEND_TO_OVERRIDE fallback:', managerEmail);
   }
 
   if (!managerEmail) {

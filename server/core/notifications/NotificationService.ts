@@ -358,11 +358,11 @@ export class NotificationService {
     ctx: ManagerCancellationNotificationContext,
   ): Promise<void> {
     if (!ctx.managerEmail || ctx.managerEmail.trim() === '') {
-      console.warn('[NotificationService] Email info manager non envoyé: adresse manquante');
+      console.warn('[MANAGER_EMAIL] ⚠️ Email info manager non envoyé: adresse manquante');
       return;
     }
 
-    const formattedDate = format(ctx.startDate, "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr });
+    const formattedDate = format(ctx.startDate, "EEEE d MMMM yyyy", { locale: fr });
     const formattedTime = format(ctx.startDate, 'HH:mm', { locale: fr });
     const cancelledByText = ctx.cancelledByRole === 'client' ? 'Client' : 'Manager';
 
@@ -387,6 +387,7 @@ export class NotificationService {
       }
     </div>
     <p>Salon : <strong>${ctx.salonName}</strong></p>
+    <p>ID du rendez-vous : <strong>${ctx.bookingId}</strong></p>
     <p style="color:#7a7a7a;">Cet email est généré automatiquement par Witstyl.</p>
   </body>
 </html>
@@ -402,23 +403,43 @@ export class NotificationService {
       `Annulé par : ${cancelledByText}`,
       ctx.cancellationReason ? `Raison : ${ctx.cancellationReason}` : '',
       `Salon : ${ctx.salonName}`,
+      `ID du rendez-vous : ${ctx.bookingId}`,
     ]
       .filter(Boolean)
       .join('\n');
 
+    // Sujet recommandé: "Annulation RDV — {client_full_name} — {appointment_date} {appointment_time}"
+    const subject = `Annulation RDV — ${ctx.clientName} — ${formattedDate} ${formattedTime}`;
+
+    console.log('[MANAGER_EMAIL] 📤 Sending email:', {
+      to: ctx.managerEmail,
+      subject,
+      bookingId: ctx.bookingId,
+    });
+
     const emailResult = await this.emailProvider.sendEmail({
       to: ctx.managerEmail,
-      subject: `Annulation d'un rendez-vous - ${ctx.salonName}`,
+      subject,
       html,
       text,
     });
 
     if (!emailResult.success) {
       console.error(
-        '[NotificationService] Erreur lors de l\'envoi de l\'email d\'info manager:',
-        emailResult.error,
+        '[MANAGER_EMAIL] ❌ Erreur lors de l\'envoi de l\'email d\'info manager:',
+        {
+          managerEmail: ctx.managerEmail,
+          bookingId: ctx.bookingId,
+          error: emailResult.error,
+        },
       );
+      throw new Error(`Failed to send manager email: ${emailResult.error}`);
     }
+
+    console.log('[MANAGER_EMAIL] ✅ Email sent successfully:', {
+      managerEmail: ctx.managerEmail,
+      bookingId: ctx.bookingId,
+    });
   }
 
   /**
@@ -688,22 +709,43 @@ Cet email a été envoyé automatiquement par ${ctx.salonName}
   }> {
     const { to, salonId, salonName } = params;
 
-    // Récupérer les templates actuels
-    const settingsRepo = this.settingsRepositoryFactory(salonId);
-    const settings = await settingsRepo.getSettings(salonId);
+    try {
+      // Récupérer les templates actuels
+      const settingsRepo = this.settingsRepositoryFactory(salonId);
+      const settings = await settingsRepo.getSettings(salonId);
 
-    // Construire un contexte de test
-    const { buildAppointmentTemplateContextForTest } = await import('./utils');
-    const templateContext = buildAppointmentTemplateContextForTest(salonId, salonName);
+      // Construire un contexte de test (inliné pour éviter les problèmes d'import ESM sur Vercel)
+      const testDate = new Date();
+      testDate.setDate(testDate.getDate() + 1);
+      testDate.setHours(15, 0, 0, 0);
+      const formattedDate = format(testDate, "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr });
+      const formattedTime = format(testDate, "HH:mm", { locale: fr });
+      const templateContext: AppointmentTemplateContext = {
+        clientFirstName: 'TestClient',
+        clientFullName: 'Test Client',
+        appointmentDate: formattedDate,
+        appointmentTime: formattedTime,
+        serviceName: 'Coupe Test',
+        salonName: salonName || 'Salon de Test',
+        stylistName: 'Coiffeur·euse Test',
+      };
 
-    // Récupérer les templates bruts
-    const subjectTemplate = settings.confirmationEmailSubject || DEFAULT_NOTIFICATION_TEMPLATES.confirmationEmailSubject;
-    const htmlTemplate = settings.confirmationEmailHtml || DEFAULT_NOTIFICATION_TEMPLATES.confirmationEmailHtml;
+      // Récupérer les templates bruts
+      const subjectTemplate = settings.confirmationEmailSubject || DEFAULT_NOTIFICATION_TEMPLATES.confirmationEmailSubject;
+      const htmlTemplate = settings.confirmationEmailHtml || DEFAULT_NOTIFICATION_TEMPLATES.confirmationEmailHtml;
 
-    // Rendre les templates
-    const subjectRendered = `[TEST] ${renderTemplate(subjectTemplate, templateContext)}`;
-    const htmlRendered = renderTemplate(htmlTemplate, templateContext);
-    const emailText = this.htmlToText(htmlRendered);
+      // Rendre les templates
+      let subjectRendered: string;
+      let htmlRendered: string;
+      try {
+        subjectRendered = `[TEST] ${renderTemplate(subjectTemplate, templateContext)}`;
+        htmlRendered = renderTemplate(htmlTemplate, templateContext);
+      } catch (renderError: any) {
+        console.error('[NotificationService] ❌ Erreur lors du rendu des templates:', renderError);
+        throw new Error(`Erreur lors du rendu des templates: ${renderError.message}`);
+      }
+      
+      const emailText = this.htmlToText(htmlRendered);
 
     // Logs détaillés
     console.log('[NotificationService] 📧 Email de test:');
@@ -722,50 +764,74 @@ Cet email a été envoyé automatiquement par ${ctx.salonName}
       templateContext,
     });
 
-    // Envoyer l'email
-    console.log('[NotificationService] 📤 Appel à emailProvider.sendEmail()...');
-    console.log('[NotificationService]   - To:', to);
-    console.log('[NotificationService]   - Subject:', subjectRendered);
-    console.log('[NotificationService]   - HTML length:', htmlRendered.length);
-    console.log('[NotificationService]   - Text length:', emailText.length);
-    
-    const emailResult = await this.emailProvider.sendEmail({
-      to,
-      subject: subjectRendered,
-      html: htmlRendered,
-      text: emailText,
-    });
+      // Envoyer l'email
+      console.log('[NotificationService] 📤 Appel à emailProvider.sendEmail()...');
+      console.log('[NotificationService]   - To:', to);
+      console.log('[NotificationService]   - Subject:', subjectRendered);
+      console.log('[NotificationService]   - HTML length:', htmlRendered.length);
+      console.log('[NotificationService]   - Text length:', emailText.length);
+      
+      let emailResult;
+      try {
+        emailResult = await this.emailProvider.sendEmail({
+          to,
+          subject: subjectRendered,
+          html: htmlRendered,
+          text: emailText,
+        });
+      } catch (sendError: any) {
+        console.error('[NotificationService] ❌ Exception lors de l\'envoi de l\'email:', sendError);
+        emailResult = {
+          success: false,
+          error: `Exception lors de l'envoi: ${sendError.message || sendError}`,
+        };
+      }
 
-    console.log('[NotificationService] 📥 Résultat de emailProvider.sendEmail():', JSON.stringify(emailResult, null, 2));
+      console.log('[NotificationService] 📥 Résultat de emailProvider.sendEmail():', JSON.stringify(emailResult, null, 2));
 
-    if (!emailResult.success) {
-      console.error('');
-      console.error('═══════════════════════════════════════════════════════════════');
-      console.error('[NotificationService] ❌ ÉCHEC DE L\'ENVOI DE L\'EMAIL DE TEST');
-      console.error('═══════════════════════════════════════════════════════════════');
-      console.error('[NotificationService] Erreur:', emailResult.error);
-      console.error('[NotificationService] Destinataire:', to);
-      console.error('[NotificationService] Sujet:', subjectRendered);
-      console.error('═══════════════════════════════════════════════════════════════');
-      console.error('');
-    } else {
-      console.log('');
-      console.log('═══════════════════════════════════════════════════════════════');
-      console.log('[NotificationService] ✅ EMAIL DE TEST ENVOYÉ AVEC SUCCÈS');
-      console.log('═══════════════════════════════════════════════════════════════');
-      console.log('[NotificationService] Destinataire:', to);
-      console.log('[NotificationService] Sujet:', subjectRendered);
-      console.log('═══════════════════════════════════════════════════════════════');
-      console.log('');
+      if (!emailResult.success) {
+        console.error('');
+        console.error('═══════════════════════════════════════════════════════════════');
+        console.error('[NotificationService] ❌ ÉCHEC DE L\'ENVOI DE L\'EMAIL DE TEST');
+        console.error('═══════════════════════════════════════════════════════════════');
+        console.error('[NotificationService] Erreur:', emailResult.error);
+        console.error('[NotificationService] Destinataire:', to);
+        console.error('[NotificationService] Sujet:', subjectRendered);
+        console.error('═══════════════════════════════════════════════════════════════');
+        console.error('');
+      } else {
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('[NotificationService] ✅ EMAIL DE TEST ENVOYÉ AVEC SUCCÈS');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('[NotificationService] Destinataire:', to);
+        console.log('[NotificationService] Sujet:', subjectRendered);
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('');
+      }
+
+      return {
+        subjectTemplate,
+        htmlTemplate,
+        subjectRendered,
+        htmlRendered,
+        emailResult,
+      };
+    } catch (error: any) {
+      console.error('[NotificationService] ❌ Erreur dans sendTestConfirmationEmail:', error);
+      console.error('[NotificationService] Stack:', error.stack);
+      // Retourner un résultat d'erreur plutôt que de throw pour que l'appelant puisse gérer
+      return {
+        subjectTemplate: '',
+        htmlTemplate: '',
+        subjectRendered: '',
+        htmlRendered: '',
+        emailResult: {
+          success: false,
+          error: `Erreur lors de la préparation de l'email de test: ${error.message || error}`,
+        },
+      };
     }
-
-    return {
-      subjectTemplate,
-      htmlTemplate,
-      subjectRendered,
-      htmlRendered,
-      emailResult,
-    };
   }
 
   /**

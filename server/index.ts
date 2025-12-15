@@ -4757,6 +4757,20 @@ app.post('/api/appointments', express.json(), async (req, res) => {
       // La durée du body peut être différente si le service a été modifié
       const duration = body.duration ? Number(body.duration) : (service.duration || 30);
       
+      // Validation de la durée pour éviter les valeurs incorrectes
+      if (isNaN(duration) || duration <= 0 || duration > 1440) {
+        console.error('[POST /api/appointments] ❌ Durée invalide:', duration);
+        return res.status(400).json({ error: 'Durée du service invalide', details: `La durée doit être entre 1 et 1440 minutes, reçue: ${duration}` });
+      }
+      
+      console.log('[POST /api/appointments] 🔍 Durée validée:', {
+        bodyDuration: body.duration,
+        serviceDuration: service.duration,
+        finalDuration: duration,
+        durationInHours: Math.floor(duration / 60),
+        durationInMinutes: duration % 60,
+      });
+      
       // Valider que startTime est fourni et valide
       if (!body.startTime) {
         console.error('[POST /api/appointments] ❌ startTime manquant dans le body');
@@ -4773,10 +4787,20 @@ app.post('/api/appointments', express.json(), async (req, res) => {
       const appointmentEndTime = new Date(appointmentStartTime.getTime() + duration * 60000);
       const dayOfWeek = appointmentStartTime.getDay();
       
+      // Logs détaillés pour debug
+      const startHourLocal = appointmentStartTime.getHours();
+      const startMinuteLocal = appointmentStartTime.getMinutes();
+      const endHourLocal = appointmentEndTime.getHours();
+      const endMinuteLocal = appointmentEndTime.getMinutes();
+      
       console.log('[POST /api/appointments] 🔍 Date/heure validée:');
       console.log('[POST /api/appointments] 🔍   startTime (body):', body.startTime);
-      console.log('[POST /api/appointments] 🔍   appointmentDate:', appointmentDate.toISOString());
-      console.log('[POST /api/appointments] 🔍   dayOfWeek:', dayOfWeek);
+      console.log('[POST /api/appointments] 🔍   appointmentDate (ISO):', appointmentDate.toISOString());
+      console.log('[POST /api/appointments] 🔍   appointmentDate (locale):', appointmentDate.toString());
+      console.log('[POST /api/appointments] 🔍   Début (locale):', `${String(startHourLocal).padStart(2, '0')}:${String(startMinuteLocal).padStart(2, '0')}`);
+      console.log('[POST /api/appointments] 🔍   Fin calculée (locale):', `${String(endHourLocal).padStart(2, '0')}:${String(endMinuteLocal).padStart(2, '0')}`);
+      console.log('[POST /api/appointments] 🔍   Durée appliquée:', duration, 'minutes');
+      console.log('[POST /api/appointments] 🔍   dayOfWeek:', dayOfWeek, `(${['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][dayOfWeek]})`);
       
       // Définir salonIdForQuery une seule fois au début pour qu'il soit accessible partout
       const salonIdForQuery = body.salonId || previewSalon.id;
