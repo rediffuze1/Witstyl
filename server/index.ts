@@ -1476,7 +1476,7 @@ console.log('[SERVER] ✅ Route webhook disponible: POST /api/notifications/rese
 (async () => {
   if (process.env.NODE_ENV !== 'production') {
     try {
-      const devSimulateRouter = await import('./routes/dev-simulate-email-opened');
+      const devSimulateRouter = await import('./routes/dev-simulate-email-opened.js');
       app.use("/api/dev", devSimulateRouter.default);
       console.log('[SERVER] ✅ Route dev disponible: POST /api/dev/simulate-email-opened');
     } catch (error: any) {
@@ -2775,8 +2775,8 @@ app.get('/api/salons/:salonId/services', async (req, res) => {
         id: service.id,
         name: service.name,
         description: service.description || '',
-        durationMinutes: service.duration || service.duration_minutes || 0,
-        duration: service.duration || service.duration_minutes || 0,
+        durationMinutes: service.duration || 0,
+        duration: service.duration || 0,
         price: service.price || 0,
         tags: service.tags || [],
         salonId: service.salon_id
@@ -3783,6 +3783,131 @@ app.get('/api/clients', async (req, res) => {
         return res.status(500).json({ error: 'Erreur lors du chargement des clients' });
       }
     });
+
+// GET /api/owner/clients/risk
+// Calcule le score de risque des clients basé sur leur historique de désistements/no-show
+app.get('/api/owner/clients/risk', async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || user.userType !== 'owner') {
+      return res.status(401).json({ error: 'Non autorisé. Connexion owner requise.' });
+    }
+
+    // Utiliser uniquement user.salonId (sécurité : ne pas accepter req.query.salonId pour éviter les leaks)
+    const salonId = user.salonId || req.session?.user?.salonId;
+    if (!salonId) {
+      return res.status(400).json({ error: 'Salon ID manquant.' });
+    }
+
+    // Normaliser le salonId (ajouter préfixe si nécessaire)
+    const normalizedSalonId = salonId.startsWith('salon-') ? salonId : `salon-${salonId}`;
+    const days = parseInt(req.query.days as string) || 90;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffDateISO = cutoffDate.toISOString();
+
+    console.log('[RISK] Calcul risque clients:', { salonId: normalizedSalonId, days, cutoffDate: cutoffDateISO });
+
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      return res.status(500).json({ error: 'Configuration Supabase manquante' });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    // Récupérer les appointments avec status cancelled/no_show/confirmed dans la fenêtre
+    const { data: appointments, error: appointmentsError } = await supabase
+      .from('appointments')
+      .select('client_id, status')
+      .eq('salon_id', normalizedSalonId)
+      .in('status', ['cancelled', 'no_show', 'confirmed'])
+      .gte('appointment_date', cutoffDateISO);
+
+    if (appointmentsError) {
+      console.error('[RISK] Erreur récupération appointments:', appointmentsError);
+      return res.status(500).json({ error: 'Erreur lors de la récupération des rendez-vous', details: appointmentsError.message });
+    }
+
+    // Grouper par client et compter
+    const clientStats = new Map<string, { cancelledCount: number; noShowCount: number; totalCount: number }>();
+    
+    (appointments || []).forEach((apt: any) => {
+      const clientId = apt.client_id;
+      if (!clientId) return;
+
+      const stats = clientStats.get(clientId) || { cancelledCount: 0, noShowCount: 0, totalCount: 0 };
+      
+      if (apt.status === 'cancelled') {
+        stats.cancelledCount++;
+      } else if (apt.status === 'no_show') {
+        stats.noShowCount++;
+      }
+      stats.totalCount++;
+      
+      clientStats.set(clientId, stats);
+    });
+
+    // Récupérer les infos des clients concernés
+    const clientIds = Array.from(clientStats.keys());
+    if (clientIds.length === 0) {
+      return res.json([]);
+    }
+
+    const { data: clients, error: clientsError } = await supabase
+      .from('clients')
+      .select('id, first_name, last_name, email, phone')
+      .eq('salon_id', normalizedSalonId)
+      .in('id', clientIds);
+
+    if (clientsError) {
+      console.error('[RISK] Erreur récupération clients:', clientsError);
+      return res.status(500).json({ error: 'Erreur lors de la récupération des clients', details: clientsError.message });
+    }
+
+    // Calculer le score de risque pour chaque client
+    const riskData = (clients || []).map((client: any) => {
+      const stats = clientStats.get(client.id) || { cancelledCount: 0, noShowCount: 0, totalCount: 0 };
+      const { cancelledCount, noShowCount } = stats;
+
+      // Calcul du score selon la formule
+      let riskScore = cancelledCount * 15 + noShowCount * 35;
+      if (cancelledCount + noShowCount >= 3) {
+        riskScore += 10;
+      }
+      riskScore = Math.max(0, Math.min(100, riskScore)); // clamp 0-100
+
+      // Déterminer le niveau de risque
+      let riskLevel: 'low' | 'medium' | 'high';
+      if (riskScore >= 60) {
+        riskLevel = 'high';
+      } else if (riskScore >= 30) {
+        riskLevel = 'medium';
+      } else {
+        riskLevel = 'low';
+      }
+
+      return {
+        clientId: client.id,
+        fullName: `${client.first_name || ''} ${client.last_name || ''}`.trim(),
+        email: client.email || null,
+        phone: client.phone || null,
+        appointmentsTotal: stats.totalCount,
+        cancelledCount,
+        noShowCount,
+        riskScore,
+        riskLevel,
+      };
+    });
+
+    console.log('[RISK] ✅ Risque calculé pour', riskData.length, 'clients');
+    return res.json(riskData);
+  } catch (error: any) {
+    console.error('[RISK] ❌ Erreur:', error);
+    return res.status(500).json({ error: 'Erreur lors du calcul du risque', details: error.message });
+  }
+});
 
 app.post('/api/clients', express.json(), async (req, res) => {
   const body = req.body || {};
@@ -5394,7 +5519,7 @@ app.post('/api/appointments', express.json(), async (req, res) => {
         const appointmentDate = new Date(newAppointment.appointment_date);
         const createdAt = new Date(newAppointment.created_at || new Date());
         
-        const { sendAppointmentCreationNotifications } = await import('./core/notifications/optimizedNotificationService');
+        const { sendAppointmentCreationNotifications } = await import('./core/notifications/optimizedNotificationService.js');
         const notificationResult = await sendAppointmentCreationNotifications(
           newAppointment.id,
           appointmentDate,
@@ -5900,7 +6025,7 @@ app.get('/api/owner/notification-settings', async (req, res) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository');
+    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository.js');
     const settingsRepo = createNotificationSettingsRepository(supabase);
 
     const settings = await settingsRepo.getSettings(salonId);
@@ -6027,7 +6152,7 @@ app.put('/api/owner/notification-settings', express.json(), async (req, res) => 
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository');
+    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository.js');
     const settingsRepo = createNotificationSettingsRepository(supabase);
 
     const updatedSettings = await settingsRepo.updateSettings(salonId, updateData);
@@ -6138,7 +6263,7 @@ app.post('/api/owner/notifications/send-test-email', express.json(), async (req,
     const salonName = salon?.name || 'Salon de Test';
 
     // Envoyer l'email de test via NotificationService
-    const { notificationService } = await import('./core/notifications/index');
+    const { notificationService } = await import('./core/notifications/index.js');
     const result = await notificationService.sendTestConfirmationEmail({
       to: emailToUse,
       salonId,
@@ -6227,7 +6352,7 @@ app.post('/api/owner/notifications/test-confirmation-sms', express.json(), async
       });
     }
 
-    const { sendSmsConfirmationIfNeeded } = await import('./core/notifications/smsService');
+    const { sendSmsConfirmationIfNeeded } = await import('./core/notifications/smsService.js');
     const result = await sendSmsConfirmationIfNeeded(appointmentId);
 
     if (!result.success) {
@@ -6280,7 +6405,7 @@ app.post('/api/owner/notifications/test-reminder-sms', express.json(), async (re
       });
     }
 
-    const { sendSmsReminderIfNeeded } = await import('./core/notifications/smsService');
+    const { sendSmsReminderIfNeeded } = await import('./core/notifications/smsService.js');
     const result = await sendSmsReminderIfNeeded(appointmentId);
 
     if (!result.success) {
@@ -6391,7 +6516,7 @@ app.post('/api/owner/notifications/send-test-sms', express.json(), async (req, r
     console.log('[POST /api/owner/notifications/send-test-sms] 📱 To:', testPhone);
     console.log('[POST /api/owner/notifications/send-test-sms] 📱 Message:', testMessage);
     
-    const { notificationService } = await import('./core/notifications/index');
+    const { notificationService } = await import('./core/notifications/index.js');
     const result = await notificationService.sendSms({
       to: testPhone,
       message: testMessage,
@@ -6462,8 +6587,8 @@ app.get('/api/notifications/send-reminders', async (req, res) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { buildNotificationContext } = await import('./core/notifications/utils');
-    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository');
+    const { buildNotificationContext } = await import('./core/notifications/utils.js');
+    const { createNotificationSettingsRepository } = await import('./core/notifications/NotificationSettingsRepository.js');
     const { subHours } = await import('date-fns');
 
     // Récupérer tous les rendez-vous confirmés dans les prochaines 48h
@@ -6854,7 +6979,7 @@ const server = (process.env.NODE_ENV === 'production' && !process.env.VERCEL) ? 
       // Toutes les heures à la minute 0
       cronDefault.schedule('0 * * * *', async () => {
         try {
-          await import('./cron/check-email-opened-and-send-sms');
+          await import('./cron/check-email-opened-and-send-sms.js');
         } catch (error: any) {
           console.error('[Cron] ❌ Erreur lors de l\'exécution du cron job check-email-opened:', error);
         }
@@ -6865,7 +6990,7 @@ const server = (process.env.NODE_ENV === 'production' && !process.env.VERCEL) ? 
       // Toutes les heures à la minute 0
       cronDefault.schedule('0 * * * *', async () => {
         try {
-          await import('./cron/send-reminder-sms');
+          await import('./cron/send-reminder-sms.js');
         } catch (error: any) {
           console.error('[Cron] ❌ Erreur lors de l\'exécution du cron job send-reminder:', error);
         }

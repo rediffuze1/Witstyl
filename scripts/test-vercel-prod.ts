@@ -49,6 +49,12 @@ const endpoints = [
   { method: 'GET', path: '/api/public/salon/stylistes', description: 'GET /api/public/salon/stylistes' },
   { method: 'GET', path: '/api/reviews/google', description: 'GET /api/reviews/google' },
   { method: 'GET', path: '/api/salons/test-salon-id/reports?view=week&date=2025-12-08', description: 'GET /api/salons/:salonId/reports (sans session - 401 attendu)' },
+  { 
+    method: 'GET', 
+    path: '/api/owner/clients/risk?days=90', 
+    description: 'GET /api/owner/clients/risk (sans session - 401 attendu)',
+    expectedStatus: [401],
+  },
   // Note: Les fichiers statiques (/team/emma.jpg, /salon1.jpg) ne sont pas testés car
   // sur Vercel, ils sont servis directement par Vercel, pas par notre handler API
   // Le handler rejette immédiatement les requêtes non-API avec 404
@@ -92,6 +98,111 @@ async function withServer(
  * Test spécialisé pour vérifier la persistance de session via cookie
  * Utilise un vrai serveur HTTP pour que express-session fonctionne correctement
  */
+async function testClientRisk(): Promise<{ success: boolean; message: string; details?: any }> {
+  try {
+    const vercelHandler = await loadHandler();
+    
+    return await withServer(vercelHandler, async (baseUrl) => {
+      // Step 1: login owner
+      const loginRes = await fetch(`${baseUrl}/api/salon/login`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-proto': 'https',
+          'origin': 'http://localhost:5001',
+        },
+        body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
+      });
+
+      if (!loginRes.ok) {
+        return {
+          success: false,
+          message: `Login failed with status ${loginRes.status}`,
+          details: { status: loginRes.status },
+        };
+      }
+
+      // Récupérer le cookie de session
+      const anyHeaders: any = loginRes.headers;
+      const setCookies: string[] = typeof anyHeaders.getSetCookie === 'function'
+        ? anyHeaders.getSetCookie()
+        : (loginRes.headers.get('set-cookie') ? [loginRes.headers.get('set-cookie')!] : []);
+      
+      if (!setCookies.length) {
+        return {
+          success: false,
+          message: 'Set-Cookie header absent dans la réponse de login',
+        };
+      }
+
+      const cookieHeader = setCookies.map((c) => c.split(';')[0]).join('; ');
+
+      // Step 2: appeler GET /api/owner/clients/risk avec session
+      const riskRes = await fetch(`${baseUrl}/api/owner/clients/risk?days=90`, {
+        method: 'GET',
+        headers: {
+          'cookie': cookieHeader,
+          'x-forwarded-proto': 'https',
+          'origin': 'http://localhost:5001',
+        },
+      });
+
+      const riskBody = await riskRes.text();
+      if (!riskRes.ok) {
+        return {
+          success: false,
+          message: `GET /api/owner/clients/risk failed with status ${riskRes.status}`,
+          details: { status: riskRes.status, response: riskBody.slice(0, 200) },
+        };
+      }
+
+      // Vérifier que c'est un tableau
+      let riskData: any[];
+      try {
+        riskData = JSON.parse(riskBody);
+      } catch (e) {
+        return {
+          success: false,
+          message: 'Réponse JSON invalide',
+          details: { response: riskBody.slice(0, 200) },
+        };
+      }
+
+      if (!Array.isArray(riskData)) {
+        return {
+          success: false,
+          message: 'Réponse n\'est pas un tableau',
+          details: { type: typeof riskData },
+        };
+      }
+
+      // Vérifier la structure des items
+      if (riskData.length > 0) {
+        const firstItem = riskData[0];
+        if (!firstItem.clientId || typeof firstItem.riskScore !== 'number' || !['low', 'medium', 'high'].includes(firstItem.riskLevel)) {
+          return {
+            success: false,
+            message: 'Structure des données invalide',
+            details: { firstItem },
+          };
+        }
+      }
+
+      return {
+        success: true,
+        message: 'GET /api/owner/clients/risk OK',
+        details: { clientCount: riskData.length },
+      };
+    });
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `Test failed with error: ${error.message}`,
+      details: { error: error.stack },
+    };
+  }
+}
+
 async function testSessionCookie(): Promise<{ success: boolean; message: string; details?: any }> {
   try {
     const vercelHandler = await loadHandler();
@@ -422,6 +533,27 @@ async function runTests() {
   console.log('\n📋 Test spécialisé: Persistance de session via cookie');
   process.stdout.write('   En cours... ');
   const cookieTest = await testSessionCookie();
+
+  // Test spécialisé: GET /api/owner/clients/risk avec session owner
+  console.log('\n📋 Test spécialisé: GET /api/owner/clients/risk (avec session owner)');
+  process.stdout.write('   En cours... ');
+  const riskTest = await testClientRisk();
+  
+  if (riskTest.success) {
+    console.log('✅ PASSED');
+    console.log(`   ${riskTest.message}`);
+    if (riskTest.details) {
+      console.log(`   Clients analysés: ${riskTest.details.clientCount || 0}`);
+    }
+    passed++;
+  } else {
+    console.log('❌ FAILED');
+    console.log(`   ${riskTest.message}`);
+    if (riskTest.details) {
+      console.log(`   Details: ${JSON.stringify(riskTest.details, null, 2)}`);
+    }
+    failed++;
+  }
 
   if (cookieTest.success) {
     console.log('✅ PASSED');

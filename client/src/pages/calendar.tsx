@@ -3,6 +3,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useClientRisk, type ClientRisk } from "@/hooks/useClientRisk";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,6 +107,18 @@ export default function Calendar() {
     queryKey: ["/api/salon"],
     retry: false,
   });
+
+  // Hook pour récupérer les risques clients
+  const { data: clientRisks } = useClientRisk(salon?.id);
+  const clientRiskMap = useMemo(() => {
+    const map = new Map<string, ClientRisk>();
+    if (clientRisks) {
+      clientRisks.forEach((risk) => {
+        map.set(risk.clientId, risk);
+      });
+    }
+    return map;
+  }, [clientRisks]);
 
   const { data: stylistes } = useQuery({
     queryKey: ["/api/salons", salon?.id, "stylistes"],
@@ -1574,7 +1587,27 @@ const normalizedClosedDates = useMemo(() => {
                     <User className="mr-2 h-4 w-4" />
                     Client
                   </h4>
-                  <p>{selectedAppointment.client?.firstName} {selectedAppointment.client?.lastName}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p>{selectedAppointment.client?.firstName} {selectedAppointment.client?.lastName}</p>
+                    {selectedAppointment.clientId && clientRiskMap.has(selectedAppointment.clientId) && (() => {
+                      const risk = clientRiskMap.get(selectedAppointment.clientId)!;
+                      const tooltipText = `${risk.noShowCount} absent(s), ${risk.cancelledCount} annulé(s) (90j)`;
+                      if (risk.riskLevel === 'high') {
+                        return (
+                          <Badge variant="destructive" className="text-xs" title={tooltipText}>
+                            ⚠️ Client à risque
+                          </Badge>
+                        );
+                      } else if (risk.riskLevel === 'medium') {
+                        return (
+                          <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300" title={tooltipText}>
+                            Client à surveiller
+                          </Badge>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                   {selectedAppointment.client?.email && (
                     <p className="text-sm text-muted-foreground">{selectedAppointment.client.email}</p>
                   )}

@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useClientRisk, type ClientRisk } from "@/hooks/useClientRisk";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -118,6 +119,18 @@ export default function Clients() {
     },
     retry: false 
   });
+
+  // Hook pour récupérer les risques clients
+  const { data: clientRisks } = useClientRisk(salon?.id);
+  const clientRiskMap = useMemo(() => {
+    const map = new Map<string, ClientRisk>();
+    if (clientRisks) {
+      clientRisks.forEach((risk) => {
+        map.set(risk.clientId, risk);
+      });
+    }
+    return map;
+  }, [clientRisks]);
   const { data: clients, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],
     queryFn: async () => {
@@ -872,7 +885,7 @@ export default function Clients() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-xl font-semibold">
                         {selectedClient.firstName} {selectedClient.lastName}
                       </h3>
@@ -882,6 +895,23 @@ export default function Clients() {
                           Note privée
                         </Badge>
                       )}
+                      {clientRiskMap.has(selectedClient.id) && (() => {
+                        const risk = clientRiskMap.get(selectedClient.id)!;
+                        if (risk.riskLevel === 'high') {
+                          return (
+                            <Badge variant="destructive" className="text-xs">
+                              ⚠️ Client à risque
+                            </Badge>
+                          );
+                        } else if (risk.riskLevel === 'medium') {
+                          return (
+                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+                              Client à surveiller
+                            </Badge>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     <div className="space-y-1 text-sm text-muted-foreground">
                       <div className="flex items-center">
@@ -897,6 +927,30 @@ export default function Clients() {
                     </div>
                   </div>
                 </div>
+
+                {/* Stats de risque client */}
+                {clientRiskMap.has(selectedClient.id) && (() => {
+                  const risk = clientRiskMap.get(selectedClient.id)!;
+                  return (
+                    <div className="bg-muted/50 p-4 rounded-lg border">
+                      <h4 className="font-semibold mb-2">Historique de risque (90 jours)</h4>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Absences</div>
+                          <div className="font-semibold text-lg">{risk.noShowCount}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Annulations</div>
+                          <div className="font-semibold text-lg">{risk.cancelledCount}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Score</div>
+                          <div className="font-semibold text-lg">{risk.riskScore}/100</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {selectedClient.preferredStylistId && (
                   <div>
