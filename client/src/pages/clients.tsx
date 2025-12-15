@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useClientRisk, type ClientRisk } from "@/hooks/useClientRisk";
+import { ClientRiskBadge } from "@/components/ClientRiskBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,7 @@ import {
   User,
   Trash2,
   StickyNote,
+  X,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -92,6 +94,7 @@ export default function Clients() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedStylistFilter, setSelectedStylistFilter] = useState<string>("all");
+  const [selectedRiskFilter, setSelectedRiskFilter] = useState<'all' | 'high' | 'medium'>('all');
 
   const { isAuthenticated, isLoading, isHydrating } = useAuthContext();
   const { toast } = useToast();
@@ -129,6 +132,14 @@ export default function Clients() {
         map.set(risk.clientId, risk);
       });
     }
+    // Debug en dev uniquement (Vite)
+    if (import.meta.env.DEV && clientRisks) {
+      console.log('[Clients] clientRiskMap créé:', {
+        size: map.size,
+        sampleKeys: Array.from(map.keys()).slice(0, 3),
+        sampleValues: Array.from(map.values()).slice(0, 2).map(r => ({ clientId: r.clientId, riskLevel: r.riskLevel })),
+      });
+    }
     return map;
   }, [clientRisks]);
   const { data: clients, isLoading: clientsLoading } = useQuery({
@@ -139,6 +150,23 @@ export default function Clients() {
     },
     retry: false,
   });
+
+  // Debug en dev : comparer les IDs des clients avec les keys de la riskMap
+  useEffect(() => {
+    if (import.meta.env.DEV && clients && clientRiskMap.size > 0) {
+      const sampleClients = (clients as Client[]).slice(0, 3);
+      const sampleRiskKeys = Array.from(clientRiskMap.keys()).slice(0, 3);
+      console.log('[Clients] Comparaison IDs:', {
+        sampleClientIds: sampleClients.map(c => ({ id: c.id, name: `${c.firstName} ${c.lastName}` })),
+        sampleRiskKeys,
+        matchExample: sampleClients.map(c => ({
+          clientId: c.id,
+          hasInMap: clientRiskMap.has(c.id),
+          riskLevel: clientRiskMap.get(c.id)?.riskLevel || 'none',
+        })),
+      });
+    }
+  }, [clients, clientRiskMap]);
 
   // Mettre à jour selectedClient quand les données des clients sont rechargées
   useEffect(() => {
@@ -395,7 +423,18 @@ export default function Clients() {
         (selectedStylistFilter === "none" && !client.preferredStylistId) ||
         (selectedStylistFilter !== "none" && client.preferredStylistId === selectedStylistFilter);
       
-      return matchesSearch && matchesStylistFilter;
+      // Filtrage par niveau de risque
+      let matchesRiskFilter = true;
+      if (selectedRiskFilter !== 'all') {
+        const clientRisk = clientRiskMap.get(client.id);
+        if (selectedRiskFilter === 'high') {
+          matchesRiskFilter = clientRisk?.riskLevel === 'high';
+        } else if (selectedRiskFilter === 'medium') {
+          matchesRiskFilter = clientRisk?.riskLevel === 'medium';
+        }
+      }
+      
+      return matchesSearch && matchesStylistFilter && matchesRiskFilter;
     }) || [];
 
   const getClientAppointments = (clientId: string) => {
@@ -626,15 +665,60 @@ export default function Clients() {
         {/* Barre de recherche */}
         <Card className="glassmorphism-card mb-6">
           <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Rechercher par nom, email ou téléphone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-clients"
-              />
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Rechercher par nom, email ou téléphone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-clients"
+                />
+              </div>
+              
+              {/* Filtres par niveau de risque */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={selectedRiskFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedRiskFilter('all')}
+                  className={`transition-all duration-200 ${
+                    selectedRiskFilter === 'all'
+                      ? "bg-white text-black border-2 border-[var(--primary)] shadow-md hover:bg-[var(--primary)]/10 hover:shadow-lg hover:scale-105"
+                      : "hover:bg-[var(--primary)]/10 hover:text-black hover:border-[var(--primary)]/30 hover:shadow-sm hover:scale-105"
+                  }`}
+                >
+                  Tous
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedRiskFilter === 'medium' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedRiskFilter(selectedRiskFilter === 'medium' ? 'all' : 'medium')}
+                  className={`transition-all duration-200 ${
+                    selectedRiskFilter === 'medium'
+                      ? "bg-yellow-50 text-yellow-700 border-2 border-yellow-300 shadow-md hover:bg-yellow-100 hover:shadow-lg hover:scale-105"
+                      : "hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-300 hover:shadow-sm hover:scale-105"
+                  }`}
+                >
+                  🟡 Clients à surveiller
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedRiskFilter === 'high' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedRiskFilter(selectedRiskFilter === 'high' ? 'all' : 'high')}
+                  className={`transition-all duration-200 ${
+                    selectedRiskFilter === 'high'
+                      ? "bg-red-50 text-red-700 border-2 border-red-300 shadow-md hover:bg-red-100 hover:shadow-lg hover:scale-105"
+                      : "hover:bg-red-50 hover:text-red-700 hover:border-red-300 hover:shadow-sm hover:scale-105"
+                  }`}
+                >
+                  🔴 Clients à risque
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -699,15 +783,28 @@ export default function Clients() {
                 ))}
               </div>
 
-              {selectedStylistFilter !== "all" && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Filtre actif :</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {selectedStylistFilter === "none" 
-                      ? "Sans préférence" 
-                      : getPreferredStylistName(selectedStylistFilter) || "Coiffeur·euse inconnu·e"
-                    }
-                  </Badge>
+              {(selectedStylistFilter !== "all" || selectedRiskFilter !== 'all') && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                  <span>Filtres actifs :</span>
+                  {selectedStylistFilter !== "all" && (
+                    <Badge variant="secondary" className="text-xs cursor-pointer" onClick={() => setSelectedStylistFilter("all")}>
+                      {selectedStylistFilter === "none" 
+                        ? "Sans préférence" 
+                        : getPreferredStylistName(selectedStylistFilter) || "Coiffeur·euse inconnu·e"
+                      }
+                      <X className="ml-1 h-3 w-3" />
+                    </Badge>
+                  )}
+                  {selectedRiskFilter !== 'all' && (
+                    <Badge 
+                      variant="secondary" 
+                      className="text-xs cursor-pointer" 
+                      onClick={() => setSelectedRiskFilter('all')}
+                    >
+                      {selectedRiskFilter === 'high' ? '🔴 Clients à risque' : '🟡 Clients à surveiller'}
+                      <X className="ml-1 h-3 w-3" />
+                    </Badge>
+                  )}
                 </div>
               )}
             </div>
@@ -725,19 +822,20 @@ export default function Clients() {
                 <div className="text-center py-12">
                   <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold text-foreground mb-2">
-                    {(searchTerm || selectedStylistFilter !== "all") ? "Aucun client trouvé" : "Aucun client"}
+                    {(searchTerm || selectedStylistFilter !== "all" || selectedRiskFilter !== 'all') ? "Aucun client trouvé" : "Aucun client"}
                   </h3>
                   <p className="text-muted-foreground">
-                    {(searchTerm || selectedStylistFilter !== "all")
+                    {(searchTerm || selectedStylistFilter !== "all" || selectedRiskFilter !== 'all')
                       ? "Aucun client ne correspond aux filtres sélectionnés."
                       : "Ajoutez votre premier client pour commencer."}
                   </p>
-                  {(searchTerm || selectedStylistFilter !== "all") && (
+                  {(searchTerm || selectedStylistFilter !== "all" || selectedRiskFilter !== 'all') && (
                     <Button
                       variant="outline"
                       onClick={() => {
                         setSearchTerm("");
                         setSelectedStylistFilter("all");
+                        setSelectedRiskFilter('all');
                       }}
                       className="mt-4 hover:bg-red-50 hover:text-red-600 hover:border-red-300 hover:shadow-sm hover:scale-105 transition-all duration-200"
                     >
@@ -772,11 +870,9 @@ export default function Clients() {
                                   {client.lastName[0]}
                                 </AvatarFallback>
                               </Avatar>
-                              <div className="flex items-center gap-2">
-                                <div>
-                                  <div className="font-medium">
-                                    {client.firstName} {client.lastName}
-                                  </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="font-medium">
+                                  {client.firstName} {client.lastName}
                                 </div>
                                 {client.ownerNotes && client.ownerNotes.trim() && (
                                   <div className="relative group">
@@ -786,6 +882,36 @@ export default function Clients() {
                                     </div>
                                   </div>
                                 )}
+                                {(() => {
+                                  // Récupérer le risque du client directement par son ID
+                                  const clientRisk = clientRiskMap.get(client.id);
+                                  
+                                  // Debug en dev uniquement pour les premiers clients
+                                  if (import.meta.env.DEV && filteredClients.indexOf(client) < 2) {
+                                    console.log('[Clients] Rendu client:', {
+                                      clientId: client.id,
+                                      clientName: `${client.firstName} ${client.lastName}`,
+                                      hasRisk: clientRiskMap.has(client.id),
+                                      riskLevel: clientRisk?.riskLevel || 'none',
+                                      mapSize: clientRiskMap.size,
+                                      allRiskKeys: Array.from(clientRiskMap.keys()),
+                                    });
+                                  }
+                                  
+                                  // Afficher le badge avec tooltip uniquement pour high ou medium
+                                  if (clientRisk && (clientRisk.riskLevel === 'high' || clientRisk.riskLevel === 'medium')) {
+                                    const tooltipText = `${clientRisk.noShowCount} absent(s), ${clientRisk.cancelledCount} annulé(s) (90j)`;
+                                    return (
+                                      <div className="relative group">
+                                        <ClientRiskBadge riskLevel={clientRisk.riskLevel} className="ml-2" />
+                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                          {tooltipText}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             </div>
                           </TableCell>
