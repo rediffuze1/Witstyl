@@ -3,6 +3,10 @@ import App from "./App";
 import "./index.css";
 import { Theme } from "./lib/theme";
 
+// Marqueur de version pour vérification déploiement
+const BUILD_SHA = import.meta.env.VITE_BUILD_SHA || import.meta.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'local';
+console.log("[BUILD]", BUILD_SHA);
+
 // Debug: vérifier que le DOM est prêt
 const rootElement = document.getElementById("root");
 if (!rootElement) {

@@ -128,7 +128,7 @@ export default function ClientLogin() {
                   <Button 
                     type="button"
                     variant="link" 
-                    onClick={() => setLocation("/client-reset-password")}
+                    onClick={() => setLocation("/forgot-password")}
                     className="text-blue-600 hover:text-blue-700 p-0 h-auto"
                   >
                     Mot de passe oublié ?

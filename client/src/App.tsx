@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { UserProvider } from "@/hooks/useUserContext";
 import { Theme } from "@/lib/theme";
 import { useEffect } from "react";
+import React from "react";
 import { useSalonAppearance } from "@/hooks/useSalonAppearance";
 import Landing from "@/pages/landing";
 import Book from "@/pages/book";
@@ -30,7 +31,6 @@ import Reports from "@/pages/reports";
 import Hours from "@/pages/hours";
 import ChangePassword from "@/pages/change-password";
 import ClientChangePassword from "@/pages/client-change-password";
-import ClientResetPassword from "@/pages/client-reset-password";
 import ResetPassword from "@/pages/reset-password";
 import ForgotPassword from "@/pages/forgot-password";
 import AuthConfirm from "@/pages/auth-confirm";
@@ -62,6 +62,15 @@ function ThemeLoader() {
   return null; // Ce composant ne rend rien
 }
 
+// Composant de redirection pour /client-reset-password → /forgot-password
+function ClientResetPasswordRedirect() {
+  const [, navigate] = useLocation();
+  React.useEffect(() => {
+    navigate('/forgot-password', { replace: true });
+  }, [navigate]);
+  return null;
+}
+
 function Router() {
   // Rendu direct sans transitions globales - les transitions sont gérées localement
   // Les HOC withClientAuth et withOwnerAuth gèrent la protection des routes
@@ -82,7 +91,7 @@ function Router() {
       <Route path="/client-history" component={ClientHistory} />
       <Route path="/client-settings" component={ClientSettings} />
       <Route path="/client-change-password" component={ClientChangePassword} />
-      <Route path="/client-reset-password" component={ClientResetPassword} />
+      <Route path="/client-reset-password" component={ClientResetPasswordRedirect} />
       <Route path="/salon-login" component={SalonLogin} />
       <Route path="/salon-register" component={SalonRegister} />
       <Route path="/forgot-password" component={ForgotPassword} />
