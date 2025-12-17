@@ -5,116 +5,222 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Lock, Eye, EyeOff, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import type { Session } from "@supabase/supabase-js";
+
+interface RecoveryParams {
+  code?: string;
+  type?: string;
+  access_token?: string;
+  refresh_token?: string;
+}
 
 export default function ResetPassword() {
+  const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [hasRecoverySession, setHasRecoverySession] = useState(false);
+  const [recoverySession, setRecoverySession] = useState<Session | null>(null);
+  const [recoveryEmail, setRecoveryEmail] = useState<string | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [sessionCheckTimeout, setSessionCheckTimeout] = useState<NodeJS.Timeout | null>(null);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // Vérifier si une session de recovery existe
+  // Fonction pour extraire les paramètres de recovery depuis l'URL
+  const extractRecoveryParams = (): RecoveryParams => {
+    const params: RecoveryParams = {};
+    
+    // Extraire depuis query string (?code=...&type=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    params.code = urlParams.get('code') || undefined;
+    params.type = urlParams.get('type') || undefined;
+    
+    // Extraire depuis hash (#access_token=...&refresh_token=...&type=...)
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      params.access_token = hashParams.get('access_token') || undefined;
+      params.refresh_token = hashParams.get('refresh_token') || undefined;
+      if (!params.type) {
+        params.type = hashParams.get('type') || undefined;
+      }
+    }
+    
+    return params;
+  };
+
+  // Vérifier et obtenir la session de recovery
   useEffect(() => {
+    // Logs de diagnostic (dev seulement)
+    if (import.meta.env.DEV) {
+      console.log('[reset-password] 🔍 Diagnostic URL (DEV):', {
+        href: window.location.href,
+        search: window.location.search,
+        hash: window.location.hash,
+      });
+    }
+
     const checkRecoverySession = async () => {
       try {
-        // Log de diagnostic : vérifier l'URL complète et les paramètres
-        const currentUrl = window.location.href;
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const type = urlParams.get('type');
-        const redirectTo = urlParams.get('redirect_to');
+        const params = extractRecoveryParams();
         
-        console.log('[reset-password] 🔍 Diagnostic URL:', {
-          currentUrl,
-          pathname: window.location.pathname,
-          search: window.location.search,
-          code: code ? `${code.substring(0, 20)}...` : null,
-          type,
-          redirectTo,
+        console.log('[reset-password] 🔍 Paramètres extraits:', {
+          hasCode: !!params.code,
+          hasAccessToken: !!params.access_token,
+          type: params.type,
         });
 
-        // Vérifier si l'URL contient un code (PKCE flow)
-        if (code) {
-          console.log('[reset-password] 🔗 Code trouvé dans URL, échange pour session...');
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        // Cas 1: Code PKCE dans query string
+        if (params.code && params.type === 'recovery') {
+          console.log('[reset-password] 🔗 Code PKCE trouvé, échange pour session...');
+          const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
           
           if (error) {
             console.error('[reset-password] ❌ Erreur échange code:', error);
-            setHasRecoverySession(false);
             setIsCheckingSession(false);
             return;
           }
           
-          if (data.session) {
-            console.log('[reset-password] ✅ Session recovery créée');
-            setHasRecoverySession(true);
+          if (data.session && data.user) {
+            console.log('[reset-password] ✅ Session recovery créée via PKCE:', {
+              userId: data.user.id,
+              email: data.user.email,
+            });
+            setRecoverySession(data.session);
+            setRecoveryEmail(data.user.email || null);
             setIsCheckingSession(false);
             return;
           }
         }
 
-        // Vérifier la session actuelle
+        // Cas 2: Tokens legacy dans hash
+        if (params.access_token && params.refresh_token && params.type === 'recovery') {
+          console.log('[reset-password] 🔗 Tokens legacy trouvés dans hash...');
+          // Créer une session temporaire avec les tokens
+          const { data: { session }, error } = await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+          });
+          
+          if (error) {
+            console.error('[reset-password] ❌ Erreur setSession:', error);
+            setIsCheckingSession(false);
+            return;
+          }
+          
+          if (session?.user) {
+            console.log('[reset-password] ✅ Session recovery créée via tokens legacy:', {
+              userId: session.user.id,
+              email: session.user.email,
+            });
+            setRecoverySession(session);
+            setRecoveryEmail(session.user.email || null);
+            setIsCheckingSession(false);
+            return;
+          }
+        }
+
+        // Cas 3: Vérifier la session actuelle (peut-être déjà créée par Supabase)
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('[reset-password] ❌ Erreur récupération session:', sessionError);
-          setHasRecoverySession(false);
           setIsCheckingSession(false);
           return;
         }
 
-        // Vérifier si c'est une session de recovery (type PASSWORD_RECOVERY)
-        if (session?.user?.recovery_sent_at || session?.user?.app_metadata?.provider === 'email') {
-          console.log('[reset-password] ✅ Session recovery détectée');
-          setHasRecoverySession(true);
-        } else {
-          console.log('[reset-password] ⚠️ Pas de session recovery');
-          setHasRecoverySession(false);
+        // Vérifier si c'est une session de recovery
+        if (session?.user && (session.user.recovery_sent_at || params.type === 'recovery')) {
+          console.log('[reset-password] ✅ Session recovery détectée:', {
+            userId: session.user.id,
+            email: session.user.email,
+            recovery_sent_at: session.user.recovery_sent_at,
+          });
+          setRecoverySession(session);
+          setRecoveryEmail(session.user.email || null);
+          setIsCheckingSession(false);
+          return;
         }
-        
-        setIsCheckingSession(false);
+
+        // Si aucun paramètre et pas de session, attendre un peu pour onAuthStateChange
+        console.log('[reset-password] ⏳ Aucune session immédiate, attente onAuthStateChange...');
       } catch (error: any) {
         console.error('[reset-password] ❌ Erreur vérification session:', error);
-        setHasRecoverySession(false);
         setIsCheckingSession(false);
       }
     };
 
     checkRecoverySession();
 
+    // Timeout: si aucune session après 3 secondes, considérer comme invalide
+    const timeout = setTimeout(() => {
+      console.warn('[reset-password] ⏱️ Timeout: aucune session recovery obtenue après 3s');
+      setIsCheckingSession(false);
+    }, 3000);
+    setSessionCheckTimeout(timeout);
+
     // Écouter les changements d'auth state (pour détecter PASSWORD_RECOVERY)
-    // Supabase peut déclencher cet événement quand l'utilisateur arrive depuis le lien email
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[reset-password] 🔔 Auth state change:', {
         event,
         hasSession: !!session,
-        recovery_sent_at: session?.user?.recovery_sent_at,
         userId: session?.user?.id,
+        email: session?.user?.email,
+        recovery_sent_at: session?.user?.recovery_sent_at,
       });
       
-      if (event === 'PASSWORD_RECOVERY' || session?.user?.recovery_sent_at) {
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
         console.log('[reset-password] ✅ PASSWORD_RECOVERY détecté via onAuthStateChange');
-        setHasRecoverySession(true);
+        setRecoverySession(session);
+        setRecoveryEmail(session.user.email || null);
         setIsCheckingSession(false);
+        if (sessionCheckTimeout) {
+          clearTimeout(sessionCheckTimeout);
+        }
       }
     });
 
     return () => {
       subscription.unsubscribe();
+      if (sessionCheckTimeout) {
+        clearTimeout(sessionCheckTimeout);
+      }
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Validation côté client
+    // Validation: session recovery requise
+    if (!recoverySession || !recoveryEmail) {
+      toast({
+        title: "Lien invalide ou expiré",
+        description: "Aucune session de réinitialisation valide. Veuillez refaire 'Mot de passe oublié'.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validation: email correspond
+    const emailInput = email.trim().toLowerCase();
+    const expectedEmail = recoveryEmail.toLowerCase();
+    
+    if (emailInput !== expectedEmail) {
+      toast({
+        title: "Email incorrect",
+        description: "L'email ne correspond pas au compte du lien de réinitialisation.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validation: mots de passe
     if (newPassword !== confirmPassword) {
       toast({
         title: "Erreur de validation",
@@ -135,18 +241,11 @@ export default function ResetPassword() {
       return;
     }
 
-    if (!hasRecoverySession) {
-      toast({
-        title: "Lien invalide",
-        description: "Aucune session de réinitialisation valide. Veuillez refaire 'Mot de passe oublié'.",
-        variant: "destructive",
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
-      console.log('[reset-password] 🔄 Mise à jour du mot de passe...');
+      console.log('[reset-password] 🔄 Mise à jour du mot de passe...', {
+        userId: recoverySession.user.id,
+        email: recoveryEmail,
+      });
       
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
@@ -157,9 +256,9 @@ export default function ResetPassword() {
         throw error;
       }
 
-      console.log('[reset-password] ✅ Mot de passe mis à jour');
+      console.log('[reset-password] ✅ Mot de passe mis à jour avec succès');
 
-      // Déconnecter la session recovery si nécessaire
+      // Déconnecter la session recovery
       await supabase.auth.signOut();
 
       toast({
@@ -183,6 +282,18 @@ export default function ResetPassword() {
     }
   };
 
+  // Calculer si le bouton doit être désactivé
+  const isSubmitDisabled = 
+    isSubmitting ||
+    !recoverySession ||
+    !recoveryEmail ||
+    !email.trim() ||
+    email.trim().toLowerCase() !== recoveryEmail.toLowerCase() ||
+    !newPassword ||
+    newPassword.length < 8 ||
+    newPassword !== confirmPassword;
+
+  // Écran de chargement
   if (isCheckingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4">
@@ -201,7 +312,8 @@ export default function ResetPassword() {
     );
   }
 
-  if (!hasRecoverySession) {
+  // Écran d'erreur: lien invalide/expiré
+  if (!recoverySession || !recoveryEmail) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4">
         <Card className="w-full max-w-md shadow-2xl">
@@ -225,7 +337,7 @@ export default function ResetPassword() {
               onClick={() => setLocation("/forgot-password")}
               className="w-full h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              Mot de passe oublié
+              Renvoyer un lien
             </Button>
             
             <Button 
@@ -243,6 +355,7 @@ export default function ResetPassword() {
     );
   }
 
+  // Formulaire de reset password
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4">
       <Card className="w-full max-w-md shadow-2xl">
@@ -252,12 +365,35 @@ export default function ResetPassword() {
           </div>
           <CardTitle className="text-2xl font-bold text-slate-800">Réinitialiser le mot de passe</CardTitle>
           <CardDescription className="text-slate-600">
-            Choisissez un nouveau mot de passe sécurisé.
+            Entrez votre email et choisissez un nouveau mot de passe sécurisé.
           </CardDescription>
         </CardHeader>
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-slate-700 font-medium">
+                Email
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Votre email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
+                  className="h-12 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500 pl-10"
+                />
+              </div>
+              {recoveryEmail && email.trim() && email.trim().toLowerCase() !== recoveryEmail.toLowerCase() && (
+                <p className="text-xs text-red-600">
+                  L'email doit correspondre au compte du lien de réinitialisation.
+                </p>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="newPassword" className="text-slate-700 font-medium">
@@ -322,13 +458,18 @@ export default function ResetPassword() {
                   )}
                 </Button>
               </div>
+              {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-xs text-red-600">
+                  Les mots de passe ne correspondent pas.
+                </p>
+              )}
             </div>
 
             <div className="space-y-3 pt-4">
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
-                disabled={isSubmitting}
+                className="w-full h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitDisabled}
               >
                 {isSubmitting ? "Réinitialisation en cours..." : "Réinitialiser le mot de passe"}
               </Button>
