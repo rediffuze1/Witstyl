@@ -23,10 +23,23 @@ export default function ResetPassword() {
   useEffect(() => {
     const checkRecoverySession = async () => {
       try {
-        // Vérifier si l'URL contient un code (PKCE flow)
+        // Log de diagnostic : vérifier l'URL complète et les paramètres
+        const currentUrl = window.location.href;
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
+        const type = urlParams.get('type');
+        const redirectTo = urlParams.get('redirect_to');
         
+        console.log('[reset-password] 🔍 Diagnostic URL:', {
+          currentUrl,
+          pathname: window.location.pathname,
+          search: window.location.search,
+          code: code ? `${code.substring(0, 20)}...` : null,
+          type,
+          redirectTo,
+        });
+
+        // Vérifier si l'URL contient un code (PKCE flow)
         if (code) {
           console.log('[reset-password] 🔗 Code trouvé dans URL, échange pour session...');
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -76,11 +89,17 @@ export default function ResetPassword() {
     checkRecoverySession();
 
     // Écouter les changements d'auth state (pour détecter PASSWORD_RECOVERY)
+    // Supabase peut déclencher cet événement quand l'utilisateur arrive depuis le lien email
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[reset-password] 🔔 Auth state change:', event, session?.user?.recovery_sent_at);
+      console.log('[reset-password] 🔔 Auth state change:', {
+        event,
+        hasSession: !!session,
+        recovery_sent_at: session?.user?.recovery_sent_at,
+        userId: session?.user?.id,
+      });
       
       if (event === 'PASSWORD_RECOVERY' || session?.user?.recovery_sent_at) {
-        console.log('[reset-password] ✅ PASSWORD_RECOVERY détecté');
+        console.log('[reset-password] ✅ PASSWORD_RECOVERY détecté via onAuthStateChange');
         setHasRecoverySession(true);
         setIsCheckingSession(false);
       }

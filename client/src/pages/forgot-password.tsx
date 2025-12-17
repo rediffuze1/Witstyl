@@ -33,15 +33,27 @@ export default function ForgotPassword() {
 
     try {
       // Récupérer l'URL de l'application pour le redirectTo
-      const APP_URL = import.meta.env.VITE_APP_URL || 
-                      window.location.origin;
+      // IMPORTANT: VITE_APP_URL doit être défini en prod Vercel
+      // Si non défini, utiliser window.location.origin comme fallback
+      const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
       
+      // Forcer l'URL absolue pour reset-password
       const redirectTo = `${APP_URL}/reset-password`;
 
-      console.log('[forgot-password] 📧 Envoi email reset password:', {
+      // Logs de debug (dev + prod)
+      console.log('[ForgotPassword] 📧 Envoi email reset password:', {
         email,
         redirectTo,
+        VITE_APP_URL: import.meta.env.VITE_APP_URL,
+        windowOrigin: window.location.origin,
+        finalRedirectTo: redirectTo,
       });
+
+      // Log supplémentaire en dev pour vérifier la config
+      if (import.meta.env.DEV) {
+        console.log('[ForgotPassword] [DEV] redirectTo:', redirectTo);
+        console.log('[ForgotPassword] [DEV] VITE_APP_URL:', import.meta.env.VITE_APP_URL);
+      }
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo,
