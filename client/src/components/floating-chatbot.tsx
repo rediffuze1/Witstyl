@@ -153,25 +153,71 @@ export default function FloatingChatbot() {
     
     try {
       // Envoyer le message à l'IA
-      const response = await fetch("/api/voice-agent", {
+      const requestUrl = "/api/voice-agent";
+      console.log('[FloatingChatbot] 📤 Envoi message:', { message: message.trim().substring(0, 50), sessionId: getSessionId() });
+      
+      const response = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Inclure les cookies pour la session
         body: JSON.stringify({ 
           message: message.trim(), 
           sessionId: getSessionId()
         }),
       });
 
+      console.log('[FloatingChatbot] 📥 Réponse reçue:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: requestUrl,
+      });
+
       let aiResponse = "Désolé, j'ai eu un souci. Comment puis-je vous aider ?";
       
       if (response.ok) {
-        const data = await response.json();
-        aiResponse = data.reply || data.message || "Bonjour ! Comment puis-je vous aider ?";
+        try {
+          const data = await response.json();
+          aiResponse = data.reply || data.message || "Bonjour ! Comment puis-je vous aider ?";
+          console.log('[FloatingChatbot] ✅ Réponse IA reçue:', aiResponse.substring(0, 100));
+        } catch (parseError) {
+          console.error('[FloatingChatbot] ❌ Erreur parsing JSON:', parseError);
+          const text = await response.text();
+          console.error('[FloatingChatbot] ❌ Réponse texte brute:', text.substring(0, 200));
+          aiResponse = "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?";
+        }
       } else {
-        console.error('[FloatingChatbot] Erreur API:', response.status, response.statusText);
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[FloatingChatbot] Détails erreur:', errorData);
-        aiResponse = "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?";
+        // Erreur HTTP
+        console.error('[FloatingChatbot] ❌ Erreur API:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: requestUrl,
+        });
+        
+        let errorData = {};
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            errorData = await response.json();
+          } else {
+            const text = await response.text();
+            console.error('[FloatingChatbot] ❌ Réponse non-JSON:', text.substring(0, 200));
+            errorData = { message: text.substring(0, 100) };
+          }
+        } catch (parseError) {
+          console.error('[FloatingChatbot] ❌ Erreur parsing erreur:', parseError);
+        }
+        
+        console.error('[FloatingChatbot] ❌ Détails erreur:', errorData);
+        
+        // Message d'erreur plus spécifique selon le code
+        if (response.status === 503) {
+          aiResponse = errorData.message || "Le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
+        } else if (response.status === 500) {
+          aiResponse = "Une erreur serveur est survenue. Veuillez réessayer plus tard.";
+        } else {
+          aiResponse = "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?";
+        }
       }
 
       const aiMessage: ChatMessage = {

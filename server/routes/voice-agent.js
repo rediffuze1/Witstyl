@@ -61,7 +61,7 @@ async function loadSalonInfo() {
     // Récupérer les services du salon
     const { data: services, error: servicesError } = await supabaseAdmin
       .from('services')
-      .select('name, description, price, duration_minutes')
+      .select('name, description, price, duration')
       .eq('salon_id', salonId)
       .eq('is_active', true);
     
@@ -129,9 +129,23 @@ async function loadSalonInfo() {
 
 // POST /api/voice-agent
 router.post("/", async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const startTime = Date.now();
+  
+  console.log(`[voice-agent] 📥 [${requestId}] Requête reçue:`, {
+    method: req.method,
+    path: req.path,
+    hasBody: !!req.body,
+    messageLength: req.body?.message?.length || 0,
+    sessionId: req.body?.sessionId || 'none',
+  });
+  
   try {
     const { message, sessionId } = req.body || {};
-    if (!message) return res.status(400).json({ error: "BAD_REQUEST", message: "message manquant" });
+    if (!message) {
+      console.error(`[voice-agent] ❌ [${requestId}] Message manquant`);
+      return res.status(400).json({ error: "BAD_REQUEST", message: "message manquant" });
+    }
 
     const s = getOrCreateSession(sessionId);
     const text = String(message).trim();
@@ -224,7 +238,7 @@ router.post("/", async (req, res) => {
     let servicesList = "Aucun service configuré";
     if (salonInfo.services && salonInfo.services.length > 0) {
       servicesList = salonInfo.services.map(s => 
-        `- ${s.name}${s.description ? ` (${s.description})` : ''}${s.price ? ` - ${s.price}€` : ''}${s.duration_minutes ? ` - ${s.duration_minutes}min` : ''}`
+        `- ${s.name}${s.description ? ` (${s.description})` : ''}${s.price ? ` - ${s.price}€` : ''}${s.duration ? ` - ${s.duration}min` : ''}`
       ).join('\n');
     }
 
@@ -429,8 +443,19 @@ INSTRUCTIONS:
     });
 
   } catch (e) {
-    console.error("[voice-agent] error:", e);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    const duration = Date.now() - startTime;
+    console.error(`[voice-agent] ❌ [${requestId}] Erreur inattendue après ${duration}ms:`, {
+      message: e.message,
+      stack: e.stack?.split('\n').slice(0, 5).join('\n'),
+    });
+    
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: "SERVER_ERROR",
+        message: "Une erreur interne est survenue. Veuillez réessayer plus tard.",
+        requestId: requestId,
+      });
+    }
   }
 });
 
