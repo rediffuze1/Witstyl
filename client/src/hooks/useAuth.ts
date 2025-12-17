@@ -69,7 +69,7 @@ export function useAuth() {
         },
         credentials: "include",
         body: JSON.stringify(credentials),
-        timeout: 10000, // 10 secondes de timeout
+        timeout: 30000, // 30 secondes de timeout (augmenté pour éviter les timeouts)
       });
 
       // Vérifier le content-type avant de parser le JSON

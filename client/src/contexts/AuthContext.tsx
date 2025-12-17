@@ -224,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ email, password }),
-        timeout: 10000, // 10 secondes de timeout
+        timeout: 30000, // 30 secondes de timeout (augmenté pour éviter les timeouts)
       });
       
       // Vérifier le content-type avant de parser le JSON

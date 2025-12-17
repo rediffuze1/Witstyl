@@ -225,6 +225,7 @@ export class SalonAuthService {
 
   // Connexion d'un propriétaire de salon
   static async loginOwner(email: string, password: string) {
+    const startTime = Date.now();
     try {
       const adminClient = getSupabaseAdminClient();
 
@@ -232,10 +233,14 @@ export class SalonAuthService {
       const normalizedEmail = this.normalizeEmail(email);
       console.log('[SalonAuthService] Email normalisé pour login:', email, '→', normalizedEmail);
 
+      console.log('[SalonAuthService] 🔐 Appel Supabase Auth signInWithPassword...');
+      const authStartTime = Date.now();
       const { data, error } = await adminClient.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
+      const authDuration = Date.now() - authStartTime;
+      console.log(`[SalonAuthService] ✅ Supabase Auth répondu en ${authDuration}ms`);
 
       if (error) {
         // Messages d'erreur plus clairs selon le type d'erreur
@@ -253,17 +258,23 @@ export class SalonAuthService {
       }
 
       // Récupérer les informations du salon (avec maybeSingle pour éviter l'erreur si aucun salon)
+      console.log('[SalonAuthService] 🔍 Récupération du salon pour userId:', data.user.id);
+      const salonStartTime = Date.now();
       const { data: salonData, error: salonError } = await adminClient
         .from('salons')
         .select('*')
         .eq('user_id', data.user.id)
         .maybeSingle();
+      const salonDuration = Date.now() - salonStartTime;
+      console.log(`[SalonAuthService] ✅ Récupération salon terminée en ${salonDuration}ms`);
 
       if (salonError && salonError.code !== 'PGRST116') {
         // PGRST116 = no rows returned, ce qui est OK
         console.warn('[SalonAuthService] Erreur lors de la récupération du salon:', salonError);
       }
 
+      const totalDuration = Date.now() - startTime;
+      console.log(`[SalonAuthService] ✅ Login complet en ${totalDuration}ms (Auth: ${authDuration}ms, Salon: ${salonDuration}ms)`);
       return {
         success: true,
         user: {
