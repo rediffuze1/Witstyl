@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Scissors, ArrowLeft, Users, Building, MapPin, Phone, Mail } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function SalonRegister() {
   const [formData, setFormData] = useState({
@@ -33,27 +34,58 @@ export default function SalonRegister() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      // Create salon owner account
+      // Utiliser Supabase Auth signUp côté client avec emailRedirectTo
+      const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
+      const emailRedirectTo = `${APP_URL}/auth/confirm`;
+
+      console.log('[salon-register] 📧 Inscription avec confirmation email:', {
+        email: data.email,
+        redirectTo: emailRedirectTo,
+      });
+
+      // 1. Créer l'utilisateur avec Supabase Auth (nécessite confirmation)
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo,
+          data: {
+            first_name: data.firstName,
+            last_name: data.lastName,
+            phone: data.phone,
+          },
+        },
+      });
+
+      if (authError) {
+        throw new Error(authError.message || "Erreur lors de la création du compte");
+      }
+
+      if (!authData.user) {
+        throw new Error("Échec de la création du compte utilisateur");
+      }
+
+      // 2. Créer le salon et l'utilisateur via l'API backend
       const response = await fetch("/api/salon/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          userId: authData.user.id, // Passer l'ID de l'utilisateur créé
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Échec de la création du compte");
+        throw new Error(errorData.message || "Échec de la création du salon");
       }
 
-      return response.json();
+      return { ...authData, ...(await response.json()) };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["salons"] });
-      toast({
-        title: "Compte créé avec succès !",
-        description: "Votre salon a été créé. Vous pouvez maintenant vous connecter.",
-      });
-      setLocation("/salon-login");
+      // Ne pas rediriger vers login, afficher l'écran "Vérifie ton email"
+      setLocation("/email-confirmation-required");
     },
     onError: (error: Error) => {
       toast({

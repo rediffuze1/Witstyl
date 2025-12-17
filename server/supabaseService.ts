@@ -108,6 +108,7 @@ export class SalonAuthService {
   }
 
   // Inscription d'un propriétaire de salon
+  // Note: userId est optionnel - si fourni, l'utilisateur a déjà été créé côté client avec signUp
   static async registerOwner(ownerData: {
     firstName: string;
     lastName: string;
@@ -119,28 +120,49 @@ export class SalonAuthService {
     salonPhone: string;
     salonEmail: string;
     salonDescription?: string;
+    userId?: string; // ID de l'utilisateur créé côté client (si signUp déjà fait)
   }) {
     try {
       const adminClient = getSupabaseAdminClient();
 
-      // 1. Créer l'utilisateur avec Supabase Auth
-      const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-        email: ownerData.email,
-        password: ownerData.password,
-        user_metadata: {
-          first_name: ownerData.firstName,
-          last_name: ownerData.lastName,
-          phone: ownerData.phone,
-        },
-        email_confirm: true, // Auto-confirmer l'email pour le développement
-      });
+      let userId: string;
+      let authUser: any;
 
-      if (authError) {
-        throw new Error(`Erreur d'authentification: ${authError.message}`);
-      }
+      // Si userId est fourni, l'utilisateur a déjà été créé côté client avec signUp
+      if (ownerData.userId) {
+        console.log('[SalonAuthService] Utilisateur déjà créé côté client, userId:', ownerData.userId);
+        userId = ownerData.userId;
+        
+        // Récupérer l'utilisateur depuis Supabase Auth
+        const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(userId);
+        if (userError || !userData.user) {
+          throw new Error(`Erreur de récupération utilisateur: ${userError?.message || 'Utilisateur non trouvé'}`);
+        }
+        authUser = userData.user;
+      } else {
+        // Sinon, créer l'utilisateur avec admin (legacy - ne devrait plus être utilisé)
+        console.log('[SalonAuthService] ⚠️ Création utilisateur via admin (legacy)');
+        const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+          email: ownerData.email,
+          password: ownerData.password,
+          user_metadata: {
+            first_name: ownerData.firstName,
+            last_name: ownerData.lastName,
+            phone: ownerData.phone,
+          },
+          email_confirm: false, // Nécessite confirmation email
+        });
 
-      if (!authData.user) {
-        throw new Error("Erreur d'authentification: Utilisateur non créé");
+        if (authError) {
+          throw new Error(`Erreur d'authentification: ${authError.message}`);
+        }
+
+        if (!authData.user) {
+          throw new Error("Erreur d'authentification: Utilisateur non créé");
+        }
+
+        userId = authData.user.id;
+        authUser = authData.user;
       }
 
       // Normaliser l'email en minuscules
@@ -151,7 +173,7 @@ export class SalonAuthService {
       const { error: userError } = await adminClient
         .from('users')
         .insert({
-          id: authData.user.id,
+          id: userId,
           email: normalizedEmail, // Email normalisé en minuscules
           password_hash: 'supabase_auth', // Le hash est géré par Supabase Auth
           first_name: ownerData.firstName,
@@ -168,8 +190,8 @@ export class SalonAuthService {
       const { data: salonData, error: salonError } = await adminClient
         .from('salons')
         .insert({
-          id: `salon-${authData.user.id}`,
-          user_id: authData.user.id,
+          id: `salon-${userId}`,
+          user_id: userId,
           name: ownerData.salonName,
           address: ownerData.salonAddress,
           phone: ownerData.salonPhone,
@@ -187,8 +209,8 @@ export class SalonAuthService {
         success: true,
         message: 'Salon account created successfully',
         user: {
-          id: authData.user.id,
-          email: authData.user.email,
+          id: userId,
+          email: authUser.email,
           firstName: ownerData.firstName,
           lastName: ownerData.lastName,
           phone: ownerData.phone,

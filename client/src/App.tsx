@@ -32,6 +32,9 @@ import ChangePassword from "@/pages/change-password";
 import ClientChangePassword from "@/pages/client-change-password";
 import ClientResetPassword from "@/pages/client-reset-password";
 import ResetPassword from "@/pages/reset-password";
+import ForgotPassword from "@/pages/forgot-password";
+import AuthConfirm from "@/pages/auth-confirm";
+import EmailConfirmationRequired from "@/pages/email-confirmation-required";
 import NotFound from "@/pages/not-found";
 
 /**
@@ -82,8 +85,11 @@ function Router() {
       <Route path="/client-reset-password" component={ClientResetPassword} />
       <Route path="/salon-login" component={SalonLogin} />
       <Route path="/salon-register" component={SalonRegister} />
-      <Route path="/change-password" component={ChangePassword} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/auth/confirm" component={AuthConfirm} />
+      <Route path="/email-confirmation-required" component={EmailConfirmationRequired} />
+      <Route path="/change-password" component={ChangePassword} />
       
       {/* Routes privées owner - protégées par withOwnerAuth */}
       <Route path="/dashboard" component={Dashboard} />

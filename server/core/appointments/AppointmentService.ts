@@ -158,25 +158,53 @@ export async function cancelAppointment(
       notificationContext.cancellationReason = reason;
       notificationContext.cancelledByRole = cancelledByRole;
       
-      console.log('[NOTIF] 📧 Sending cancellation email to client...');
-      await deps.notificationService.sendBookingCancellation(notificationContext);
-      console.log('[NOTIF] ✅ Client cancellation email sent');
+      // Vérifier si clientEmail === managerEmail pour éviter la duplication
+      // On récupère d'abord l'email manager pour vérifier
+      const managerContextTemp = await buildManagerCancellationContext(
+        supabase,
+        notificationContext,
+        updatedAppointment.salon_id,
+        cancelledByRole,
+      );
+      
+      const isSameEmail = managerContextTemp && 
+                          notificationContext.clientEmail &&
+                          managerContextTemp.managerEmail &&
+                          notificationContext.clientEmail.trim().toLowerCase() === managerContextTemp.managerEmail.trim().toLowerCase();
 
-      // Envoyer l'email au manager si l'annulation vient du client
-      if (cancelledByRole === 'client') {
-        // Ne pas bloquer la réponse HTTP - utiliser void pour fire-and-forget avec timebox
-        void sendManagerCancelEmailWithIdempotence(
+      if (isSameEmail) {
+        // Si même email : seul l'email manager sera envoyé (fusionné)
+        console.log('[CANCEL_EMAIL] 🔀 Same email as manager, client email will be merged:', {
+          email: notificationContext.clientEmail,
+          appointmentId,
+        });
+      } else {
+        // Envoyer l'email au client avec idempotence (seulement si emails différents)
+        console.log('[CANCEL_EMAIL] 📧 Preparing to send client cancellation email...');
+        void sendClientCancelEmailWithIdempotence(
           supabase,
           deps.notificationService,
           notificationContext,
-          updatedAppointment.salon_id,
-          cancelledByRole,
           appointmentId,
         ).catch((error) => {
-          // Erreur déjà loggée dans la fonction, juste éviter les unhandled rejections
-          console.error('[MANAGER_EMAIL] ❌ Unhandled error in manager email:', error);
+          console.error('[CANCEL_EMAIL] ❌ Unhandled error in client email:', error);
         });
       }
+
+      // Envoyer l'email au manager (toujours, pas seulement si cancelledByRole === 'client')
+      // Si clientEmail === managerEmail, l'email sera fusionné dans sendBookingCancellationInfoToManager
+      // Ne pas bloquer la réponse HTTP - utiliser void pour fire-and-forget avec timebox
+      void sendManagerCancelEmailWithIdempotence(
+        supabase,
+        deps.notificationService,
+        notificationContext,
+        updatedAppointment.salon_id,
+        cancelledByRole,
+        appointmentId,
+      ).catch((error) => {
+        // Erreur déjà loggée dans la fonction, juste éviter les unhandled rejections
+        console.error('[MANAGER_EMAIL] ❌ Unhandled error in manager email:', error);
+      });
     } else {
       console.warn('[NOTIF] ⚠️ Unable to build notification context, skipping emails.');
     }
@@ -185,6 +213,90 @@ export async function cancelAppointment(
   }
 
   return { success: true, appointment: updatedAppointment };
+}
+
+/**
+ * Envoie l'email au client avec idempotence et timebox (non-bloquant)
+ */
+async function sendClientCancelEmailWithIdempotence(
+  supabase: SupabaseClient<any, 'public', any>,
+  notificationService: NotificationService,
+  baseContext: BookingNotificationContext,
+  appointmentId: string,
+): Promise<void> {
+  const eventType = 'client_cancel_email';
+
+  // Vérifier l'idempotence : tenter d'insérer l'événement
+  const { error: insertError } = await supabase
+    .from('notification_events')
+    .insert({
+      event_type: eventType,
+      appointment_id: appointmentId,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    // Si erreur de contrainte unique => déjà envoyé
+    if (insertError.code === '23505') {
+      console.log('[CANCEL_EMAIL] ⏭️ Skipped (already sent):', {
+        appointmentId,
+        eventType,
+      });
+      return;
+    }
+    // Autre erreur => log et continuer quand même (ne pas bloquer)
+    console.error('[CANCEL_EMAIL] ⚠️ Error checking idempotence:', {
+      appointmentId,
+      error: insertError,
+    });
+    // On continue quand même pour ne pas perdre l'email si la table n'existe pas encore
+  }
+
+  if (!baseContext.clientEmail || baseContext.clientEmail.trim() === '') {
+    console.warn('[CANCEL_EMAIL] ⚠️ Client email unavailable, skipping:', {
+      appointmentId,
+      clientName: baseContext.clientName,
+    });
+    return;
+  }
+
+  console.log('[CANCEL_EMAIL] 📧 Preparing to send:', {
+    clientEmail: baseContext.clientEmail,
+    appointmentId,
+  });
+
+  // Timebox: 2s max pour ne pas bloquer la réponse HTTP
+  const timeoutPromise = new Promise<void>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Client email timeout after 2000ms'));
+    }, 2000);
+  });
+
+  try {
+    await Promise.race([
+      notificationService.sendBookingCancellation(baseContext),
+      timeoutPromise,
+    ]);
+    console.log('[CANCEL_EMAIL] ✅ Sent successfully:', {
+      appointmentId,
+      to: baseContext.clientEmail,
+    });
+  } catch (error: any) {
+    if (error.message?.includes('timeout')) {
+      console.warn('[CANCEL_EMAIL] ⏱️ Timeout after 2s (non-blocking):', {
+        appointmentId,
+        to: baseContext.clientEmail,
+      });
+    } else {
+      console.error('[CANCEL_EMAIL] ❌ Failed to send:', {
+        appointmentId,
+        to: baseContext.clientEmail,
+        error: error.message || error,
+      });
+    }
+    // Ne pas throw - on continue même si l'email échoue
+  }
 }
 
 /**
@@ -250,10 +362,25 @@ async function sendManagerCancelEmailWithIdempotence(
     return;
   }
 
+  // Vérifier si clientEmail === managerEmail
+  const isSameEmail = baseContext.clientEmail && 
+                      managerContext.managerEmail &&
+                      baseContext.clientEmail.trim().toLowerCase() === managerContext.managerEmail.trim().toLowerCase();
+
+  if (isSameEmail) {
+    console.log('[MANAGER_EMAIL] 🔀 Same email as client, manager email will be merged:', {
+      email: managerContext.managerEmail,
+      appointmentId,
+    });
+    // L'email manager sera fusionné dans sendBookingCancellationInfoToManager
+    // On envoie quand même pour avoir l'idempotence manager_cancel_email
+  }
+
   console.log('[MANAGER_EMAIL] 📧 Preparing to send:', {
     salonId,
     managerEmail: managerContext.managerEmail,
     appointmentId,
+    merged_with_client_email: isSameEmail,
   });
 
   // Timebox: 2s max pour ne pas bloquer la réponse HTTP
@@ -270,18 +397,19 @@ async function sendManagerCancelEmailWithIdempotence(
     ]);
     console.log('[MANAGER_EMAIL] ✅ Sent successfully:', {
       appointmentId,
-      managerEmail: managerContext.managerEmail,
+      to: managerContext.managerEmail,
+      merged_with_client_email: isSameEmail,
     });
   } catch (error: any) {
     if (error.message?.includes('timeout')) {
       console.warn('[MANAGER_EMAIL] ⏱️ Timeout after 2s (non-blocking):', {
         appointmentId,
-        managerEmail: managerContext.managerEmail,
+        to: managerContext.managerEmail,
       });
     } else {
       console.error('[MANAGER_EMAIL] ❌ Failed to send:', {
         appointmentId,
-        managerEmail: managerContext.managerEmail,
+        to: managerContext.managerEmail,
         error: error.message || error,
       });
     }

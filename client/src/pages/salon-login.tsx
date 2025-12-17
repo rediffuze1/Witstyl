@@ -50,6 +50,8 @@ export default function SalonLogin() {
       const loginSuccess = await login({ email, password });
       
       if (!loginSuccess) {
+        // Vérifier si c'est une erreur EMAIL_NOT_CONFIRMED
+        // Le hook login devrait gérer cela, mais on vérifie quand même
         setError("Email ou mot de passe incorrect.");
         setIsSubmitting(false);
         return;
@@ -67,6 +69,10 @@ export default function SalonLogin() {
       if (error?.code === 'TIMEOUT' || error?.message === 'TIMEOUT') {
         setIsTimeoutError(true);
         setError("Le serveur met trop de temps à répondre. Veuillez réessayer.");
+      } else if (error?.message?.includes('confirmer votre email') || error?.message?.includes('Email not confirmed')) {
+        // Erreur EMAIL_NOT_CONFIRMED
+        setError("Merci de confirmer votre email avant de vous connecter. Vérifiez votre boîte mail.");
+        setIsTimeoutError(false);
       } else {
         setError(error?.message || "Erreur de connexion. Veuillez réessayer.");
         setIsTimeoutError(false);
@@ -229,7 +235,7 @@ export default function SalonLogin() {
                   <Button 
                     type="button"
                     variant="link" 
-                    onClick={() => setLocation("/reset-password")}
+                    onClick={() => setLocation("/forgot-password")}
                     className="text-purple-600 hover:text-purple-700 p-0 h-auto"
                   >
                     Forgot password?

@@ -245,7 +245,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response.ok) {
         try {
           const errorData = await response.json();
-          console.error('[AuthContext] loginOwner - Erreur:', errorData.message || 'Erreur de connexion');
+          const errorCode = errorData.code;
+          const errorMessage = errorData.message || 'Erreur de connexion';
+          
+          console.error('[AuthContext] loginOwner - Erreur:', errorCode, errorMessage);
+          
+          // Si EMAIL_NOT_CONFIRMED, propager l'erreur pour affichage dans le formulaire
+          if (errorCode === 'EMAIL_NOT_CONFIRMED') {
+            throw new Error(errorMessage);
+          }
         } catch (parseError) {
           console.error('[AuthContext] loginOwner - Erreur parsing JSON:', parseError);
         }

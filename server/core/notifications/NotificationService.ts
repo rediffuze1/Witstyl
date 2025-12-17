@@ -332,7 +332,7 @@ export class NotificationService {
   async sendBookingCancellation(ctx: BookingNotificationContext): Promise<void> {
     // Envoyer l'email d'annulation seulement si l'email est fourni
     if (!ctx.clientEmail || ctx.clientEmail.trim() === '') {
-      console.warn('[NotificationService] Email d\'annulation non envoyé: adresse email manquante pour le client', ctx.clientName);
+      console.warn('[CANCEL_EMAIL] ⚠️ Email d\'annulation non envoyé: adresse email manquante pour le client', ctx.clientName);
       return;
     }
 
@@ -343,16 +343,29 @@ export class NotificationService {
       subject: `Annulation de votre rendez-vous - ${ctx.salonName}`,
       html: this.generateCancellationEmailHtml(ctx, formattedDate),
       text: this.generateCancellationEmailText(ctx, formattedDate),
+      metadata: {
+        email_type: 'client_cancel',
+        appointment_id: ctx.bookingId,
+      },
     });
 
     if (!emailResult.success) {
-      console.error('[NotificationService] Erreur lors de l\'envoi de l\'email d\'annulation:', emailResult.error);
+      console.error('[CANCEL_EMAIL] ❌ Erreur lors de l\'envoi de l\'email d\'annulation:', {
+        to: ctx.clientEmail,
+        appointmentId: ctx.bookingId,
+        error: emailResult.error,
+      });
+    } else {
+      console.log('[CANCEL_EMAIL] ✅ Sent successfully:', {
+        to: ctx.clientEmail,
+        appointmentId: ctx.bookingId,
+      });
     }
   }
 
   /**
    * Informe le manager/owner qu'une annulation a eu lieu
-   * (principalement utilisé lorsque l'annulation est déclenchée par le client).
+   * Gère automatiquement le cas où clientEmail === managerEmail (fusion ou 2 emails distincts)
    */
   async sendBookingCancellationInfoToManager(
     ctx: ManagerCancellationNotificationContext,
@@ -362,6 +375,21 @@ export class NotificationService {
       return;
     }
 
+    // Vérifier si clientEmail === managerEmail
+    const isSameEmail = ctx.clientEmail && 
+                        ctx.clientEmail.trim().toLowerCase() === ctx.managerEmail.trim().toLowerCase();
+
+    if (isSameEmail) {
+      // Cas spécial : même email → envoyer un email fusionné
+      console.log('[MANAGER_EMAIL] 🔀 Same email detected, sending merged email:', {
+        email: ctx.managerEmail,
+        appointmentId: ctx.bookingId,
+      });
+      await this.sendMergedCancellationEmail(ctx);
+      return;
+    }
+
+    // Cas normal : emails différents → envoyer l'email manager normal
     const formattedDate = format(ctx.startDate, "EEEE d MMMM yyyy", { locale: fr });
     const formattedTime = format(ctx.startDate, 'HH:mm', { locale: fr });
     const cancelledByText = ctx.cancelledByRole === 'client' ? 'Client' : 'Manager';
@@ -422,6 +450,10 @@ export class NotificationService {
       subject,
       html,
       text,
+      metadata: {
+        email_type: 'manager_cancel',
+        appointment_id: ctx.bookingId,
+      },
     });
 
     if (!emailResult.success) {
@@ -436,9 +468,132 @@ export class NotificationService {
       throw new Error(`Failed to send manager email: ${emailResult.error}`);
     }
 
-    console.log('[MANAGER_EMAIL] ✅ Email sent successfully:', {
-      managerEmail: ctx.managerEmail,
+    console.log('[MANAGER_EMAIL] ✅ Sent successfully:', {
+      to: ctx.managerEmail,
+      appointmentId: ctx.bookingId,
+    });
+  }
+
+  /**
+   * Envoie un email fusionné client + manager lorsque clientEmail === managerEmail
+   * Contient 2 sections : confirmation client + info manager
+   */
+  private async sendMergedCancellationEmail(
+    ctx: ManagerCancellationNotificationContext,
+  ): Promise<void> {
+    const formattedDate = format(ctx.startDate, "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr });
+    const formattedDateShort = format(ctx.startDate, "EEEE d MMMM yyyy", { locale: fr });
+    const formattedTime = format(ctx.startDate, 'HH:mm', { locale: fr });
+    const cancelledByText = ctx.cancelledByRole === 'client' ? 'Client' : 'Manager';
+
+    // Email fusionné avec 2 sections
+    const html = `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1b1b1b;">
+    <!-- Section Client -->
+    <h2 style="color:#e74c3c;">❌ Annulation de votre rendez-vous</h2>
+    <p>Bonjour ${ctx.clientName},</p>
+    <p>Votre rendez-vous a été annulé.</p>
+    <div style="background:#fff5f5;border-radius:12px;padding:16px;border:1px solid #ffd6d6;margin-bottom:24px;">
+      <p><strong>Service :</strong> ${ctx.serviceName}</p>
+      <p><strong>Coiffeur·euse :</strong> ${ctx.stylistName}</p>
+      <p><strong>Date et heure :</strong> ${formattedDate}</p>
+      ${
+        ctx.cancellationReason
+          ? `<p><strong>Raison :</strong> ${ctx.cancellationReason}</p>`
+          : ''
+      }
+    </div>
+    
+    <!-- Section Manager -->
+    <hr style="border:none;border-top:2px solid #e4ddff;margin:32px 0;" />
+    <h2 style="color:#6b4dff;">💡 Information manager</h2>
+    <p>Bonjour ${ctx.managerName || 'Manager'},</p>
+    <p>Un rendez-vous a été annulé sur Witstyl.</p>
+    <div style="background:#f7f5ff;border-radius:12px;padding:16px;border:1px solid #e4ddff;">
+      <p><strong>Client :</strong> ${ctx.clientName}</p>
+      <p><strong>Service :</strong> ${ctx.serviceName}</p>
+      <p><strong>Coiffeur·euse :</strong> ${ctx.stylistName}</p>
+      <p><strong>Date :</strong> ${formattedDateShort}</p>
+      <p><strong>Heure :</strong> ${formattedTime}</p>
+      <p><strong>Annulé par :</strong> ${cancelledByText}</p>
+      ${
+        ctx.cancellationReason
+          ? `<p><strong>Raison :</strong> ${ctx.cancellationReason}</p>`
+          : ''
+      }
+    </div>
+    <p>Salon : <strong>${ctx.salonName}</strong></p>
+    <p>ID du rendez-vous : <strong>${ctx.bookingId}</strong></p>
+    <p style="color:#7a7a7a;">Cet email est généré automatiquement par Witstyl.</p>
+  </body>
+</html>
+    `.trim();
+
+    const text = [
+      '=== ANNULATION DE VOTRE RENDEZ-VOUS ===',
+      `Bonjour ${ctx.clientName},`,
+      'Votre rendez-vous a été annulé.',
+      `Service : ${ctx.serviceName}`,
+      `Coiffeur·euse : ${ctx.stylistName}`,
+      `Date et heure : ${formattedDate}`,
+      ctx.cancellationReason ? `Raison : ${ctx.cancellationReason}` : '',
+      '',
+      '=== INFORMATION MANAGER ===',
+      `Bonjour ${ctx.managerName || 'Manager'},`,
+      'Un rendez-vous a été annulé sur Witstyl.',
+      `Client : ${ctx.clientName}`,
+      `Service : ${ctx.serviceName}`,
+      `Coiffeur·euse : ${ctx.stylistName}`,
+      `Date : ${formattedDateShort}`,
+      `Heure : ${formattedTime}`,
+      `Annulé par : ${cancelledByText}`,
+      ctx.cancellationReason ? `Raison : ${ctx.cancellationReason}` : '',
+      `Salon : ${ctx.salonName}`,
+      `ID du rendez-vous : ${ctx.bookingId}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    // Sujet fusionné
+    const subject = `Annulation RDV — ${ctx.clientName} — ${formattedDateShort} ${formattedTime}`;
+
+    console.log('[MANAGER_EMAIL] 📤 Sending merged email:', {
+      to: ctx.managerEmail,
+      subject,
       bookingId: ctx.bookingId,
+      merged_with_client_email: true,
+    });
+
+    const emailResult = await this.emailProvider.sendEmail({
+      to: ctx.managerEmail,
+      subject,
+      html,
+      text,
+      metadata: {
+        email_type: 'merged_cancel',
+        appointment_id: ctx.bookingId,
+        merged_with_client_email: 'true',
+      },
+    });
+
+    if (!emailResult.success) {
+      console.error(
+        '[MANAGER_EMAIL] ❌ Erreur lors de l\'envoi de l\'email fusionné:',
+        {
+          to: ctx.managerEmail,
+          bookingId: ctx.bookingId,
+          error: emailResult.error,
+        },
+      );
+      throw new Error(`Failed to send merged email: ${emailResult.error}`);
+    }
+
+    console.log('[MANAGER_EMAIL] ✅ Merged email sent successfully:', {
+      to: ctx.managerEmail,
+      appointmentId: ctx.bookingId,
+      merged_with_client_email: true,
     });
   }
 
