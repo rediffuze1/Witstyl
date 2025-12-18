@@ -133,7 +133,21 @@ export default function Book() {
         console.error('[Book] Erreur chargement services:', response.status);
         return [];
       }
-      return response.json();
+      const data = await response.json();
+      // S'assurer que data est un tableau
+      if (Array.isArray(data)) {
+        return data;
+      }
+      // Si c'est un objet avec une propriété services, l'extraire
+      if (data && typeof data === 'object' && Array.isArray(data.services)) {
+        return data.services;
+      }
+      // Si c'est un objet avec une propriété data, l'extraire
+      if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        return data.data;
+      }
+      console.warn('[Book] Réponse services n\'est pas un tableau:', typeof data, data);
+      return [];
     },
     enabled: !!salonId,
     retry: false,
@@ -147,18 +161,39 @@ export default function Book() {
         console.error('[Book] Erreur chargement stylistes:', response.status);
         return [];
       }
-      return response.json();
+      const data = await response.json();
+      // S'assurer que data est un tableau
+      if (Array.isArray(data)) {
+        return data;
+      }
+      // Si c'est un objet avec une propriété stylistes, l'extraire
+      if (data && typeof data === 'object' && Array.isArray(data.stylistes)) {
+        return data.stylistes;
+      }
+      // Si c'est un objet avec une propriété data, l'extraire
+      if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        return data.data;
+      }
+      console.warn('[Book] Réponse stylistes n\'est pas un tableau:', typeof data, data);
+      return [];
     },
     retry: false,
   });
 
   const activeStylists = useMemo(
-    () => (stylists || []).filter((stylist) => stylist && stylist.isActive !== false),
+    () => {
+      // S'assurer que stylists est un tableau avant d'utiliser filter
+      if (!Array.isArray(stylists)) {
+        console.warn('[Book] stylists n\'est pas un tableau:', typeof stylists, stylists);
+        return [];
+      }
+      return stylists.filter((stylist) => stylist && stylist.isActive !== false);
+    },
     [stylists]
   );
 
-  const selectedService = (services || [])?.find((s: Service) => s.id === formData.serviceId);
-  const selectedStylist = (stylists || [])?.find((s: Stylist) => s.id === formData.stylistId);
+  const selectedService = Array.isArray(services) ? services.find((s: Service) => s.id === formData.serviceId) : undefined;
+  const selectedStylist = Array.isArray(stylists) ? stylists.find((s: Stylist) => s.id === formData.stylistId) : undefined;
 
   // Récupérer les horaires du salon
   const { data: salonHoursData } = useQuery({
@@ -313,7 +348,15 @@ export default function Book() {
     retry: false,
   });
 
-  const availableSlots = availabilityData?.slots?.map((slot) => slot.time) ?? [];
+  const availableSlots = useMemo(() => {
+    if (!availabilityData?.slots) return [];
+    // S'assurer que slots est un tableau
+    if (!Array.isArray(availabilityData.slots)) {
+      console.warn('[Book] availabilityData.slots n\'est pas un tableau:', typeof availabilityData.slots, availabilityData.slots);
+      return [];
+    }
+    return availabilityData.slots.map((slot) => slot.time).filter(Boolean);
+  }, [availabilityData]);
   const isAvailabilityLoading = availabilityLoading && !!availabilityParams;
 
   useEffect(() => {
@@ -325,7 +368,11 @@ export default function Book() {
   // Grouper les services par catégorie (tags)
   // Utilise la fonction utilitaire pour gérer les services multi-catégories
   const servicesByCategory = useMemo(() => {
-    if (!services || services.length === 0) return {};
+    // S'assurer que services est un tableau
+    if (!Array.isArray(services) || services.length === 0) {
+      console.warn('[Book] services n\'est pas un tableau ou est vide:', typeof services, services);
+      return {};
+    }
     
     const grouped: { [key: string]: Service[] } = {};
     const defaultCategories = ["Homme", "Femme", "Enfant"];
@@ -491,13 +538,14 @@ export default function Book() {
           );
           
           // Prendre le premier styliste disponible
-          const availableStylist = (stylists || []).find((s: Stylist) => !occupiedStylistIds.has(s.id));
+          const stylistsArray = Array.isArray(stylists) ? stylists : [];
+          const availableStylist = stylistsArray.find((s: Stylist) => !occupiedStylistIds.has(s.id));
           if (availableStylist) {
             finalStylistId = availableStylist.id;
             console.log('[Book] Styliste auto-assigné:', availableStylist.firstName, availableStylist.lastName);
           } else {
             // Si aucun styliste n'est disponible, prendre le premier styliste (le système assignera)
-            finalStylistId = (stylists || [])[0]?.id || "";
+            finalStylistId = stylistsArray[0]?.id || "";
             console.warn('[Book] Aucun styliste disponible, utilisation du premier styliste');
           }
         }
@@ -643,7 +691,9 @@ export default function Book() {
                       className="w-full"
                     >
                       {Object.entries(servicesByCategory).map(([category, categoryServices]) => {
-                        console.log('[Book] Rendering category:', category, 'services:', categoryServices, 'isArray:', Array.isArray(categoryServices), 'length:', Array.isArray(categoryServices) ? categoryServices.length : 0);
+                        // S'assurer que categoryServices est un tableau
+                        const servicesArray = Array.isArray(categoryServices) ? categoryServices : [];
+                        console.log('[Book] Rendering category:', category, 'services:', servicesArray, 'isArray:', true, 'length:', servicesArray.length);
                         return (
                           <AccordionItem key={category} value={category}>
                           <AccordionTrigger className="text-left font-semibold">
@@ -651,7 +701,7 @@ export default function Book() {
                             </AccordionTrigger>
                             <AccordionContent>
                             <div className="space-y-3 pt-2">
-                                {categoryServices.map((service: Service) => (
+                                {servicesArray.map((service: Service) => (
                                   <div
                                     key={service.id}
                                   className={`p-4 border rounded-lg cursor-pointer transition-colors ${
@@ -736,7 +786,7 @@ export default function Book() {
                 </div>
 
                   {/* Liste des coiffeur·euses */}
-                  {(stylists || [])?.map((stylist: Stylist) => (
+                  {Array.isArray(stylists) && stylists.map((stylist: Stylist) => (
                   <div
                     key={stylist.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
@@ -801,7 +851,7 @@ export default function Book() {
                       
                       // Désactiver les jours où le salon est fermé (si pas de styliste sélectionné ou "Sans préférences")
                       if (!formData.stylistId || formData.stylistId === "none") {
-                        if (salonHoursData?.hours) {
+                        if (salonHoursData?.hours && Array.isArray(salonHoursData.hours)) {
                           const dayOfWeek = date.getDay();
                           const dayHours = salonHoursData.hours.filter((h: any) => h.day_of_week === dayOfWeek);
                           
