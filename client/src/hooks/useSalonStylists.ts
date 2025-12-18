@@ -26,12 +26,28 @@ export function useSalonStylists() {
       }
 
       const data = await response.json();
-      return data;
+      
+      // Gérer différents formats de réponse
+      if (Array.isArray(data)) {
+        return data;
+      }
+      // Si c'est un objet avec une propriété stylistes, l'extraire
+      if (data && typeof data === 'object' && Array.isArray(data.stylistes)) {
+        return data.stylistes;
+      }
+      // Si c'est un objet avec une propriété data, l'extraire
+      if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        return data.data;
+      }
+      
+      console.warn('[useSalonStylists] Réponse inattendue:', typeof data, data);
+      return [];
     },
     staleTime: 1000 * 60 * 5, // Cache 5 minutes
     retry: 1,
   });
 }
+
 
 
 

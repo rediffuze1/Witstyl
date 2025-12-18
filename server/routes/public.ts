@@ -397,6 +397,8 @@ publicRouter.get("/salon/stylistes", async (req, res) => {
     
     console.log('[GET /api/public/salon/stylistes] Stylistes mappés retournés:', result.length);
     
+    // IMPORTANT: Retourner directement un tableau, pas un objet
+    // Le frontend s'attend à un tableau directement
     res.json(result);
   } catch (error: any) {
     console.error('[GET /api/public/salon/stylistes] Exception inattendue:', error);
