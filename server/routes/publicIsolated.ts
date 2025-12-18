@@ -212,32 +212,74 @@ publicRouter.get("/salon/stylistes", async (req, res) => {
       return res.json([]); // Retourner un tableau vide, pas un objet
     }
     
-    const salonId = salons.id;
+    let salonId = salons.id;
+    console.log('[PUBLIC] Salon ID récupéré:', salonId);
     
-    // Récupérer les stylistes avec tous les champs nécessaires
-    const { data: stylistes, error } = await supabase
-      .from('stylistes')
-      .select('id, first_name, last_name, email, phone, photo_url, specialties, is_active')
-      .eq('salon_id', salonId)
-      .eq('is_active', true);
+    // Essayer avec les deux formats d'ID (avec et sans préfixe salon-)
+    const salonIdsToTry = salonId.startsWith('salon-') 
+      ? [salonId, salonId.replace('salon-', '')]
+      : [salonId, `salon-${salonId}`];
     
-    if (error) {
-      console.error('[PUBLIC] Erreur récupération stylistes:', error);
-      return res.json([]); // Retourner un tableau vide, pas un objet
+    console.log('[PUBLIC] IDs à essayer:', salonIdsToTry);
+    
+    let stylistes: any[] | null = null;
+    let stylistesError: any = null;
+    
+    // Essayer chaque format d'ID jusqu'à trouver des résultats
+    for (const trySalonId of salonIdsToTry) {
+      console.log('[PUBLIC] Essai avec salon_id:', trySalonId);
+      
+      // D'abord essayer sans filtre is_active pour voir tous les stylistes
+      let result = await supabase
+        .from('stylistes')
+        .select('id, first_name, last_name, email, phone, photo_url, specialties, is_active')
+        .eq('salon_id', trySalonId);
+      
+      if (result.error) {
+        console.error('[PUBLIC] Erreur avec salon_id', trySalonId, ':', result.error);
+        stylistesError = result.error;
+        continue;
+      }
+      
+      if (result.data && result.data.length > 0) {
+        console.log('[PUBLIC] ✅ Stylistes trouvés avec salon_id:', trySalonId, '→', result.data.length);
+        stylistes = result.data;
+        stylistesError = null;
+        break;
+      } else {
+        console.log('[PUBLIC] Aucun styliste avec salon_id:', trySalonId);
+      }
     }
     
+    if (stylistesError) {
+      console.error('[PUBLIC] Erreur récupération stylistes:', stylistesError);
+      return res.json([]);
+    }
+    
+    if (!stylistes || stylistes.length === 0) {
+      console.log('[PUBLIC] Aucun styliste trouvé pour ce salon');
+      return res.json([]);
+    }
+    
+    console.log('[PUBLIC] Stylistes bruts trouvés:', stylistes.length);
+    
     // Mapper les données au format attendu par le frontend
-    const result = (stylistes || []).map((st: any) => ({
-      id: st.id,
-      firstName: st.first_name || '',
-      lastName: st.last_name || '',
-      name: `${st.first_name || ''} ${st.last_name || ''}`.trim(),
-      email: st.email || null,
-      phone: st.phone || null,
-      photoUrl: st.photo_url || null,
-      specialties: st.specialties || [],
-      isActive: st.is_active !== false
-    }));
+    // Filtrer uniquement les stylistes actifs dans le mapping
+    const result = (stylistes || [])
+      .filter((st: any) => st.is_active !== false) // Filtrer les inactifs
+      .map((st: any) => ({
+        id: st.id,
+        firstName: st.first_name || '',
+        lastName: st.last_name || '',
+        name: `${st.first_name || ''} ${st.last_name || ''}`.trim(),
+        email: st.email || null,
+        phone: st.phone || null,
+        photoUrl: st.photo_url || null,
+        specialties: st.specialties || [],
+        isActive: st.is_active !== false
+      }));
+    
+    console.log('[PUBLIC] Stylistes mappés retournés:', result.length);
     
     return res.json(result); // Retourner un tableau directement
   } catch (error: any) {
