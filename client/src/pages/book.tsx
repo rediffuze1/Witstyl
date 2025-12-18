@@ -842,7 +842,12 @@ export default function Book() {
                       </div>
                     </div>
                   </div>
-                ))}
+                    ))
+                  ) : (
+                    <div className="text-center text-muted-foreground py-4">
+                      Aucun coiffeur·euse disponible pour le moment
+                    </div>
+                  )}
                 
                   <div className="flex justify-between pt-4">
                     <Button variant="outline" onClick={handleBack} data-testid="button-back-stylist">
