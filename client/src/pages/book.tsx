@@ -72,9 +72,19 @@ interface AvailabilityResponse {
 const DEFAULT_SLOT_STEP_MINUTES = 15;
 
 export default function Book() {
+  console.log('[Book] 🚀 Composant Book monté');
+  
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [isNewClient, setIsNewClient] = useState(false);
+  
+  // Log initial pour diagnostic
+  useEffect(() => {
+    console.log('[Book] ✅ Composant Book rendu avec succès');
+    return () => {
+      console.log('[Book] 🔄 Composant Book démonté');
+    };
+  }, []);
   const [formData, setFormData] = useState<BookingFormData>({
     serviceId: "",
     stylistId: "",
@@ -541,16 +551,35 @@ export default function Book() {
     console.log('[Book] Services:', services);
   }
   
+  // Gestion d'erreur pour les queries
+  const servicesError = (servicesLoading || stylistsLoading) ? null : (!services || services.length === 0);
+  
   if (servicesLoading || stylistsLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+          <p className="text-muted-foreground">Chargement des services...</p>
+        </div>
       </div>
     );
   }
   
   if (!services || services.length === 0) {
     console.warn('[Book] ⚠️ Aucun service disponible');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4 max-w-md mx-auto px-4">
+          <h1 className="text-2xl font-bold text-foreground">Aucun service disponible</h1>
+          <p className="text-muted-foreground">
+            Il n'y a actuellement aucun service disponible pour la réservation.
+          </p>
+          <Button onClick={() => setLocation('/')} variant="outline">
+            Retour à l'accueil
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

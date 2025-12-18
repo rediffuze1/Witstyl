@@ -36,6 +36,7 @@ import ForgotPassword from "@/pages/forgot-password";
 import AuthConfirm from "@/pages/auth-confirm";
 import EmailConfirmationRequired from "@/pages/email-confirmation-required";
 import NotFound from "@/pages/not-found";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 /**
  * Composant pour charger le thème depuis la base de données
@@ -81,7 +82,13 @@ function Router() {
       <Switch>
       {/* Routes publiques - toujours accessibles */}
       <Route path="/" component={Landing} />
-      <Route path="/book" component={Book} />
+      <Route path="/book">
+        {() => (
+          <ErrorBoundary>
+            <Book />
+          </ErrorBoundary>
+        )}
+      </Route>
       <Route path="/book-client" component={BookClient} />
       <Route path="/voice" component={Voice} />
       <Route path="/client-login" component={ClientLogin} />
