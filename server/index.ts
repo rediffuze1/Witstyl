@@ -779,7 +779,6 @@ app.use(express.urlencoded({ extended: false }));
       'https://localhost:5173',
       'https://localhost:3000',
       'https://witstyl.vercel.app', // Production Vercel
-      'https://*.vercel.app', // Tous les sous-domaines Vercel
     ];
     
     // Ajouter l'URL de Replit si elle existe
@@ -787,34 +786,47 @@ app.use(express.urlencoded({ extended: false }));
       allowedOrigins.push(process.env.REPLIT_URL);
     }
     
-    // En production, accepter toutes les origines Vercel
-    if (process.env.NODE_ENV === 'production' && origin && origin.includes('vercel.app')) {
+    // En production, accepter toutes les origines Vercel (y compris previews)
+    if ((process.env.VERCEL || process.env.NODE_ENV === 'production') && origin) {
+      // Accepter witstyl.vercel.app et tous les previews Vercel
+      if (origin.includes('vercel.app') || origin.includes('witstyl')) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+        if (req.method === 'OPTIONS') {
+          return res.sendStatus(200);
+        }
+        return next();
+      }
+    }
+    
+    // Vérifier si l'origine est dans la liste autorisée
+    if (origin && allowedOrigins.includes(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
       if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
       }
       return next();
     }
     
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      // Fallback vers localhost:5001 pour le développement local
-      res.header('Access-Control-Allow-Origin', 'http://localhost:5001');
+    // Fallback pour développement local (pas d'origine = même origine)
+    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      res.header('Access-Control-Allow-Origin', origin || 'http://localhost:5173');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+      }
+      return next();
     }
     
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
-    } else {
-      next();
-    }
+    // Si aucune correspondance, continuer quand même (pour les requêtes sans origine)
+    next();
   });
 
 // 👉 Middleware de session pour l'authentification client
