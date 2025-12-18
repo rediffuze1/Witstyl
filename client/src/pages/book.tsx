@@ -524,17 +524,23 @@ export default function Book() {
         );
         
         if (appointmentsResponse.ok) {
-          const allAppointments = await appointmentsResponse.json();
+          const appointmentsData = await appointmentsResponse.json();
+          // S'assurer que allAppointments est un tableau
+          const allAppointments = Array.isArray(appointmentsData) 
+            ? appointmentsData 
+            : (Array.isArray(appointmentsData?.appointments) ? appointmentsData.appointments : []);
           
           // Trouver un styliste disponible (non occupé à ce créneau)
           const occupiedStylistIds = new Set(
             allAppointments
               .filter((apt: any) => {
+                if (!apt) return false;
                 const aptStart = new Date(apt.startTime || apt.appointmentDate);
                 const aptEnd = new Date(apt.endTime || new Date(aptStart.getTime() + (apt.duration || selectedService.durationMinutes) * 60000));
                 return startTime < aptEnd && endTime > aptStart;
               })
               .map((apt: any) => apt.stylistId)
+              .filter(Boolean)
           );
           
           // Prendre le premier styliste disponible
