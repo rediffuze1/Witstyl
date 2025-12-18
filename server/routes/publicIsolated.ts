@@ -209,23 +209,37 @@ publicRouter.get("/salon/stylistes", async (req, res) => {
       .single();
     
     if (!salons) {
-      return res.json({ stylistes: [] });
+      return res.json([]); // Retourner un tableau vide, pas un objet
     }
     
     const salonId = salons.id;
     
-    // Récupérer les stylistes
+    // Récupérer les stylistes avec tous les champs nécessaires
     const { data: stylistes, error } = await supabase
       .from('stylistes')
-      .select('id, name, specialties')
-      .eq('salon_id', salonId);
+      .select('id, first_name, last_name, email, phone, photo_url, specialties, is_active')
+      .eq('salon_id', salonId)
+      .eq('is_active', true);
     
     if (error) {
       console.error('[PUBLIC] Erreur récupération stylistes:', error);
-      return res.json({ stylistes: [] });
+      return res.json([]); // Retourner un tableau vide, pas un objet
     }
     
-    return res.json({ stylistes: stylistes || [] });
+    // Mapper les données au format attendu par le frontend
+    const result = (stylistes || []).map((st: any) => ({
+      id: st.id,
+      firstName: st.first_name || '',
+      lastName: st.last_name || '',
+      name: `${st.first_name || ''} ${st.last_name || ''}`.trim(),
+      email: st.email || null,
+      phone: st.phone || null,
+      photoUrl: st.photo_url || null,
+      specialties: st.specialties || [],
+      isActive: st.is_active !== false
+    }));
+    
+    return res.json(result); // Retourner un tableau directement
   } catch (error: any) {
     console.error('[PUBLIC] Erreur inattendue:', error);
     return res.status(500).json({ error: "Erreur serveur" });
