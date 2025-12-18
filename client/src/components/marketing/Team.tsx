@@ -30,8 +30,7 @@ const itemVariants = {
 export default function Team() {
   const { data: stylistsFromApi, isLoading } = useSalonStylists();
 
-  // Utiliser les stylistes depuis l'API, avec fallback sur la config
-  // NE JAMAIS utiliser salonConfig.team (données fictives) si l'API retourne des données
+  // Utiliser les stylistes depuis l'API, avec fallback sur la config (Pierre et Julie)
   const team = stylistsFromApi && Array.isArray(stylistsFromApi) && stylistsFromApi.length > 0
     ? stylistsFromApi
         .filter((s) => s.isActive !== false)
@@ -43,7 +42,7 @@ export default function Team() {
           specialty: s.specialties && s.specialties.length > 1 ? s.specialties.slice(1).join(', ') : undefined,
           photo: s.photoUrl || undefined,
         }))
-    : []; // Retourner un tableau vide au lieu de salonConfig.team (données fictives)
+    : salonConfig.team; // Fallback sur les données du salon (Pierre et Julie)
 
   if (isLoading && !stylistsFromApi) {
     return (

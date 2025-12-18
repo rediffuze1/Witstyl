@@ -139,25 +139,20 @@ export const salonConfig: SalonConfig = {
 
   team: [
     {
-      id: "sarah",
-      firstName: "Sarah",
-      role: "Coloration",
-      specialty: "Spécialiste balayage naturel",
-      photo: "/team/sarah.jpg",
+      id: "pierre",
+      firstName: "Pierre",
+      lastName: "",
+      role: "Coiffeur",
+      specialty: "Spécialiste en coupes modernes",
+      photo: "/team/pierre.jpg",
     },
     {
-      id: "lucas",
-      firstName: "Lucas",
-      role: "Coiffure homme & barbe",
-      specialty: "Expert en coupes tendance",
-      photo: "/team/lucas.jpg",
-    },
-    {
-      id: "emma",
-      firstName: "Emma",
-      role: "Coloration & soins",
-      specialty: "Spécialiste cheveux colorés",
-      photo: "/team/emma.jpg",
+      id: "julie",
+      firstName: "Julie",
+      lastName: "",
+      role: "Coiffeuse",
+      specialty: "Spécialiste en coloration",
+      photo: "/team/julie.jpg",
     },
   ],
 
