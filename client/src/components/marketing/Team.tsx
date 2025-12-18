@@ -114,7 +114,7 @@ export default function Team() {
           viewport={{ once: true, margin: '-100px' }}
           className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {team.map((member) => (
+          {displayTeam.map((member) => (
             <motion.div
               key={member.id}
               variants={itemVariants}
