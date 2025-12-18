@@ -153,32 +153,50 @@ export default function Book() {
     retry: false,
   });
 
-  const { data: stylists, isLoading: stylistsLoading } = useQuery<Stylist[]>({
+  const { data: stylists, isLoading: stylistsLoading, error: stylistsError } = useQuery<Stylist[]>({
     queryKey: ["/api/public/salon/stylistes"],
     queryFn: async () => {
+      console.log('[Book] 📥 Chargement stylistes depuis /api/public/salon/stylistes');
       const response = await fetch("/api/public/salon/stylistes");
       if (!response.ok) {
-        console.error('[Book] Erreur chargement stylistes:', response.status);
+        console.error('[Book] ❌ Erreur chargement stylistes:', response.status, response.statusText);
         return [];
       }
       const data = await response.json();
+      console.log('[Book] 📦 Données stylistes reçues:', typeof data, Array.isArray(data) ? `tableau de ${data.length} éléments` : 'non-tableau', data);
+      
       // S'assurer que data est un tableau
       if (Array.isArray(data)) {
+        console.log('[Book] ✅ Stylistes sont un tableau:', data.length);
         return data;
       }
       // Si c'est un objet avec une propriété stylistes, l'extraire
       if (data && typeof data === 'object' && Array.isArray(data.stylistes)) {
+        console.log('[Book] ✅ Stylistes trouvés dans data.stylistes:', data.stylistes.length);
         return data.stylistes;
       }
       // Si c'est un objet avec une propriété data, l'extraire
       if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        console.log('[Book] ✅ Stylistes trouvés dans data.data:', data.data.length);
         return data.data;
       }
-      console.warn('[Book] Réponse stylistes n\'est pas un tableau:', typeof data, data);
+      console.warn('[Book] ⚠️ Réponse stylistes n\'est pas un tableau:', typeof data, data);
       return [];
     },
     retry: false,
   });
+  
+  // Log pour diagnostic
+  useEffect(() => {
+    console.log('[Book] 🔍 État stylistes:', {
+      isLoading: stylistsLoading,
+      hasData: !!stylists,
+      isArray: Array.isArray(stylists),
+      length: Array.isArray(stylists) ? stylists.length : 0,
+      error: stylistsError,
+      data: stylists,
+    });
+  }, [stylists, stylistsLoading, stylistsError]);
 
   const activeStylists = useMemo(
     () => {
@@ -792,7 +810,16 @@ export default function Book() {
                 </div>
 
                   {/* Liste des coiffeur·euses */}
-                  {Array.isArray(stylists) && stylists.map((stylist: Stylist) => (
+                  {stylistsLoading ? (
+                    <div className="text-center text-muted-foreground py-4">
+                      Chargement des coiffeur·euses...
+                    </div>
+                  ) : stylistsError ? (
+                    <div className="text-center text-destructive py-4">
+                      Erreur lors du chargement des coiffeur·euses
+                    </div>
+                  ) : Array.isArray(stylists) && stylists.length > 0 ? (
+                    stylists.map((stylist: Stylist) => (
                   <div
                     key={stylist.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
