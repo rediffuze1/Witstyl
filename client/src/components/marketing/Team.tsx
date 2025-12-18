@@ -42,9 +42,11 @@ export default function Team() {
           specialty: s.specialties && s.specialties.length > 1 ? s.specialties.slice(1).join(', ') : undefined,
           photo: s.photoUrl || undefined,
         }))
-    : salonConfig.team; // Fallback sur les données du salon (Pierre et Julie)
+    : (salonConfig.team || []); // Fallback sur les données du salon (Pierre et Julie)
 
-  if (isLoading && !stylistsFromApi) {
+  // Toujours afficher la section, même si en chargement ou vide (utilisera le fallback)
+  // Le fallback salonConfig.team contient toujours Pierre et Julie
+  if (isLoading && !stylistsFromApi && (!team || team.length === 0)) {
     return (
       <section
         id="team"
@@ -60,8 +62,24 @@ export default function Team() {
     );
   }
 
-  if (team.length === 0) {
-    return null;
+  // Ne jamais retourner null - toujours afficher la section avec le fallback si nécessaire
+  const displayTeam = team && team.length > 0 ? team : salonConfig.team;
+  
+  if (!displayTeam || displayTeam.length === 0) {
+    // Si même le fallback est vide, afficher quand même la section avec un message
+    return (
+      <section
+        id="team"
+        className="relative py-24 sm:py-28 lg:py-32"
+        style={{ backgroundColor: 'hsl(var(--bg-section))' }}
+      >
+        <Container className="relative z-10">
+          <div className="text-center">
+            <p style={{ color: 'hsl(var(--text-muted))' }}>Équipe en cours de chargement...</p>
+          </div>
+        </Container>
+      </section>
+    );
   }
 
   return (
