@@ -9,6 +9,7 @@ import express from 'express';
 // IMPORTANT: Utiliser publicIsolated qui n'importe AUCUN module DB/session
 // IMPORTANT: En ESM, les imports relatifs doivent inclure l'extension .js
 import publicRouter from './routes/publicIsolated.js';
+import googleReviewsRouter from './routes/google-reviews.js';
 
 console.log('[BOOT] publicApp module loaded');
 
@@ -42,14 +43,8 @@ export function createPublicApp(): Express {
     }
   });
   
-  // Route stub pour /api/reviews/google
-  app.get('/api/reviews/google', (req, res) => {
-    res.json({
-      reviews: [],
-      averageRating: 0,
-      totalReviews: 0,
-    });
-  });
+  // Route Google Reviews (publique, pas besoin de DB/session)
+  app.use('/api/reviews/google', googleReviewsRouter);
   
   // Routes publiques
   app.use('/api/public', publicRouter);
