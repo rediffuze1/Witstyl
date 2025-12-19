@@ -967,54 +967,56 @@ export default function Book() {
 
           {/* Step 3: Date & Time Selection */}
           {step === 3 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Choisissez la date et l'heure</CardTitle>
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-lg sm:text-xl">Choisissez la date et l'heure</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4 sm:space-y-6 px-3 sm:px-6">
                 <div>
-                    <Label className="mb-3 block">Date</Label>
-                  <Calendar
-                    mode="single"
-                    selected={formData.date}
-                    onSelect={(date: Date | undefined) => setFormData({ ...formData, date, timeSlot: "" })}
-                    disabled={(date: Date) => {
-                      // Désactiver les dates passées
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      if (date < today) return true;
-                      
-                      // Désactiver les dates de fermeture exceptionnelles ou jours où le styliste est indisponible
-                      if (isDateClosed(date)) return true;
-                      
-                      // Désactiver les jours où le salon est fermé (si pas de styliste sélectionné ou "Sans préférences")
-                      if (!formData.stylistId || formData.stylistId === "none") {
-                        if (salonHoursData?.hours && Array.isArray(salonHoursData.hours)) {
-                          const dayOfWeek = date.getDay();
-                          const dayHours = salonHoursData.hours.filter((h: any) => h.day_of_week === dayOfWeek);
-                          
-                          // Si le jour est marqué comme fermé ou s'il n'y a pas d'horaires pour ce jour
-                          const isClosed = dayHours.length === 0 || dayHours.every((h: any) => h.is_closed);
-                          if (isClosed) return true;
+                    <Label className="mb-2 sm:mb-3 block text-sm sm:text-base">Date</Label>
+                  <div className="flex justify-center sm:justify-start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.date}
+                      onSelect={(date: Date | undefined) => setFormData({ ...formData, date, timeSlot: "" })}
+                      disabled={(date: Date) => {
+                        // Désactiver les dates passées
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (date < today) return true;
+                        
+                        // Désactiver les dates de fermeture exceptionnelles ou jours où le styliste est indisponible
+                        if (isDateClosed(date)) return true;
+                        
+                        // Désactiver les jours où le salon est fermé (si pas de styliste sélectionné ou "Sans préférences")
+                        if (!formData.stylistId || formData.stylistId === "none") {
+                          if (salonHoursData?.hours && Array.isArray(salonHoursData.hours)) {
+                            const dayOfWeek = date.getDay();
+                            const dayHours = salonHoursData.hours.filter((h: any) => h.day_of_week === dayOfWeek);
+                            
+                            // Si le jour est marqué comme fermé ou s'il n'y a pas d'horaires pour ce jour
+                            const isClosed = dayHours.length === 0 || dayHours.every((h: any) => h.is_closed);
+                            if (isClosed) return true;
+                          }
                         }
-                      }
-                      
-                      return false;
-                    }}
-                    locale={fr}
-                    className="rounded-md border"
-                  />
+                        
+                        return false;
+                      }}
+                      locale={fr}
+                      className="rounded-md border w-full"
+                    />
+                  </div>
                 </div>
                 
                     {formData.date && (
                       <div>
-                        <Label className="mb-3 block">Heure</Label>
+                        <Label className="mb-2 sm:mb-3 block text-sm sm:text-base">Heure</Label>
                         {isAvailabilityLoading ? (
-                          <p className="text-sm text-muted-foreground py-4">
+                          <p className="text-xs sm:text-sm text-muted-foreground py-4 text-center sm:text-left">
                             Chargement des créneaux disponibles…
                           </p>
                         ) : availabilityError ? (
-                          <p className="text-sm text-destructive py-4">
+                          <p className="text-xs sm:text-sm text-destructive py-4 text-center sm:text-left">
                             {availabilityError.message || "Erreur lors du chargement des créneaux. Veuillez réessayer."}
                             {process.env.NODE_ENV === 'development' && (
                               <div className="mt-2 text-xs text-muted-foreground">
@@ -1023,20 +1025,20 @@ export default function Book() {
                             )}
                           </p>
                         ) : availableSlots.length > 0 ? (
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                             {availableSlots.map((time: string) => (
                               <Button
                                 key={time}
                                 variant={formData.timeSlot === time ? 'default' : 'outline'}
                                 onClick={() => setFormData({ ...formData, timeSlot: time })}
-                                className="text-sm"
+                                className="text-xs sm:text-sm min-h-[44px] font-medium"
                               >
                                 {time}
                               </Button>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground py-4">
+                          <p className="text-xs sm:text-sm text-muted-foreground py-4 text-center sm:text-left">
                             {availabilityData?.error 
                               ? availabilityData.error
                               : formData.stylistId === "none" 
@@ -1052,18 +1054,19 @@ export default function Book() {
                       </div>
                     )}
                 
-                  <div className="flex justify-between pt-4">
-                    <Button variant="outline" onClick={handleBack} data-testid="button-back-datetime">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Retour
-                  </Button>
-                  <Button 
-                    onClick={handleNext} 
-                    disabled={!formData.date || !formData.timeSlot}
-                    data-testid="button-next-datetime"
-                  >
-                    Suivant <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
+                  <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 pt-3 sm:pt-4">
+                    <Button variant="outline" onClick={handleBack} data-testid="button-back-datetime" className="w-full sm:w-auto min-h-[44px] text-sm sm:text-base order-2 sm:order-1">
+                      <ArrowLeft className="mr-2 h-4 w-4" /> Retour
+                    </Button>
+                    <Button 
+                      onClick={handleNext} 
+                      disabled={!formData.date || !formData.timeSlot}
+                      data-testid="button-next-datetime"
+                      className="w-full sm:w-auto min-h-[44px] text-sm sm:text-base order-1 sm:order-2"
+                    >
+                      Suivant <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
               </CardContent>
             </Card>
           )}
