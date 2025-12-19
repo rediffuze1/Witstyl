@@ -112,6 +112,25 @@ const generateSlotsFromIntervals = (
   return slots;
 };
 
+const hasAppointmentConflict = (appointments: any[], start: Date, end: Date) => {
+  if (!appointments || appointments.length === 0) {
+    return false;
+  }
+
+  return appointments.some((apt) => {
+    if (!apt) {
+      return false;
+    }
+    const appointmentStart = new Date(apt.appointment_date || apt.startTime);
+    const appointmentEnd = new Date(
+      apt.appointment_date 
+        ? new Date(appointmentStart.getTime() + (apt.duration || 30) * 60000)
+        : apt.endTime || new Date(appointmentStart.getTime() + 30 * 60000)
+    );
+    return start < appointmentEnd && end > appointmentStart;
+  });
+};
+
 // Route publique pour récupérer les informations du salon unique (horaires + contact)
 publicRouter.get("/salon", async (req, res) => {
   console.log('[PUBLIC] hit GET /api/public/salon');

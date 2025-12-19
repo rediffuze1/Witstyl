@@ -354,12 +354,55 @@ export default function Book() {
         params.set("stylistId", availabilityParams.stylistId);
       }
 
-      const response = await fetch(`/api/public/salon/availability?${params.toString()}`);
+      const url = `/api/public/salon/availability?${params.toString()}`;
+      console.log('[Book] 📥 Chargement créneaux depuis:', url);
+      
+      const response = await fetch(url);
+      const responseText = await response.text();
+      
+      console.log('[Book] 📦 Réponse brute:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        bodyLength: responseText.length,
+        bodyPreview: responseText.substring(0, 200)
+      });
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Impossible de charger les créneaux disponibles");
+        let errorData: any = {};
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (e) {
+          console.error('[Book] ❌ Erreur parsing JSON erreur:', e, 'Body:', responseText);
+          errorData = { error: responseText || "Erreur inconnue" };
+        }
+        
+        console.error('[Book] ❌ Erreur API créneaux:', {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData.error || errorData.message,
+          fullError: errorData
+        });
+        
+        throw new Error(errorData.error || errorData.message || `Erreur ${response.status}: ${response.statusText}`);
       }
-      return response.json();
+      
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('[Book] ❌ Erreur parsing JSON réponse:', e, 'Body:', responseText);
+        throw new Error("Réponse invalide du serveur");
+      }
+      
+      console.log('[Book] ✅ Données créneaux reçues:', {
+        success: data.success,
+        slotsCount: data.slots?.length || 0,
+        error: data.error
+      });
+      
+      return data;
     },
     enabled: !!availabilityParams,
     staleTime: 0,
