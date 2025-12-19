@@ -913,6 +913,10 @@ export default function Book() {
                           <p className="text-sm text-muted-foreground py-4">
                             Chargement des créneaux disponibles…
                           </p>
+                        ) : availabilityError ? (
+                          <p className="text-sm text-destructive py-4">
+                            Erreur lors du chargement des créneaux. Veuillez réessayer.
+                          </p>
                         ) : availableSlots.length > 0 ? (
                           <div className="grid grid-cols-4 gap-2">
                             {availableSlots.map((time: string) => (
@@ -928,9 +932,16 @@ export default function Book() {
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground py-4">
-                            {formData.stylistId === "none" 
-                              ? "Aucun créneau disponible pour ce service cette date parmi tou·te·s les coiffeur·euses. Veuillez choisir un autre horaire."
-                              : "Aucun créneau disponible pour ce service cette date avec ce ou cette coiffeur·euse. Veuillez choisir un autre horaire."}
+                            {availabilityData?.error 
+                              ? availabilityData.error
+                              : formData.stylistId === "none" 
+                                ? "Aucun créneau disponible pour ce service cette date parmi tou·te·s les coiffeur·euses. Veuillez choisir un autre horaire."
+                                : "Aucun créneau disponible pour ce service cette date avec ce ou cette coiffeur·euse. Veuillez choisir un autre horaire."}
+                            {!availabilityData?.error && (!salonHoursData || !salonHoursData.hours || Object.keys(salonHoursData.hours).length === 0) && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                Le salon n'a pas encore configuré ses horaires en ligne. Contactez le salon.
+                              </div>
+                            )}
                           </p>
                         )}
                       </div>
