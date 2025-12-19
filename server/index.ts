@@ -1516,19 +1516,11 @@ console.log('[SERVER] ✅ Router /api/salons monté à', new Date().toISOString(
 console.log('[SERVER] ✅ Routes disponibles: GET /api/salons/:salonId/hours, PUT /api/salons/:salonId/hours');
 
 // ============================================
-// ROUTE GOOGLE REVIEWS (STUB)
+// ROUTE GOOGLE REVIEWS
 // ============================================
-// Route stub pour /api/reviews/google qui renvoie une liste vide
-// Cette route sera implémentée plus tard avec l'intégration Google Reviews API
-app.get('/api/reviews/google', (req, res) => {
-  console.log('[GET /api/reviews/google] Route appelée (stub)');
-  // Retourner une réponse vide pour éviter les 404
-  res.json({
-    reviews: [],
-    averageRating: 0,
-    totalReviews: 0,
-  });
-});
+// Route pour récupérer les avis Google depuis Google Places API
+import googleReviewsRouter from './routes/google-reviews';
+app.use('/api/reviews/google', googleReviewsRouter);
 
 // 👉 Routes publiques (après les routes spécifiques)
 app.use("/api/public", publicRouter);
