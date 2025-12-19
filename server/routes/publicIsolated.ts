@@ -122,11 +122,11 @@ const hasAppointmentConflict = (appointments: any[], start: Date, end: Date) => 
       return false;
     }
     const appointmentStart = new Date(apt.appointment_date || apt.startTime);
-    const appointmentEnd = new Date(
-      apt.appointment_date 
-        ? new Date(appointmentStart.getTime() + (apt.duration || 30) * 60000)
-        : apt.endTime || new Date(appointmentStart.getTime() + 30 * 60000)
-    );
+    if (Number.isNaN(appointmentStart.getTime())) {
+      return false;
+    }
+    const durationMinutes = apt.duration ? Number(apt.duration) : 30;
+    const appointmentEnd = new Date(appointmentStart.getTime() + durationMinutes * 60000);
     return start < appointmentEnd && end > appointmentStart;
   });
 };
