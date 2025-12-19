@@ -790,13 +790,21 @@ publicRouter.get("/salon/availability", async (req, res) => {
         stylistIds: Array.from(stylistIds),
       }));
 
-    console.log(`[PUBLIC] [${requestId}] Résultat: ${slots.length} créneaux générés pour ${date}`, {
+    // Log le premier slot après filtrage (pour diagnostic)
+    const firstSlotAfterFilter = slots.length > 0 ? slots[0].time : null;
+    if (isToday) {
+      console.log(`[PUBLIC] [${requestId}] ✅ Premier slot après filtrage:`, firstSlotAfterFilter || 'Aucun');
+    }
+
+    console.log(`[PUBLIC] [${requestId}] 📊 Résultat: ${slots.length} créneaux générés pour ${date}`, {
       serviceId,
       stylistId: requestedStylist || "none",
       salonHoursCount: salonHours?.length || 0,
       stylistsCount: stylistsToCheck.length,
       appointmentsCount: appointments?.length || 0,
-      slotsCount: slots.length
+      slotsCount: slots.length,
+      firstSlot: firstSlotAfterFilter,
+      minSlotTime: minSlotTime ? minSlotTime.toISOString() : null
     });
 
     res.json({
