@@ -746,6 +746,8 @@ publicRouter.get("/salon/availability", async (req, res) => {
       .select("day_of_week, open_time, close_time, is_closed")
       .in("salon_id", salonIdsToTry);
 
+    console.log(`[GET /api/public/salon/availability] Horaires salon récupérés:`, salonHours?.length || 0, salonHoursError ? `Erreur: ${salonHoursError.message}` : 'OK');
+
     if (salonHoursError || !salonHours || salonHours.length === 0) {
       const { data: openingHours, error: openingHoursError } = await supabase
         .from("opening_hours")
@@ -754,10 +756,12 @@ publicRouter.get("/salon/availability", async (req, res) => {
 
       if (openingHoursError) {
         console.error("[GET /api/public/salon/availability] Erreur récupération horaires salon:", openingHoursError);
-        return res.status(500).json({ error: "Impossible de charger les horaires du salon" });
+        // Ne pas retourner d'erreur, continuer avec salonHours vide pour générer un message clair
+        salonHours = [];
+      } else {
+        salonHours = openingHours || [];
+        console.log(`[GET /api/public/salon/availability] Horaires opening_hours récupérés:`, salonHours.length);
       }
-
-      salonHours = openingHours || [];
     }
 
     let stylistsToCheck: { originalId: string; normalizedId: string; variants: string[] }[] = [];
@@ -819,8 +823,15 @@ publicRouter.get("/salon/availability", async (req, res) => {
     }
 
     if (!stylistsToCheck.length) {
-      return res.json({ date, slots: [] });
+      console.log(`[GET /api/public/salon/availability] Aucun styliste à vérifier`);
+      return res.json({ 
+        date, 
+        slots: [],
+        error: "Aucun coiffeur·euse disponible pour le moment"
+      });
     }
+
+    console.log(`[GET /api/public/salon/availability] ${stylistsToCheck.length} styliste(s) à vérifier pour le jour ${dayOfWeek}`);
 
     const allStylistVariants = stylistsToCheck.flatMap((stylist) => stylist.variants);
 
@@ -830,9 +841,11 @@ publicRouter.get("/salon/availability", async (req, res) => {
       .in("stylist_id", allStylistVariants)
       .eq("day_of_week", dayOfWeek);
 
+    console.log(`[GET /api/public/salon/availability] Horaires stylistes récupérés:`, stylistSchedules?.length || 0, scheduleError ? `Erreur: ${scheduleError.message}` : 'OK');
+
     if (scheduleError && scheduleError.code !== "42P01") {
       console.error("[GET /api/public/salon/availability] Erreur récupération horaires stylistes:", scheduleError);
-      return res.status(500).json({ error: "Impossible de charger les horaires des coiffeur·euse·s" });
+      // Ne pas retourner d'erreur, continuer avec stylistSchedules vide
     }
 
     const scheduleMap = new Map<string, any[]>();
@@ -947,15 +960,18 @@ publicRouter.get("/salon/availability", async (req, res) => {
             ? []
             : null;
 
-      const validIntervals = getValidIntervalsForDay(
-        salonHours as any,
-        stylistSchedulesForDay as any,
-        dayOfWeek
-      );
+    const validIntervals = getValidIntervalsForDay(
+      salonHours as any,
+      stylistSchedulesForDay as any,
+      dayOfWeek
+    );
 
-      if (validIntervals.length === 0) {
-        continue;
-      }
+    console.log(`[GET /api/public/salon/availability] Styliste ${stylist.originalId}: ${validIntervals.length} intervalles valides`, validIntervals);
+
+    if (validIntervals.length === 0) {
+      console.log(`[GET /api/public/salon/availability] Styliste ${stylist.originalId}: Aucun intervalle valide, salonHours:`, salonHours?.length || 0, 'stylistSchedules:', stylistSchedulesForDay?.length || 0);
+      continue;
+    }
 
       const stylistSlots = generateSlotsFromIntervals(baseDate, validIntervals, serviceDuration, slotStepMinutes);
       if (!stylistSlots.length) {
@@ -1007,6 +1023,15 @@ publicRouter.get("/salon/availability", async (req, res) => {
         time,
         stylistIds: Array.from(stylistIds),
       }));
+
+    console.log(`[GET /api/public/salon/availability] Résultat: ${slots.length} créneaux générés pour ${date}`, {
+      serviceId,
+      stylistId: requestedStylist || "none",
+      salonHoursCount: salonHours?.length || 0,
+      stylistsCount: stylistsToCheck.length,
+      appointmentsCount: appointments?.length || 0,
+      slotsCount: slots.length
+    });
 
     res.json({
       date,
