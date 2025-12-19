@@ -416,8 +416,47 @@ export default function Book() {
       console.warn('[Book] availabilityData.slots n\'est pas un tableau:', typeof availabilityData.slots, availabilityData.slots);
       return [];
     }
-    return availabilityData.slots.map((slot) => slot.time).filter(Boolean);
-  }, [availabilityData]);
+    
+    const slots = availabilityData.slots.map((slot) => slot.time).filter(Boolean);
+    
+    // Filtrer les slots passés si la date sélectionnée est aujourd'hui (sécurité frontend)
+    if (formData.date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDate = new Date(formData.date);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      const isToday = selectedDate.getTime() === today.getTime();
+      
+      if (isToday) {
+        const now = new Date();
+        const bufferMinutes = 5;
+        const minTime = new Date(now.getTime() + bufferMinutes * 60 * 1000);
+        
+        const filteredSlots = slots.filter((time: string) => {
+          const [hours, minutes] = time.split(':').map(Number);
+          const slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+          
+          if (slotDate <= minTime) {
+            console.log(`[Book] Slot ${time} filtré (passé): ${slotDate.toISOString()} <= ${minTime.toISOString()}`);
+            return false;
+          }
+          return true;
+        });
+        
+        console.log(`[Book] Filtrage slots aujourd'hui: ${slots.length} → ${filteredSlots.length} (buffer: ${bufferMinutes}min)`);
+        return filteredSlots;
+      }
+      
+      // Si la date est dans le passé, retourner un tableau vide
+      if (selectedDate < today) {
+        console.log(`[Book] Date sélectionnée dans le passé, aucun slot`);
+        return [];
+      }
+    }
+    
+    return slots;
+  }, [availabilityData, formData.date]);
   const isAvailabilityLoading = availabilityLoading && !!availabilityParams;
 
   useEffect(() => {

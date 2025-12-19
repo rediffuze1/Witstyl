@@ -659,8 +659,33 @@ publicRouter.get("/salon/availability", async (req, res) => {
     });
 
     const aggregatedSlots = new Map<string, Set<string>>();
+    
+    // Calculer "maintenant" dans la timezone du salon (Europe/Zurich par défaut)
+    // Utiliser la date locale pour éviter les problèmes de timezone
     const now = new Date();
-    const isToday = baseDate.toDateString() === now.toDateString();
+    const todayStr = baseDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const nowStr = now.toISOString().split('T')[0];
+    const isToday = todayStr === nowStr;
+    
+    // Si c'est aujourd'hui, calculer l'heure minimale avec buffer de 5 minutes
+    let minSlotTime: Date | null = null;
+    if (isToday) {
+      // Créer une date dans la timezone locale du serveur (qui devrait être celle du salon)
+      // Ajouter 5 minutes de buffer
+      minSlotTime = new Date(now.getTime() + 5 * 60 * 1000); // +5 minutes
+      console.log(`[PUBLIC] [${requestId}] Date d'aujourd'hui détectée. Heure minimale (avec buffer 5min):`, minSlotTime.toISOString());
+    } else if (todayStr < nowStr) {
+      // Date dans le passé : aucun slot
+      console.log(`[PUBLIC] [${requestId}] Date dans le passé (${todayStr} < ${nowStr}), aucun slot retourné`);
+      return res.json({
+        success: true,
+        date,
+        serviceId,
+        stylistId: requestedStylist || "none",
+        slotIntervalMinutes: slotStepMinutes,
+        slots: [],
+      });
+    }
 
     for (const stylist of stylistsToCheck) {
       const stylistAppointments = appointmentMap.get(stylist.normalizedId) || [];
@@ -695,7 +720,9 @@ publicRouter.get("/salon/availability", async (req, res) => {
       ];
 
       for (const slot of stylistSlots) {
-        if (isToday && slot.start <= now) {
+        // Filtrer les slots passés si c'est aujourd'hui (avec buffer de 5 minutes)
+        if (isToday && minSlotTime && slot.start <= minSlotTime) {
+          console.log(`[PUBLIC] [${requestId}] Slot ${slot.label} filtré (passé): ${slot.start.toISOString()} <= ${minSlotTime.toISOString()}`);
           continue;
         }
 
