@@ -756,32 +756,32 @@ export default function Book() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Navigation bar with logo and home button */}
       <header className="bg-white/80 backdrop-blur-md border-b border-border/40 sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+        <div className="container mx-auto px-3 sm:px-4">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <div
-              className="flex items-center space-x-3 cursor-pointer"
+              className="flex items-center space-x-2 sm:space-x-3 cursor-pointer"
               onClick={() => setLocation('/')}
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-                <Scissors className="text-white text-sm" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+                <Scissors className="text-white text-xs sm:text-sm" />
               </div>
-              <span className="text-xl font-bold text-foreground">Witstyl</span>
+              <span className="text-lg sm:text-xl font-bold text-foreground">Witstyl</span>
             </div>
             <Button
               variant="ghost"
               onClick={() => setLocation('/')}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-1 sm:space-x-2 h-9 sm:h-10 px-2 sm:px-3"
             >
               <Home className="h-4 w-4" />
-              <span>Accueil</span>
+              <span className="hidden sm:inline">Accueil</span>
             </Button>
           </div>
         </div>
       </header>
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Progress Steps - Barre d'avancement animée */}
-        <div className="mb-10 sticky top-20 z-40 bg-background/90 backdrop-blur-sm py-4 px-6 rounded-2xl shadow-sm max-w-4xl mx-auto">
+        <div className="mb-6 sm:mb-10 sticky top-16 sm:top-20 z-40 bg-background/90 backdrop-blur-sm py-3 sm:py-4 px-4 sm:px-6 rounded-xl sm:rounded-2xl shadow-sm max-w-4xl mx-auto">
           <ProgressSteps
             totalSteps={4}
             currentStep={step}
@@ -794,14 +794,14 @@ export default function Book() {
 
           {/* Step 1: Service Selection */}
           {step === 1 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Scissors className="mr-2 h-5 w-5" />
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="flex items-center text-lg sm:text-xl">
+                    <Scissors className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                   Choisissez votre service
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6">
                   {(!services || services.length === 0) ? (
                     <div className="text-center text-muted-foreground py-8">
                       Aucun service disponible pour le moment.
@@ -826,29 +826,29 @@ export default function Book() {
                                 {servicesArray.map((service: Service) => (
                                   <div
                                     key={service.id}
-                                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                                  className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors active:scale-[0.98] ${
                                       formData.serviceId === service.id
-                                      ? 'border-primary bg-primary/5'
+                                      ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
                                       : 'border-border hover:border-primary/50'
                                     }`}
                                     onClick={() => setFormData({ ...formData, serviceId: service.id })}
                                     data-testid={`service-option-${service.id}`}
                                   >
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <h3 className="font-semibold">{service.name}</h3>
+                                    <div className="flex justify-between items-start gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <h3 className="font-semibold text-base sm:text-lg">{service.name}</h3>
                                       {service.description && (
-                                        <p className="text-sm text-muted-foreground mt-1">
+                                        <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
                                           {service.description}
                                         </p>
                                       )}
-                                        <div className="flex items-center space-x-4 mt-2 text-sm">
-                                          <span className="flex items-center">
-                                            <Clock className="mr-1 h-4 w-4" />
+                                        <div className="flex items-center flex-wrap gap-3 sm:gap-4 mt-2 text-xs sm:text-sm">
+                                          <span className="flex items-center whitespace-nowrap">
+                                            <Clock className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
                                           {service.durationMinutes} min
                                           </span>
-                                          <span className="flex items-center">
-                                            <Euro className="mr-1 h-4 w-4" />
+                                          <span className="flex items-center whitespace-nowrap">
+                                            <Euro className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
                                           {service.price}€
                                           </span>
                                         </div>
@@ -864,11 +864,12 @@ export default function Book() {
                     </Accordion>
                   )}
                 
-                  <div className="flex justify-end pt-4">
+                  <div className="flex justify-end pt-3 sm:pt-4">
                   <Button 
                     onClick={handleNext} 
                     disabled={!formData.serviceId}
                     data-testid="button-next-service"
+                    className="w-full sm:w-auto min-h-[44px] text-sm sm:text-base"
                   >
                     Suivant <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -879,28 +880,28 @@ export default function Book() {
 
           {/* Step 2: Coiffeur·euse Selection */}
           {step === 2 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Choisissez votre coiffeur·euse</CardTitle>
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-lg sm:text-xl">Choisissez votre coiffeur·euse</CardTitle>
               </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6">
                   {/* Option "Sans préférences" */}
                   <div
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                    className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors active:scale-[0.98] ${
                       formData.stylistId === "none"
-                        ? 'border-primary bg-primary/5'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
                         : 'border-border hover:border-primary/50'
                     }`}
                     onClick={() => setFormData({ ...formData, stylistId: "none" })}
                     data-testid="stylist-option-none"
                 >
-                  <div className="flex items-start space-x-3">
-                      <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center text-muted-foreground font-medium">
-                        <Scissors className="w-6 h-6" />
+                  <div className="flex items-start space-x-2 sm:space-x-3">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-muted rounded-full flex items-center justify-center text-muted-foreground font-medium flex-shrink-0">
+                        <Scissors className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <div>
-                        <h3 className="font-semibold">Sans préférences</h3>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-base sm:text-lg">Sans préférences</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                           Affiche tous les créneaux disponibles de tou·te·s les coiffeur·euses
                       </p>
                     </div>
@@ -920,21 +921,21 @@ export default function Book() {
                     stylists.map((stylist: Stylist) => (
                   <div
                     key={stylist.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                      className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors active:scale-[0.98] ${
                       formData.stylistId === stylist.id
-                          ? 'border-primary bg-primary/5'
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
                           : 'border-border hover:border-primary/50'
                     }`}
                       onClick={() => setFormData({ ...formData, stylistId: stylist.id })}
                     data-testid={`stylist-option-${stylist.id}`}
                   >
-                    <div className="flex items-start space-x-3">
-                      <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-medium">
+                    <div className="flex items-start space-x-2 sm:space-x-3">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-full flex items-center justify-center text-white font-medium text-xs sm:text-sm flex-shrink-0">
                         {stylist.firstName[0]}{stylist.lastName[0]}
                       </div>
-                      <div>
-                        <h3 className="font-semibold">{stylist.firstName} {stylist.lastName}</h3>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-base sm:text-lg">{stylist.firstName} {stylist.lastName}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
                             Spécialités: {stylist.specialties?.join(', ') || 'Aucune'}
                         </p>
                       </div>
@@ -947,14 +948,15 @@ export default function Book() {
                     </div>
                   )}
                 
-                  <div className="flex justify-between pt-4">
-                    <Button variant="outline" onClick={handleBack} data-testid="button-back-stylist">
+                  <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 pt-3 sm:pt-4">
+                    <Button variant="outline" onClick={handleBack} data-testid="button-back-stylist" className="w-full sm:w-auto min-h-[44px] text-sm sm:text-base order-2 sm:order-1">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Retour
                   </Button>
                   <Button 
                     onClick={handleNext} 
                     disabled={!formData.stylistId || formData.stylistId === ""}
                     data-testid="button-next-stylist"
+                    className="w-full sm:w-auto min-h-[44px] text-sm sm:text-base order-1 sm:order-2"
                   >
                     Suivant <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -1068,14 +1070,14 @@ export default function Book() {
 
           {/* Step 4: Client Information */}
           {step === 4 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Vos informations</CardTitle>
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-lg sm:text-xl">Vos informations</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <Label htmlFor="firstName">Prénom</Label>
+                    <Label htmlFor="firstName" className="text-sm sm:text-base">Prénom</Label>
                     <Input
                       id="firstName"
                       value={formData.clientInfo.firstName}
@@ -1084,10 +1086,11 @@ export default function Book() {
                         clientInfo: { ...formData.clientInfo, firstName: e.target.value }
                       })}
                       data-testid="input-first-name"
+                      className="mt-1 h-10 sm:h-11"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Nom</Label>
+                    <Label htmlFor="lastName" className="text-sm sm:text-base">Nom</Label>
                     <Input
                       id="lastName"
                       value={formData.clientInfo.lastName}
@@ -1096,12 +1099,13 @@ export default function Book() {
                         clientInfo: { ...formData.clientInfo, lastName: e.target.value }
                       })}
                       data-testid="input-last-name"
+                      className="mt-1 h-10 sm:h-11"
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -1111,24 +1115,27 @@ export default function Book() {
                       clientInfo: { ...formData.clientInfo, email: e.target.value }
                     })}
                     data-testid="input-email"
+                    className="mt-1 h-10 sm:h-11"
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="phone">Téléphone</Label>
+                  <Label htmlFor="phone" className="text-sm sm:text-base">Téléphone</Label>
                   <Input
                     id="phone"
+                    type="tel"
                     value={formData.clientInfo.phone}
                     onChange={(e) => setFormData({
                       ...formData,
                       clientInfo: { ...formData.clientInfo, phone: e.target.value }
                     })}
                     data-testid="input-phone"
+                    className="mt-1 h-10 sm:h-11"
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="notes">Notes (optionnel)</Label>
+                  <Label htmlFor="notes" className="text-sm sm:text-base">Notes (optionnel)</Label>
                   <Textarea
                     id="notes"
                     value={formData.clientInfo.notes}
@@ -1138,29 +1145,31 @@ export default function Book() {
                     })}
                     placeholder="Informations supplémentaires..."
                     data-testid="input-notes"
+                    className="mt-1 min-h-[80px] sm:min-h-[100px] resize-none"
                   />
                 </div>
 
                 {/* Booking Summary */}
-                  <div className="bg-muted p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2">Récapitulatif</h3>
-                    <div className="space-y-1 text-sm">
-                    <p><strong>Service:</strong> {selectedService?.name}</p>
-                      <p><strong>Coiffeur·euse:</strong> {selectedStylist?.firstName} {selectedStylist?.lastName}</p>
+                  <div className="bg-muted p-3 sm:p-4 rounded-lg border border-border/50">
+                    <h3 className="font-semibold mb-2 text-base sm:text-lg">Récapitulatif</h3>
+                    <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+                    <p className="break-words"><strong>Service:</strong> {selectedService?.name}</p>
+                      <p className="break-words"><strong>Coiffeur·euse:</strong> {formData.stylistId === "none" ? "Sans préférences" : `${selectedStylist?.firstName} ${selectedStylist?.lastName}`}</p>
                     <p><strong>Date:</strong> {formData.date && format(formData.date, 'EEEE d MMMM yyyy', { locale: fr })}</p>
                     <p><strong>Heure:</strong> {formData.timeSlot}</p>
-                      <p><strong>Prix:</strong> {selectedService?.price}€</p>
+                      <p className="text-primary font-semibold"><strong>Prix:</strong> {selectedService?.price}€</p>
                   </div>
                 </div>
                 
-                  <div className="flex justify-between pt-4">
-                    <Button variant="outline" onClick={handleBack} data-testid="button-back-info">
+                  <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 pt-3 sm:pt-4">
+                    <Button variant="outline" onClick={handleBack} data-testid="button-back-info" className="w-full sm:w-auto min-h-[44px] text-sm sm:text-base order-2 sm:order-1">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Retour
                   </Button>
                   <Button 
                     onClick={handleSubmit} 
                     disabled={!formData.clientInfo.firstName || !formData.clientInfo.lastName || !formData.clientInfo.email || createAppointmentMutation.isPending}
                     data-testid="button-confirm-booking"
+                    className="w-full sm:w-auto min-h-[44px] text-sm sm:text-base order-1 sm:order-2"
                   >
                     {createAppointmentMutation.isPending ? "Confirmation..." : "Confirmer la réservation"}
                   </Button>
