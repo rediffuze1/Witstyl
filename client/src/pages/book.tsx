@@ -958,7 +958,12 @@ export default function Book() {
                           </p>
                         ) : availabilityError ? (
                           <p className="text-sm text-destructive py-4">
-                            Erreur lors du chargement des créneaux. Veuillez réessayer.
+                            {availabilityError.message || "Erreur lors du chargement des créneaux. Veuillez réessayer."}
+                            {process.env.NODE_ENV === 'development' && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                Code: {availabilityError.message}
+                              </div>
+                            )}
                           </p>
                         ) : availableSlots.length > 0 ? (
                           <div className="grid grid-cols-4 gap-2">
