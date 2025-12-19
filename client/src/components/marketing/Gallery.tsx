@@ -6,11 +6,30 @@ import { salonConfig } from '@/config/salon-config';
 
 export default function Gallery() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const images = salonConfig.galleryImages || [];
-
-  if (images.length === 0) {
-    return null;
-  }
+  
+  // Images par défaut si aucune image n'est configurée
+  const defaultImages = [
+    {
+      src: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1200&h=800&fit=crop",
+      alt: "Espace d'accueil moderne du salon"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1200&h=800&fit=crop",
+      alt: "Cabine de coiffure professionnelle"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=1200&h=800&fit=crop",
+      alt: "Espace de travail élégant"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&h=800&fit=crop",
+      alt: "Salle d'attente confortable"
+    }
+  ];
+  
+  const images = salonConfig.galleryImages && salonConfig.galleryImages.length > 0 
+    ? salonConfig.galleryImages 
+    : defaultImages;
 
   const nextImage = () => {
     setCurrentIndex((prev) => (prev + 1) % images.length);
