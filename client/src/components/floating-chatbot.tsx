@@ -274,24 +274,24 @@ export default function FloatingChatbot() {
   };
 
   const chatCardClassName = [
-    "fixed z-50 bg-white/95 backdrop-blur-md border border-border/40 shadow-xl flex flex-col",
+    "fixed z-40 bg-white/95 backdrop-blur-md border border-border/40 shadow-xl flex flex-col",
     isExpanded
       ? "bottom-4 right-4 left-4 top-4 w-auto h-auto max-h-[95vh] sm:left-auto sm:top-auto sm:right-12 sm:bottom-10 sm:w-[420px] sm:h-[80vh]"
-      : "bottom-24 right-6 w-80 h-[520px] sm:right-12 sm:w-96 sm:h-[520px]"
+      : "bottom-20 sm:bottom-24 right-4 sm:right-6 w-[calc(100%-2rem)] sm:w-80 h-[520px] sm:right-12 sm:w-96 sm:h-[520px]"
   ].join(" ");
 
   return (
     <>
       {/* Bouton flottant amélioré */}
       {!isOpen && (
-        <div className="fixed bottom-24 right-12 z-50">
+        <div className="fixed bottom-20 sm:bottom-24 right-4 sm:right-12 z-40">
           {/* Badge de notification animé */}
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-lg border-2 border-white" />
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping opacity-75" />
           
           <Button
             onClick={toggleChat}
-            className="group relative w-20 h-20 rounded-full bg-gradient-to-br from-primary via-primary/90 to-accent hover:from-primary hover:to-accent transition-all duration-500 shadow-2xl hover:shadow-primary/50 hover:scale-110 active:scale-95 flex items-center justify-center overflow-hidden"
+            className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-primary via-primary/90 to-accent hover:from-primary hover:to-accent transition-all duration-500 shadow-2xl hover:shadow-primary/50 hover:scale-110 active:scale-95 flex items-center justify-center overflow-hidden"
             aria-label="Ouvrir le chatbot"
           >
             {/* Effet de brillance animé */}
@@ -304,12 +304,12 @@ export default function FloatingChatbot() {
             <div className="relative z-10 flex flex-col items-center justify-center">
               {/* Icône principale avec animation */}
               <div className="relative">
-                <Sparkles className="h-7 w-7 text-white absolute -top-1 -right-1 animate-pulse" />
-                <MessageCircle className="h-8 w-8 text-white animate-bounce" style={{ animationDuration: '2s' }} />
+                <Sparkles className="h-5 w-5 sm:h-7 sm:w-7 text-white absolute -top-1 -right-1 animate-pulse" />
+                <MessageCircle className="h-6 w-6 sm:h-8 sm:w-8 text-white animate-bounce" style={{ animationDuration: '2s' }} />
               </div>
               
               {/* Texte sous l'icône */}
-              <span className="text-[10px] font-bold text-white mt-0.5 opacity-90 group-hover:opacity-100 transition-opacity">
+              <span className="text-[9px] sm:text-[10px] font-bold text-white mt-0.5 opacity-90 group-hover:opacity-100 transition-opacity">
                 IA
               </span>
             </div>
