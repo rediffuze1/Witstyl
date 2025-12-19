@@ -119,7 +119,7 @@ export default function Team() {
               key={member.id}
               variants={itemVariants}
               whileHover={{ y: -8, transition: { duration: 0.3 } }}
-              className="group relative rounded-3xl border p-6 backdrop-blur-xl text-center transition-all"
+              className="group relative rounded-2xl sm:rounded-3xl border p-4 sm:p-6 backdrop-blur-xl text-center transition-all"
               style={{
                 backgroundColor: 'hsla(var(--bg-section) / 0.8)',
                 borderColor: 'hsla(var(--brand-h) var(--brand-s) var(--brand-l) / 0.2)',
@@ -128,7 +128,7 @@ export default function Team() {
             >
               {/* Glow au hover */}
               <div
-                className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                className="absolute inset-0 rounded-2xl sm:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
                 style={{
                   background: `radial-gradient(circle at center, hsl(var(--brand-h) var(--brand-s) var(--brand-l) / 0.1), transparent 70%)`,
                 }}
@@ -136,7 +136,7 @@ export default function Team() {
 
               <div className="relative z-10">
                 {/* Photo */}
-                <div className="relative mx-auto mb-4 h-32 w-32 rounded-full overflow-hidden">
+                <div className="relative mx-auto mb-3 sm:mb-4 h-24 w-24 sm:h-32 sm:w-32 rounded-full overflow-hidden">
                   {member.photo ? (
                     <img
                       src={member.photo}
@@ -151,7 +151,7 @@ export default function Team() {
                       }}
                     >
                       <User
-                        className="h-16 w-16"
+                        className="h-12 w-12 sm:h-16 sm:w-16"
                         style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }}
                       />
                     </div>
@@ -159,14 +159,14 @@ export default function Team() {
                 </div>
 
                 <h3
-                  className="text-xl font-semibold mb-1"
+                  className="text-lg sm:text-xl font-semibold mb-1"
                   style={{ color: 'hsl(var(--text-main))' }}
                 >
                   {member.firstName}
                 </h3>
 
                 <p
-                  className="text-sm font-medium mb-2"
+                  className="text-xs sm:text-sm font-medium mb-1.5 sm:mb-2"
                   style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }}
                 >
                   {member.role}
@@ -174,7 +174,7 @@ export default function Team() {
 
                 {member.specialty && (
                   <p
-                    className="text-sm leading-relaxed"
+                    className="text-xs sm:text-sm leading-relaxed"
                     style={{ color: 'hsl(var(--text-muted))' }}
                   >
                     {member.specialty}
