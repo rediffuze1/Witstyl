@@ -43,7 +43,7 @@ export default function Hero() {
     <section
       ref={heroRef}
       id="hero"
-      className="relative overflow-hidden min-h-[90vh] flex items-center pt-20"
+      className="relative overflow-hidden min-h-[85vh] sm:min-h-[90vh] flex items-center pt-16 sm:pt-20"
       style={{ backgroundColor: 'hsl(var(--bg-page))' }}
     >
       {/* Fond avec gradient */}
@@ -103,21 +103,21 @@ export default function Hero() {
         }}
       />
 
-      <Container size="xl" className="relative z-10 py-24 lg:py-32">
+      <Container size="xl" className="relative z-10 py-12 sm:py-16 lg:py-24 xl:py-32">
         <div className="max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="space-y-8"
+            className="space-y-6 sm:space-y-8"
           >
             {/* Titre */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
-                className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-semibold leading-tight tracking-tight"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-semibold leading-tight tracking-tight px-2 sm:px-0"
                 style={{ color: 'hsl(var(--text-main))' }}
               >
                 {salonConfig.tagline}
@@ -126,7 +126,7 @@ export default function Hero() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.6 }}
-                className="text-lg sm:text-xl max-w-2xl leading-relaxed"
+                className="text-base sm:text-lg md:text-xl max-w-2xl leading-relaxed px-2 sm:px-0"
                 style={{ color: 'hsl(var(--text-muted))' }}
               >
                 Réservez votre rendez-vous en ligne en quelques clics. Gestion simplifiée, rappels automatiques, moins de no-show.
@@ -138,11 +138,11 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.6 }}
-              className="flex flex-wrap items-center gap-4"
+              className="flex flex-wrap items-center gap-3 sm:gap-4 px-2 sm:px-0"
             >
               <Button
                 onClick={() => setLocation(salonConfig.cta.href)}
-                className="group relative overflow-hidden rounded-full px-8 py-6 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                className="group relative overflow-hidden rounded-full px-6 sm:px-8 py-4 sm:py-6 text-sm sm:text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all w-full sm:w-auto min-h-[44px]"
                 style={{
                   backgroundColor: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))',
                   boxShadow: '0 20px 60px hsla(var(--brand-h) var(--brand-s) var(--brand-l) / 0.35)',
@@ -158,7 +158,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.6 }}
-              className="grid gap-6 sm:grid-cols-3 pt-4"
+              className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 sm:grid-cols-3 pt-2 sm:pt-4 px-2 sm:px-0"
             >
               {salonConfig.stats.map((stat, idx) => (
                 <motion.div
@@ -167,19 +167,19 @@ export default function Hero() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.6 + idx * 0.1, duration: 0.4 }}
                   whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                  className="rounded-2xl border p-4 backdrop-blur-xl"
+                  className="rounded-xl sm:rounded-2xl border p-3 sm:p-4 backdrop-blur-xl"
                   style={{
                     backgroundColor: 'hsla(var(--bg-section) / 0.8)',
                     borderColor: 'hsla(var(--brand-h) var(--brand-s) var(--brand-l) / 0.2)',
                   }}
                 >
-                  <div className="text-xs uppercase tracking-widest mb-2" style={{ color: 'hsl(var(--text-muted))' }}>
+                  <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-widest mb-1.5 sm:mb-2" style={{ color: 'hsl(var(--text-muted))' }}>
                     {stat.label}
                   </div>
-                  <div className="flex items-center gap-2 text-2xl font-semibold" style={{ color: 'hsl(var(--text-main))' }}>
-                    {idx === 0 && <BellRing className="h-4 w-4" style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }} />}
-                    {idx === 1 && <ShieldCheck className="h-4 w-4" style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }} />}
-                    {idx === 2 && <Sparkles className="h-4 w-4" style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }} />}
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-xl sm:text-2xl font-semibold" style={{ color: 'hsl(var(--text-main))' }}>
+                    {idx === 0 && <BellRing className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }} />}
+                    {idx === 1 && <ShieldCheck className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }} />}
+                    {idx === 2 && <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))' }} />}
                     {stat.value}
                   </div>
                 </motion.div>

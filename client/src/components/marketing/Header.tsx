@@ -87,7 +87,7 @@ export default function Header() {
         }}
       >
         <Container>
-          <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
+          <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-14 sm:h-16' : 'h-16 sm:h-20'}`}>
             {/* Logo + Nom du salon */}
             <button
               onClick={() => {
@@ -103,25 +103,25 @@ export default function Header() {
                   setLocation('/');
                 }
               }}
-              className="flex items-center gap-3 group"
+              className="flex items-center gap-2 sm:gap-3 group"
             >
               <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl transition-transform group-hover:scale-105"
+                className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg sm:rounded-xl transition-transform group-hover:scale-105"
                 style={{
                   background: `linear-gradient(135deg, hsl(var(--brand-h) var(--brand-s) var(--brand-l)), hsl(var(--brand-h) var(--brand-s) calc(var(--brand-l) - 10%)))`,
                 }}
               >
-                <Scissors className="h-5 w-5 text-white" />
+                <Scissors className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div className="flex flex-col">
                 <span
-                  className="text-lg font-bold leading-tight transition-colors"
+                  className="text-base sm:text-lg font-bold leading-tight transition-colors"
                   style={{ color: 'hsl(var(--text-main))' }}
                 >
                   Witstyl
                 </span>
                 <span
-                  className="text-xs leading-tight transition-colors"
+                  className="text-[10px] sm:text-xs leading-tight transition-colors hidden sm:block"
                   style={{ color: 'hsl(var(--text-muted))' }}
                 >
                   {salonName}
@@ -152,11 +152,11 @@ export default function Header() {
             </nav>
 
             {/* Desktop Actions */}
-            <div className="hidden lg:flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-2 xl:gap-3">
               {/* Bouton IA */}
               <Button
                 onClick={openChatbot}
-                className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
+                className="rounded-full px-3 xl:px-4 py-2 text-xs xl:text-sm font-medium transition-all hover:scale-105"
                 style={{
                   backgroundColor: 'rgba(255, 255, 255, 0.8)',
                   color: '#000000',
@@ -169,31 +169,32 @@ export default function Header() {
                   e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
                 }}
               >
-                <Sparkles className="h-4 w-4 mr-2" style={{ color: '#000000' }} />
-                Parler avec l'IA
+                <Sparkles className="h-3 w-3 xl:h-4 xl:w-4 mr-1 xl:mr-2" style={{ color: '#000000' }} />
+                <span className="hidden xl:inline">Parler avec l'IA</span>
+                <span className="xl:hidden">IA</span>
               </Button>
 
               {isAuthenticated && isOwner ? (
                 <Button
                   onClick={() => setLocation('/dashboard')}
-                  className="rounded-full px-6 py-2 text-sm font-medium text-white shadow-lg hover:shadow-xl transition-all"
+                  className="rounded-full px-4 xl:px-6 py-2 text-xs xl:text-sm font-medium text-white shadow-lg hover:shadow-xl transition-all"
                   style={{
                     backgroundColor: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))',
                     boxShadow: '0 4px 16px hsla(var(--brand-h) var(--brand-s) var(--brand-l) / 0.3)',
                   }}
                 >
-                  Mon dashboard
+                  Dashboard
                 </Button>
               ) : (
                 <Button
                   onClick={() => setLocation('/salon-login')}
-                  className="rounded-full px-6 py-2 text-sm font-medium text-white shadow-lg hover:shadow-xl transition-all"
+                  className="rounded-full px-4 xl:px-6 py-2 text-xs xl:text-sm font-medium text-white shadow-lg hover:shadow-xl transition-all"
                   style={{
                     backgroundColor: 'hsl(var(--brand-h) var(--brand-s) var(--brand-l))',
                     boxShadow: '0 4px 16px hsla(var(--brand-h) var(--brand-s) var(--brand-l) / 0.3)',
                   }}
                 >
-                  Se connecter
+                  Connexion
                 </Button>
               )}
             </div>
@@ -201,16 +202,16 @@ export default function Header() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg transition-colors"
+              className="lg:hidden p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               style={{
                 color: 'hsl(var(--text-main))',
               }}
               aria-label="Menu"
             >
               {isMobileMenuOpen ? (
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               ) : (
-                <Menu className="h-6 w-6" />
+                <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
               )}
             </button>
           </div>
