@@ -667,13 +667,34 @@ publicRouter.get("/salon/availability", async (req, res) => {
     const nowStr = now.toISOString().split('T')[0];
     const isToday = todayStr === nowStr;
     
-    // Si c'est aujourd'hui, calculer l'heure minimale avec buffer de 5 minutes
+    // Buffer par défaut : 15 minutes (lead time pour préparer le rendez-vous)
+    const BUFFER_MINUTES = 15;
+    
+    // Fonction pour arrondir au prochain pas de stepMinutes
+    const ceilToNextStep = (date: Date, stepMinutes: number): Date => {
+      const totalMinutes = date.getHours() * 60 + date.getMinutes();
+      const roundedMinutes = Math.ceil(totalMinutes / stepMinutes) * stepMinutes;
+      const roundedDate = new Date(date);
+      roundedDate.setHours(Math.floor(roundedMinutes / 60), roundedMinutes % 60, 0, 0);
+      return roundedDate;
+    };
+    
+    // Si c'est aujourd'hui, calculer l'heure minimale avec buffer et arrondi
     let minSlotTime: Date | null = null;
     if (isToday) {
-      // Créer une date dans la timezone locale du serveur (qui devrait être celle du salon)
-      // Ajouter 5 minutes de buffer
-      minSlotTime = new Date(now.getTime() + 5 * 60 * 1000); // +5 minutes
-      console.log(`[PUBLIC] [${requestId}] Date d'aujourd'hui détectée. Heure minimale (avec buffer 5min):`, minSlotTime.toISOString());
+      // minStart = now + bufferMinutes
+      const minStartWithBuffer = new Date(now.getTime() + BUFFER_MINUTES * 60 * 1000);
+      
+      // Arrondir au prochain pas de slotStepMinutes (ex: 15 min)
+      minSlotTime = ceilToNextStep(minStartWithBuffer, slotStepMinutes);
+      
+      console.log(`[PUBLIC] [${requestId}] 📅 Date d'aujourd'hui détectée`);
+      console.log(`[PUBLIC] [${requestId}] ⏰ now:`, now.toISOString());
+      console.log(`[PUBLIC] [${requestId}] ⏱️ bufferMinutes:`, BUFFER_MINUTES);
+      console.log(`[PUBLIC] [${requestId}] 📏 stepMinutes:`, slotStepMinutes);
+      console.log(`[PUBLIC] [${requestId}] ⏳ serviceDuration:`, serviceDuration, '(NON utilisé pour minStart)');
+      console.log(`[PUBLIC] [${requestId}] ✅ minStart (now + buffer):`, minStartWithBuffer.toISOString());
+      console.log(`[PUBLIC] [${requestId}] ✅ minSlotTime (arrondi au pas ${slotStepMinutes}min):`, minSlotTime.toISOString());
     } else if (todayStr < nowStr) {
       // Date dans le passé : aucun slot
       console.log(`[PUBLIC] [${requestId}] Date dans le passé (${todayStr} < ${nowStr}), aucun slot retourné`);
@@ -719,10 +740,17 @@ publicRouter.get("/salon/availability", async (req, res) => {
         ...(stylistClosedMap.get(stylist.normalizedId) || []),
       ];
 
+      // Log le premier slot avant filtrage (pour diagnostic)
+      const firstSlotBeforeFilter = stylistSlots.length > 0 ? stylistSlots[0] : null;
+      if (firstSlotBeforeFilter && isToday) {
+        console.log(`[PUBLIC] [${requestId}] 🔍 Premier slot avant filtrage: ${firstSlotBeforeFilter.label} (${firstSlotBeforeFilter.start.toISOString()})`);
+      }
+      
       for (const slot of stylistSlots) {
-        // Filtrer les slots passés si c'est aujourd'hui (avec buffer de 5 minutes)
-        if (isToday && minSlotTime && slot.start <= minSlotTime) {
-          console.log(`[PUBLIC] [${requestId}] Slot ${slot.label} filtré (passé): ${slot.start.toISOString()} <= ${minSlotTime.toISOString()}`);
+        // Filtrer les slots passés si c'est aujourd'hui (avec buffer et arrondi)
+        // Règle: slotStart >= minSlotTime (strictement supérieur ou égal après arrondi)
+        if (isToday && minSlotTime && slot.start < minSlotTime) {
+          console.log(`[PUBLIC] [${requestId}] ❌ Slot ${slot.label} filtré (passé): ${slot.start.toISOString()} < ${minSlotTime.toISOString()}`);
           continue;
         }
 

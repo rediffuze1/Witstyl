@@ -430,21 +430,37 @@ export default function Book() {
       
       if (isToday) {
         const now = new Date();
-        const bufferMinutes = 5;
-        const minTime = new Date(now.getTime() + bufferMinutes * 60 * 1000);
+        const bufferMinutes = 15; // Buffer de 15 minutes (aligné avec backend)
+        const stepMinutes = 15; // Pas de 15 minutes
+        
+        // minStart = now + bufferMinutes
+        const minStartWithBuffer = new Date(now.getTime() + bufferMinutes * 60 * 1000);
+        
+        // Arrondir au prochain pas de stepMinutes
+        const totalMinutes = minStartWithBuffer.getHours() * 60 + minStartWithBuffer.getMinutes();
+        const roundedMinutes = Math.ceil(totalMinutes / stepMinutes) * stepMinutes;
+        const minTime = new Date(now);
+        minTime.setHours(Math.floor(roundedMinutes / 60), roundedMinutes % 60, 0, 0);
+        
+        console.log(`[Book] 📅 Filtrage slots aujourd'hui`);
+        console.log(`[Book] ⏰ now:`, now.toISOString());
+        console.log(`[Book] ⏱️ bufferMinutes:`, bufferMinutes);
+        console.log(`[Book] 📏 stepMinutes:`, stepMinutes);
+        console.log(`[Book] ✅ minTime (arrondi):`, minTime.toISOString());
         
         const filteredSlots = slots.filter((time: string) => {
           const [hours, minutes] = time.split(':').map(Number);
           const slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
           
-          if (slotDate <= minTime) {
-            console.log(`[Book] Slot ${time} filtré (passé): ${slotDate.toISOString()} <= ${minTime.toISOString()}`);
+          if (slotDate < minTime) {
+            console.log(`[Book] ❌ Slot ${time} filtré (passé): ${slotDate.toISOString()} < ${minTime.toISOString()}`);
             return false;
           }
           return true;
         });
         
-        console.log(`[Book] Filtrage slots aujourd'hui: ${slots.length} → ${filteredSlots.length} (buffer: ${bufferMinutes}min)`);
+        console.log(`[Book] 📊 Filtrage slots: ${slots.length} → ${filteredSlots.length} (buffer: ${bufferMinutes}min, step: ${stepMinutes}min)`);
+        console.log(`[Book] ✅ Premier slot après filtrage:`, filteredSlots[0] || 'Aucun');
         return filteredSlots;
       }
       
