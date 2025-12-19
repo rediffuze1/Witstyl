@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Container from '@/components/ui/Container';
@@ -24,10 +24,21 @@ export default function Gallery() {
     setCurrentIndex(index);
   };
 
+  // Auto-play du carrousel toutes les 5 secondes
+  useEffect(() => {
+    if (images.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [images.length]);
+
   return (
     <section
       id="gallery"
-      className="relative py-24 sm:py-28 lg:py-32"
+      className="relative py-12 sm:py-16 md:py-20 lg:py-24 xl:py-32"
       style={{ backgroundColor: 'hsl(var(--bg-page))' }}
     >
       <Container className="relative z-10">
@@ -36,22 +47,22 @@ export default function Gallery() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.6 }}
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 md:mb-16 px-4 sm:px-0"
         >
           <h2
-            className="text-3xl sm:text-4xl lg:text-5xl font-semibold mb-4"
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold mb-3 sm:mb-4"
             style={{ color: 'hsl(var(--text-main))' }}
           >
-            Découvrez notre salon
+            Le Salon
           </h2>
-          <p className="text-lg" style={{ color: 'hsl(var(--text-muted))' }}>
-            Un espace moderne et accueillant pour votre confort
+          <p className="text-sm sm:text-base md:text-lg" style={{ color: 'hsl(var(--text-muted))' }}>
+            Découvrez notre espace moderne et accueillant
           </p>
         </motion.div>
 
-        <div className="relative max-w-5xl mx-auto">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-0">
           {/* Carrousel */}
-          <div className="relative h-[400px] sm:h-[500px] lg:h-[600px] rounded-3xl overflow-hidden">
+          <div className="relative h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl">
             <AnimatePresence mode="wait">
               <motion.img
                 key={currentIndex}
@@ -70,26 +81,26 @@ export default function Gallery() {
               <>
                 <button
                   onClick={prevImage}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full backdrop-blur-md transition-all hover:scale-110"
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-3 rounded-full backdrop-blur-md transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
                   style={{
-                    backgroundColor: 'hsla(var(--bg-section) / 0.8)',
+                    backgroundColor: 'hsla(var(--bg-section) / 0.9)',
                     color: 'hsl(var(--text-main))',
                   }}
                   aria-label="Image précédente"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
 
                 <button
                   onClick={nextImage}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full backdrop-blur-md transition-all hover:scale-110"
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-3 rounded-full backdrop-blur-md transition-all hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
                   style={{
-                    backgroundColor: 'hsla(var(--bg-section) / 0.8)',
+                    backgroundColor: 'hsla(var(--bg-section) / 0.9)',
                     color: 'hsl(var(--text-main))',
                   }}
                   aria-label="Image suivante"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </>
             )}
@@ -105,12 +116,12 @@ export default function Gallery() {
 
           {/* Bullets / Pagination */}
           {images.length > 1 && (
-            <div className="flex justify-center gap-2 mt-6">
+            <div className="flex justify-center gap-2 mt-4 sm:mt-6">
               {images.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => goToImage(index)}
-                  className={`h-2 rounded-full transition-all ${
+                  className={`h-2 rounded-full transition-all min-h-[8px] ${
                     index === currentIndex ? 'w-8' : 'w-2'
                   }`}
                   style={{
@@ -129,6 +140,7 @@ export default function Gallery() {
     </section>
   );
 }
+
 
 
 

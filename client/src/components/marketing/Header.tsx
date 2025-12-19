@@ -9,9 +9,9 @@ import { useSalonData } from '@/hooks/useSalonData';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 const navItems = [
+  { label: 'Le salon', href: '#gallery' },
   { label: 'Services', href: '#services' },
   { label: 'Avis', href: '#reviews' },
-  { label: 'Le salon', href: '#gallery' },
   { label: 'Équipe', href: '#team' },
   { label: 'Horaires', href: '#hours' },
   { label: 'Nous trouver', href: '#location' },

@@ -59,14 +59,14 @@ export default function Landing() {
         {/* 1. Hero avec CTA "Prendre RDV" */}
         <Hero />
 
-        {/* 2. Section Services */}
+        {/* 2. Carrousel photos du salon - Le Salon */}
+        <Gallery />
+
+        {/* 3. Section Services */}
         <Services />
 
-        {/* 3. Avis clients (Google Reviews - top 5) */}
+        {/* 4. Avis clients (Google Reviews - top 5) */}
         <Reviews />
-
-        {/* 4. Carrousel photos du salon */}
-        <Gallery />
 
         {/* 5. Carrousel équipe */}
         <Team />
