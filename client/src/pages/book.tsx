@@ -1183,46 +1183,46 @@ export default function Book() {
 
           {/* Step 5: Confirmation */}
           {step === 5 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-center text-primary">
-                    <Check className="mx-auto h-12 w-12 mb-4" />
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-center text-primary text-lg sm:text-xl">
+                    <Check className="mx-auto h-10 w-10 sm:h-12 sm:w-12 mb-3 sm:mb-4" />
                   Rendez-vous confirmé !
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-center space-y-4">
-                <p className="text-lg">
+              <CardContent className="text-center space-y-3 sm:space-y-4 px-3 sm:px-6">
+                <p className="text-base sm:text-lg">
                   Votre rendez-vous a été réservé avec succès.
                 </p>
                 
-                <div className="bg-muted p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2">Détails de votre rendez-vous</h3>
-                  <div className="space-y-1 text-sm">
-                    <p><strong>Service:</strong> {selectedService?.name}</p>
-                    <p><strong>Coiffeur·euse:</strong> {selectedStylist?.firstName} {selectedStylist?.lastName}</p>
+                <div className="bg-muted p-3 sm:p-4 rounded-lg border border-border/50">
+                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Détails de votre rendez-vous</h3>
+                  <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-left">
+                    <p className="break-words"><strong>Service:</strong> {selectedService?.name}</p>
+                    <p className="break-words"><strong>Coiffeur·euse:</strong> {formData.stylistId === "none" ? "Sans préférences" : `${selectedStylist?.firstName} ${selectedStylist?.lastName}`}</p>
                     <p><strong>Date:</strong> {formData.date && format(formData.date, 'EEEE d MMMM yyyy', { locale: fr })}</p>
                     <p><strong>Heure:</strong> {formData.timeSlot}</p>
-                    <p><strong>Prix:</strong> {selectedService?.price}€</p>
+                    <p className="text-primary font-semibold"><strong>Prix:</strong> {selectedService?.price}€</p>
                   </div>
                 </div>
                 
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground break-words px-2">
                   Un email de confirmation vous a été envoyé à {formData.clientInfo.email}
                 </p>
                 
                 {/* Message différent selon si le client est nouveau ou existant */}
                 {isNewClient ? (
-                  <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+                  <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 text-sm sm:text-base">
                       Accéder à votre espace client
                     </h4>
-                    <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2 text-left">
+                    <div className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 space-y-2 text-left">
                       <p>
                         <strong>Comment accéder à votre espace client :</strong>
                       </p>
                       <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Cliquez sur le bouton "Espace client" ci-dessous ou allez sur la page de connexion</li>
-                        <li>Entrez votre email : <strong>{formData.clientInfo.email}</strong></li>
+                        <li>Entrez votre email : <strong className="break-all">{formData.clientInfo.email}</strong></li>
                         <li><strong>Important :</strong> Comme c'est votre première connexion, vous devez définir un mot de passe. Cliquez sur <strong>"Mot de passe oublié"</strong> pour recevoir un lien de réinitialisation par email</li>
                         <li>Une fois votre mot de passe défini, vous pourrez vous connecter et voir tous vos rendez-vous</li>
                       </ol>
@@ -1232,31 +1232,31 @@ export default function Book() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                    <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">
+                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 sm:p-4">
+                    <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 text-sm sm:text-base">
                       Accéder à votre espace client
                     </h4>
-                    <p className="text-sm text-green-800 dark:text-green-200">
+                    <p className="text-xs sm:text-sm text-green-800 dark:text-green-200 break-words">
                       Vous avez déjà un compte client. Rendez-vous sur votre <strong>espace client existant</strong> pour voir tous vos rendez-vous et gérer votre profil.
                     </p>
-                    <p className="text-sm text-green-700 dark:text-green-300 mt-2">
+                    <p className="text-xs sm:text-sm text-green-700 dark:text-green-300 mt-2 break-all">
                       Connectez-vous avec votre email : <strong>{formData.clientInfo.email}</strong>
                     </p>
                   </div>
                 )}
                 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <Button 
                     onClick={() => window.location.href = "/"}
                     variant="outline"
-                    className="flex-1"
+                    className="w-full sm:flex-1 min-h-[44px] text-sm sm:text-base"
                     data-testid="button-back-home"
                   >
                     Accueil
                   </Button>
                   <Button 
                     onClick={() => setLocation("/client-login")}
-                    className="flex-1"
+                    className="w-full sm:flex-1 min-h-[44px] text-sm sm:text-base"
                     data-testid="button-client-space"
                   >
                     Espace client
