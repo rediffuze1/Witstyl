@@ -44,10 +44,26 @@ export default async function handler(req: any, res: any) {
     if (isPublicRoute(path)) {
       console.log(`[REQ] [${requestId}] Public route - using publicApp`);
       const publicApp = await getPublicApp(); // fast, DB-free
-      const result = await publicApp(req, res);
-      const duration = Date.now() - startTime;
-      console.log(`[REQ] end [${requestId}] ${req.method} ${path} (${duration}ms) - public`);
-      return result;
+      
+      // Wrapper pour convertir Express app en handler Vercel
+      return new Promise((resolve, reject) => {
+        try {
+          publicApp(req, res, (err?: any) => {
+            const duration = Date.now() - startTime;
+            if (err) {
+              console.error(`[REQ] error [${requestId}] ${req.method} ${path} after ${duration}ms:`, err);
+              reject(err);
+            } else {
+              console.log(`[REQ] end [${requestId}] ${req.method} ${path} (${duration}ms) - public`);
+              resolve(undefined);
+            }
+          });
+        } catch (error: any) {
+          const duration = Date.now() - startTime;
+          console.error(`[REQ] error [${requestId}] ${req.method} ${path} after ${duration}ms:`, error);
+          reject(error);
+        }
+      });
     }
     
     // Full app pour routes protégées (lazy, only when needed)
