@@ -45,16 +45,28 @@ export default async function handler(req: any, res: any) {
       console.log(`[REQ] [${requestId}] Public route - using publicApp`);
       const publicApp = await getPublicApp(); // fast, DB-free
       
-      // Appeler directement l'app Express (Vercel gère les promesses automatiquement)
-      return publicApp(req, res);
+      // Wrapper pour attendre que Express termine la réponse
+      return new Promise<void>((resolve) => {
+        publicApp(req, res, () => {
+          const duration = Date.now() - startTime;
+          console.log(`[REQ] end [${requestId}] ${req.method} ${path} (${duration}ms) - public`);
+          resolve();
+        });
+      });
     }
     
     // Full app pour routes protégées (lazy, only when needed)
     console.log(`[REQ] [${requestId}] Protected route - using fullApp`);
     const fullApp = await getFullApp(); // lazy, only when needed
     
-    // Appeler directement l'app Express (Vercel gère les promesses automatiquement)
-    return fullApp(req, res);
+    // Wrapper pour attendre que Express termine la réponse
+    return new Promise<void>((resolve) => {
+      fullApp(req, res, () => {
+        const duration = Date.now() - startTime;
+        console.log(`[REQ] end [${requestId}] ${req.method} ${path} (${duration}ms) - protected`);
+        resolve();
+      });
+    });
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error(`[REQ] error [${requestId}] ${req.method} ${path} after ${duration}ms:`, error.message);
