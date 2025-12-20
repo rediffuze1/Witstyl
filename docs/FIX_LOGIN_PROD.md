@@ -228,3 +228,4 @@ Vercel déploiera automatiquement (si configuré selon `GITHUB_VERCEL_SYNC.md`).
 **Aucune configuration supplémentaire dans Supabase n'est nécessaire.** Les tables et policies existantes fonctionnent avec ce fix.
 
 
+

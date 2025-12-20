@@ -13,3 +13,4 @@ COMMENT ON COLUMN "appointments"."skip_reminder_sms" IS 'Si true, le SMS de rapp
 
 
 
+

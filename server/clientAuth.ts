@@ -571,14 +571,12 @@ export function setupClientAuth(app: any) {
             id,
             name,
             price,
-            duration_minutes,
             duration
           ),
           stylistes:stylist_id (
             id,
             first_name,
-            last_name,
-            name
+            last_name
           )
         `)
         .eq('client_id', searchClientId) // Utiliser le clientId déterminé
@@ -798,7 +796,7 @@ export function setupClientAuth(app: any) {
       const enrichedAppointments = (appointments || []).map((appointment: any) => {
         // Calculer endTime à partir de appointment_date + duration
         const startTime = appointment.appointment_date;
-        const duration = appointment.duration || appointment.services?.duration_minutes || appointment.services?.duration || 60;
+        const duration = appointment.duration || appointment.services?.duration || 60;
         const endTime = startTime ? new Date(new Date(startTime).getTime() + duration * 60000).toISOString() : null;
         
         // Normaliser le statut (s'assurer qu'il est valide)
@@ -856,7 +854,7 @@ export function setupClientAuth(app: any) {
             id: serviceData.id || appointment.service_id || 'unknown',
             name: hasValidService ? (serviceData.name || 'Service sans nom') : 'Service inconnu',
             price: hasValidService ? (parseFloat((serviceData.price ?? '0').toString()) || 0) : 0,
-            duration: hasValidService ? (serviceData.duration ?? serviceData.duration_minutes ?? appointment.duration ?? 60) : (appointment.duration ?? 60),
+            duration: hasValidService ? (serviceData.duration ?? appointment.duration ?? 60) : (appointment.duration ?? 60),
           },
           stylist: {
             id: stylistData.id || appointment.stylist_id || 'unknown',

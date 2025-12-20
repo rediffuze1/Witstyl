@@ -112,45 +112,44 @@ export default function Book() {
     },
   });
 
-  // SOLUTION TEMPORAIRE: L'API /api/public/salon ne retourne pas l'ID
-  // On utilise directement l'ID connu du salon depuis la base de données
-  // ID du salon: salon-c152118c-478b-497b-98db-db37a4c58898
-  // TODO: Corriger l'API /api/public/salon pour qu'elle retourne l'ID
-  const salonId = salonData?.salon?.id || "salon-c152118c-478b-497b-98db-db37a4c58898";
+  // Récupérer l'ID du salon depuis l'API publique
+  const salonId = salonData?.salon?.id;
   
   console.log('[Book] salonData:', salonData);
   console.log('[Book] salonId utilisé:', salonId);
 
   const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
-    queryKey: ["/api/salons", salonId, "services"],
+    queryKey: ["/api/public/salon/services"],
     queryFn: async () => {
-      if (!salonId) return [];
-      // Utiliser l'ID tel quel (l'API gère les deux formats)
-      const response = await fetch(`/api/salons/${salonId}/services`, {
+      console.log('[Book] 📥 Chargement services depuis /api/public/salon/services');
+      const response = await fetch("/api/public/salon/services", {
         credentials: 'include',
       });
       if (!response.ok) {
-        console.error('[Book] Erreur chargement services:', response.status);
+        console.error('[Book] ❌ Erreur chargement services:', response.status, response.statusText);
         return [];
       }
       const data = await response.json();
+      console.log('[Book] 📦 Données services reçues:', typeof data, Array.isArray(data) ? `tableau de ${data.length} éléments` : 'non-tableau');
+      
       // S'assurer que data est un tableau
       if (Array.isArray(data)) {
-        return data;
-      }
-      // Si c'est un objet avec une propriété services, l'extraire
-      if (data && typeof data === 'object' && Array.isArray(data.services)) {
-        return data.services;
-      }
-      // Si c'est un objet avec une propriété data, l'extraire
-      if (data && typeof data === 'object' && Array.isArray(data.data)) {
-        return data.data;
+        console.log('[Book] ✅ Services sont un tableau:', data.length);
+        // Mapper les données au format attendu
+        return data.map((s: any) => ({
+          id: s.id,
+          name: s.name || '',
+          description: s.description || '',
+          durationMinutes: s.duration || 30,
+          price: typeof s.price === 'number' ? `CHF ${s.price.toFixed(2)}` : (s.price || 'Sur demande'),
+          tags: s.tags || [],
+        }));
       }
       console.warn('[Book] Réponse services n\'est pas un tableau:', typeof data, data);
       return [];
     },
-    enabled: !!salonId,
-    retry: false,
+    retry: 1,
+    staleTime: 1000 * 60 * 5, // Cache 5 minutes
   });
 
   const { data: stylists, isLoading: stylistsLoading, error: stylistsError } = useQuery<Stylist[]>({
@@ -213,44 +212,14 @@ export default function Book() {
   const selectedService = Array.isArray(services) ? services.find((s: Service) => s.id === formData.serviceId) : undefined;
   const selectedStylist = Array.isArray(stylists) ? stylists.find((s: Stylist) => s.id === formData.stylistId) : undefined;
 
-  // Récupérer les horaires du salon
-  const { data: salonHoursData } = useQuery({
-    queryKey: ["/api/salons", salonId, "hours"],
-    queryFn: async () => {
-      if (!salonId) return { hours: [] };
-      const response = await fetch(`/api/salons/${salonId}/hours`, { credentials: 'include' });
-      if (!response.ok) return { hours: [] };
-      return response.json();
-    },
-    enabled: !!salonId,
-    retry: false,
-  });
+  // Récupérer les horaires du salon depuis l'API publique (inclus dans /api/public/salon)
+  const salonHoursData = salonData ? { hours: salonData.hours || [] } : { hours: [] };
 
-  // Récupérer les dates de fermeture
-  const { data: closedDates } = useQuery({
-    queryKey: ["/api/salons", salonId, "closed-dates"],
-    queryFn: async () => {
-      if (!salonId) return [];
-      const response = await fetch(`/api/salons/${salonId}/closed-dates`, { credentials: 'include' });
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: !!salonId,
-    retry: false,
-  });
+  // Récupérer les dates de fermeture (non utilisé pour l'instant, peut être ajouté plus tard)
+  const closedDates: any[] = [];
 
-  // Récupérer les disponibilités des stylistes
-  const { data: stylistHoursData } = useQuery<{ hours: StylistHours }>({
-    queryKey: ["/api/salons", salonId, "stylist-hours"],
-    queryFn: async () => {
-      if (!salonId) return { hours: {} };
-      const response = await fetch(`/api/salons/${salonId}/stylist-hours`, { credentials: 'include' });
-      if (!response.ok) return { hours: {} };
-      return response.json();
-    },
-    enabled: !!salonId,
-    retry: false,
-  });
+  // Récupérer les disponibilités des stylistes (non utilisé pour l'instant, l'API availability gère tout)
+  const stylistHoursData: { hours: StylistHours } = { hours: {} };
 
   // Fonction pour obtenir les informations de fermeture d'une date
   const getClosedDateInfo = (date: Date, stylistId?: string): { isClosed: boolean; startTime?: string; endTime?: string } => {
@@ -541,12 +510,8 @@ export default function Book() {
       });
       setStep(5); // Confirmation step
       // Invalider les queries pour rafraîchir les données
-      if (salonId) {
-        // Invalider les rendez-vous du salon (pour le calendrier owner)
-        queryClient.invalidateQueries({ queryKey: ["/api/salons", salonId, "appointments"] });
-      }
-      // Invalider les rendez-vous client (pour le dashboard client)
-      queryClient.invalidateQueries({ queryKey: ["/api/client/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/salon/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/salon/availability"] });
     },
     onError: (error) => {
       toast({
@@ -577,13 +542,31 @@ export default function Book() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.date || !formData.timeSlot || !selectedService || !salonId) return;
+    if (!formData.date || !formData.timeSlot || !selectedService) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs requis.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Récupérer salonId depuis salonData si pas encore disponible
+    const finalSalonId = salonId || salonData?.salon?.id;
+    if (!finalSalonId) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de récupérer les informations du salon. Veuillez réessayer.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       // Create or get client
       const client = await createClientMutation.mutateAsync({
         ...formData.clientInfo,
-        salonId: salonId,
+        salonId: finalSalonId,
       });
       
       // Vérifier si le client est nouveau
@@ -635,7 +618,7 @@ export default function Book() {
         dayEnd.setHours(23, 59, 59, 999);
         
         const appointmentsResponse = await fetch(
-          `/api/salons/${salonId}/appointments?startDate=${dayStart.toISOString()}&endDate=${dayEnd.toISOString()}`,
+          `/api/public/salon/appointments?startDate=${dayStart.toISOString()}&endDate=${dayEnd.toISOString()}`,
           { credentials: 'include' }
         );
         
@@ -674,14 +657,18 @@ export default function Book() {
       }
 
       // Create appointment
+      // Extraire le prix numérique depuis le format "CHF XX.XX"
+      const priceMatch = selectedService.price.match(/[\d,]+\.?\d*/);
+      const numericPrice = priceMatch ? parseFloat(priceMatch[0].replace(',', '.')) : 0;
+      
       const appointmentData = {
-        salonId: salonId,
+        salonId: finalSalonId,
         clientId: client.id,
         stylistId: finalStylistId,
         serviceId: formData.serviceId,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        totalAmount: selectedService.price,
+        totalAmount: numericPrice,
         status: "confirmed",
         channel: "form",
         notes: formData.clientInfo.notes,

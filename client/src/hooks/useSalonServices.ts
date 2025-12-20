@@ -12,34 +12,29 @@ export interface Service {
 
 /**
  * Hook pour récupérer les services du salon depuis l'API publique
+ * Utilise GET /api/public/salon/services qui retourne les services du salon le plus récent
  */
 export function useSalonServices() {
-  const { data: salonData } = useSalonData();
-  const salonId = salonData?.salon?.id;
-
   return useQuery<Service[]>({
-    queryKey: ['/api/salons', salonId, 'services'],
+    queryKey: ['/api/public/salon/services'],
     queryFn: async () => {
-      if (!salonId) {
-        return [];
-      }
-
-      const response = await fetch(`/api/salons/${salonId}/services`, {
+      const response = await fetch('/api/public/salon/services', {
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        console.warn('[useSalonServices] Erreur HTTP:', response.status, '- retour liste vide');
+        return [];
       }
 
       const data = await response.json();
-      return data;
+      return Array.isArray(data) ? data : [];
     },
-    enabled: !!salonId,
     staleTime: 1000 * 60 * 5, // Cache 5 minutes
     retry: 1,
   });
 }
+
 
 
 

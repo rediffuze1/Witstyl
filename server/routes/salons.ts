@@ -1814,7 +1814,7 @@ salonsRouter.get('/:salonId/appointments', async (req: Request, res: Response) =
         // Récupérer le service
         const { data: service } = await supabase
           .from('services')
-          .select('id, name, duration_minutes, duration, price')
+          .select('id, name, duration, price')
           .eq('id', apt.service_id)
           .maybeSingle();
         
@@ -1827,7 +1827,7 @@ salonsRouter.get('/:salonId/appointments', async (req: Request, res: Response) =
         
         // Calculer endTime à partir de appointment_date + duration
         const startTime = apt.appointment_date || apt.start_time;
-        const duration = apt.duration || service?.duration_minutes || service?.duration || 30;
+        const duration = apt.duration || service?.duration || 30;
         
         let startTimeISO: string;
         if (startTime) {
@@ -1861,7 +1861,7 @@ salonsRouter.get('/:salonId/appointments', async (req: Request, res: Response) =
           service: service ? {
             id: service.id,
             name: service.name,
-            durationMinutes: (service as any).duration_minutes || (service as any).duration || duration,
+            durationMinutes: (service as any).duration || duration,
             price: service.price ? parseFloat(service.price as any) : null,
           } : null,
           stylist: stylist ? {

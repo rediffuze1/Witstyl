@@ -286,3 +286,4 @@ npm run dev
 3. **Redeployer** si nécessaire
 4. **Tester** en production selon la checklist ci-dessus
 
+

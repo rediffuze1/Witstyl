@@ -307,6 +307,110 @@ publicRouter.get("/salon/stylistes", async (req, res) => {
   }
 });
 
+// Route publique pour récupérer les services du salon
+publicRouter.get("/salon/services", async (req, res) => {
+  console.log('[PUBLIC] hit GET /api/public/salon/services');
+  res.setHeader('Content-Type', 'application/json');
+  
+  try {
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.error('[PUBLIC] Configuration Supabase manquante');
+      return res.status(500).json({ error: "Configuration Supabase manquante" });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false }
+    });
+    
+    // Récupérer le salon unique
+    const { data: salons, error: salonError } = await supabase
+      .from('salons')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (salonError) {
+      console.error('[PUBLIC] Erreur récupération salon:', salonError);
+      return res.status(500).json({ error: "Impossible de charger le salon" });
+    }
+    
+    if (!salons) {
+      console.log('[PUBLIC] Aucun salon trouvé');
+      return res.json([]);
+    }
+    
+    let salonId = salons.id;
+    console.log('[PUBLIC] Salon ID récupéré:', salonId);
+    
+    // Essayer avec les deux formats d'ID (avec et sans préfixe salon-)
+    const salonIdsToTry = salonId.startsWith('salon-') 
+      ? [salonId, salonId.replace('salon-', '')]
+      : [salonId, `salon-${salonId}`];
+    
+    console.log('[PUBLIC] IDs à essayer pour services:', salonIdsToTry);
+    
+    let services: any[] | null = null;
+    let servicesError: any = null;
+    
+    // Essayer chaque format d'ID jusqu'à trouver des résultats
+    for (const trySalonId of salonIdsToTry) {
+      console.log('[PUBLIC] Essai récupération services avec salon_id:', trySalonId);
+      
+      const result = await supabase
+        .from('services')
+        .select('id, name, description, price, duration, tags, is_active')
+        .eq('salon_id', trySalonId)
+        .eq('is_active', true); // Uniquement les services actifs
+      
+      if (result.error) {
+        console.error('[PUBLIC] Erreur avec salon_id', trySalonId, ':', result.error);
+        servicesError = result.error;
+        continue;
+      }
+      
+      if (result.data && result.data.length > 0) {
+        console.log('[PUBLIC] ✅ Services trouvés avec salon_id:', trySalonId, '→', result.data.length);
+        services = result.data;
+        servicesError = null;
+        break;
+      } else {
+        console.log('[PUBLIC] Aucun service avec salon_id:', trySalonId);
+      }
+    }
+    
+    if (servicesError) {
+      console.error('[PUBLIC] Erreur récupération services:', servicesError);
+      return res.json([]);
+    }
+    
+    if (!services || services.length === 0) {
+      console.log('[PUBLIC] Aucun service trouvé pour ce salon');
+      return res.json([]);
+    }
+    
+    // Mapper les données au format attendu par le frontend
+    const result = services.map((s: any) => ({
+      id: s.id,
+      name: s.name || '',
+      description: s.description || '',
+      price: s.price || 0,
+      duration: s.duration || 30,
+      tags: s.tags || [],
+      isActive: s.is_active !== false
+    }));
+    
+    console.log('[PUBLIC] ✅ Services retournés:', result.length);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('[PUBLIC] Erreur inattendue lors de la récupération des services:', error);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Route publique pour récupérer les créneaux disponibles
 publicRouter.get("/salon/availability", async (req, res) => {
   const requestId = Math.random().toString(36).substring(7);

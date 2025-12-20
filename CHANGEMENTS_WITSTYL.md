@@ -120,3 +120,4 @@ Pour que tout fonctionne automatiquement :
 Une fois configuré, vous n'avez plus qu'à faire `git push` et Vercel déploiera automatiquement ! 🎉
 
 
+
