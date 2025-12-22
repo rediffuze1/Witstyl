@@ -2543,7 +2543,28 @@ app.post('/api/salon/login', express.json(), requireBackendReady, async (req, re
       });
     } catch (sessionError: any) {
       const duration = Date.now() - startTime;
-      console.error('[salon/login] Erreur lors de la sauvegarde de la session:', sessionError);
+      const errorCode = sessionError?.code || 'UNKNOWN';
+      const isSslError = errorCode === 'SELF_SIGNED_CERT_IN_CHAIN' || sessionError?.message?.includes('self-signed certificate');
+      const isSessionStoreUnavailable = storeStatus.status !== 'ok' || isSslError;
+      
+      console.error(`[salon/login] [${requestId}] Erreur lors de la sauvegarde de la session:`, {
+        code: errorCode,
+        message: sessionError?.message,
+        isSslError,
+        sessionStoreStatus: storeStatus.status
+      });
+      
+      // Si le session store est indisponible (SSL error ou autre), retourner 503
+      if (isSessionStoreUnavailable) {
+        console.log(`[Route] /api/salon/login respond 503 (SESSION_STORE_UNAVAILABLE) en ${duration}ms`);
+        return res.status(503).json({
+          success: false,
+          code: 'SESSION_STORE_UNAVAILABLE',
+          message: 'Le service de session est temporairement indisponible. Veuillez réessayer dans quelques instants.',
+        });
+      }
+      
+      // Autres erreurs de session
       console.log(`[Route] /api/salon/login respond 500 (SESSION_SAVE_ERROR) en ${duration}ms`);
       return res.status(500).json({
         success: false,
