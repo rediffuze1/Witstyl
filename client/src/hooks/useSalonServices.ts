@@ -30,7 +30,9 @@ export function useSalonServices() {
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    staleTime: 1000 * 60 * 5, // Cache 5 minutes
+    staleTime: 0, // Pas de cache - toujours récupérer les données fraîches depuis la DB
+    refetchOnMount: true, // Toujours refetch au montage pour synchronisation immédiate
+    refetchOnWindowFocus: true, // Refetch si l'utilisateur revient sur la page
     retry: 1,
   });
 }
