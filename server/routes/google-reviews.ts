@@ -106,6 +106,13 @@ router.get('/', async (req, res) => {
     // Documentation: https://developers.google.com/maps/documentation/places/web-service/place-details
     const apiUrl = `https://places.googleapis.com/v1/places/${placeId}`;
     
+    console.log(`[google-reviews] [${requestId}] 🔍 Appel Google Places API (New):`, {
+      endpoint: 'places.googleapis.com/v1/places',
+      placeIdPrefix: placeId.substring(0, 10) + '...',
+      hasApiKey: !!GOOGLE_PLACES_API_KEY,
+      apiKeyLength: GOOGLE_PLACES_API_KEY?.length || 0
+    });
+    
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
