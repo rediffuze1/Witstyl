@@ -81,25 +81,26 @@ router.get('/', async (req, res) => {
 
           if (!error && salons?.google_place_id) {
             placeId = salons.google_place_id;
-            console.log('[google-reviews] ✅ Place ID récupéré depuis la DB:', placeId);
+            console.log(`[google-reviews] [${requestId}] ✅ Place ID récupéré depuis la DB`);
           }
         }
       } catch (dbError) {
-        console.warn('[google-reviews] ⚠️ Erreur récupération Place ID depuis DB:', dbError);
+        console.warn(`[google-reviews] [${requestId}] ⚠️ Erreur récupération Place ID depuis DB:`, dbError);
       }
     }
 
-    // Si toujours pas de Place ID, retourner liste vide
+    // Si toujours pas de Place ID, retourner erreur explicite
     if (!placeId || placeId.length < 5) {
-      console.log('[google-reviews] ⚠️ GOOGLE_PLACE_ID non configuré, retour liste vide');
-      return res.json({
-        reviews: [],
-        averageRating: 0,
-        totalReviews: 0,
+      console.log(`[google-reviews] [${requestId}] ⚠️ GOOGLE_PLACE_ID non configuré`);
+      return res.status(500).json({
+        success: false,
+        error: 'GOOGLE_PLACE_ID_NOT_CONFIGURED',
+        message: 'Le Place ID Google n\'est pas configuré',
+        data: { reviews: [], averageRating: 0, totalReviews: 0 }
       });
     }
 
-    console.log('[google-reviews] 🔍 Récupération avis pour Place ID:', placeId);
+    console.log(`[google-reviews] [${requestId}] 🔍 Récupération avis pour Place ID: ${placeId.substring(0, 10)}...`);
 
     // Appel à Google Places API (New)
     // Documentation: https://developers.google.com/maps/documentation/places/web-service/place-details
