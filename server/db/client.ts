@@ -64,13 +64,29 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   const isVercel = !!process.env.VERCEL;
   const isProduction = process.env.NODE_ENV === 'production';
   
-  // Extraire le host pour les logs
+  // Parser DATABASE_URL proprement pour extraire host, port, user, password, database
   let dbHost = 'unknown';
+  let dbPort = 5432; // Port par défaut PostgreSQL
+  let dbUser = 'unknown';
+  let dbDatabase = 'unknown';
+  let isValidUrl = false;
+  
   try {
     const urlObj = new URL(DATABASE_URL);
     dbHost = urlObj.hostname;
-  } catch (e) {
-    // Ignorer si l'URL ne peut pas être parsée
+    // Port : utiliser celui de l'URL ou 5432 par défaut
+    dbPort = Number(urlObj.port || '5432');
+    // Détecter pooler/pgbouncer : port 6543 (Transaction Mode) ou 5432 (Session Mode)
+    if (urlObj.port === '6543' || DATABASE_URL.includes('pgbouncer=true')) {
+      // Pooler détecté
+    }
+    dbUser = decodeURIComponent(urlObj.username || '');
+    dbDatabase = urlObj.pathname.replace(/^\//, '') || 'unknown';
+    isValidUrl = true;
+  } catch (e: any) {
+    // URL invalide : lancer une erreur claire
+    console.error('[DB] ❌ DATABASE_URL invalide:', e.message);
+    throw new Error('DB_CONFIG_INVALID: DATABASE_URL n\'est pas une URL valide');
   }
   
   // Configuration SSL - Sécurisée par défaut avec support certificat CA Supabase
