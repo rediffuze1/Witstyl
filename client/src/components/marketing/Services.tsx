@@ -46,6 +46,9 @@ export default function Services() {
         name: s.name,
         description: s.description || '',
         price: s.price ? `CHF ${s.price.toFixed(2)}` : 'Sur demande',
+        duration: s.duration && !isNaN(Number(s.duration)) && Number(s.duration) > 0 
+          ? Number(s.duration) 
+          : null, // null si durée invalide/manquante
         icon: '✂️', // Par défaut, peut être amélioré avec des tags
       }))
     : [];

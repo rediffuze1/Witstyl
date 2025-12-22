@@ -416,14 +416,25 @@ publicRouter.get("/salon/services", async (req, res) => {
     }
     
     // Mapper les données au format attendu par le frontend
-    const result = services.map((s: any) => ({
-      id: s.id,
-      name: s.name || '',
-      description: s.description || '',
-      price: s.price || 0,
-      duration: s.duration || 30,
-      tags: s.tags || []
-    }));
+    // S'assurer que duration est toujours un nombre valide
+    const result = services.map((s: any) => {
+      // Essayer duration, puis duration_minutes, puis fallback 30
+      const duration = s.duration 
+        ? Number(s.duration) 
+        : (s.duration_minutes ? Number(s.duration_minutes) : 30);
+      
+      // Valider que duration est un nombre valide
+      const validDuration = (!isNaN(duration) && duration > 0) ? duration : 30;
+      
+      return {
+        id: s.id,
+        name: s.name || '',
+        description: s.description || '',
+        price: s.price || 0,
+        duration: validDuration,
+        tags: s.tags || []
+      };
+    });
     
     console.log('[PUBLIC] ✅ Services retournés:', result.length);
     return res.json({

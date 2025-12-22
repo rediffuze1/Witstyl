@@ -73,15 +73,17 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     // Ignorer si l'URL ne peut pas être parsée
   }
   
-  // Configuration SSL - Sécurisée par défaut avec support Supabase
+  // Configuration SSL - Sécurisée par défaut avec support certificat CA Supabase
+  // Support PG_SSL_CA (PEM multi-line) pour certificat CA personnalisé
   // Par défaut: rejectUnauthorized: true (sécurisé)
   // Override possible via PG_SSL_REJECT_UNAUTHORIZED=false si nécessaire
+  const pgSslCa = process.env.PG_SSL_CA;
   const pgSslRejectUnauthorized = process.env.PG_SSL_REJECT_UNAUTHORIZED;
   const shouldRejectUnauthorized = pgSslRejectUnauthorized === undefined 
     ? true // Par défaut: sécurisé
     : pgSslRejectUnauthorized.toLowerCase() !== 'false'; // Respecter l'override si fourni
   
-  let sslConfig: { rejectUnauthorized: boolean } | boolean = false;
+  let sslConfig: { rejectUnauthorized: boolean; ca?: string } | boolean = false;
   let sslMode = 'DISABLED';
   
   // Détecter si SSL est requis depuis l'URL
@@ -89,10 +91,20 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   
   if (urlRequiresSsl || isPooler || isSupabase) {
     // SSL requis : utiliser configuration explicite
-    sslConfig = { rejectUnauthorized: shouldRejectUnauthorized };
-    sslMode = shouldRejectUnauthorized 
-      ? 'ENABLED (rejectUnauthorized: true - secure)' 
-      : 'ENABLED (rejectUnauthorized: false - override)';
+    if (pgSslCa) {
+      // Certificat CA fourni : SSL sécurisé avec CA personnalisé
+      sslConfig = { 
+        rejectUnauthorized: true, // Toujours true si CA fourni
+        ca: pgSslCa // PEM multi-line
+      };
+      sslMode = 'ENABLED (rejectUnauthorized: true, CA provided)';
+    } else {
+      // Pas de CA : utiliser rejectUnauthorized selon override
+      sslConfig = { rejectUnauthorized: shouldRejectUnauthorized };
+      sslMode = shouldRejectUnauthorized 
+        ? 'ENABLED (rejectUnauthorized: true - secure)' 
+        : 'ENABLED (rejectUnauthorized: false - override)';
+    }
   } else if (isProduction && !isVercel) {
     // Production locale : SSL standard
     sslConfig = true;
@@ -113,10 +125,13 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
       sslMode,
       rejectUnauthorized: rejectUnauthorizedValue,
       host: dbHost,
+      port: dbPort,
       isPooler,
       isSupabase,
       pgbouncerDetected: DATABASE_URL.includes('pgbouncer=true'),
       sslmodeInUrl: DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer'),
+      caProvided: !!pgSslCa,
+      caLength: pgSslCa ? pgSslCa.length : 0,
       pgSslOverride: pgSslRejectUnauthorized || 'none'
     });
   }
