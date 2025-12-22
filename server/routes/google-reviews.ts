@@ -123,15 +123,84 @@ router.get('/', async (req, res) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[google-reviews] [${requestId}] ❌ Erreur Google Places API: ${response.status}`);
+      let errorData: any = {};
+      try {
+        const errorText = await response.text();
+        errorData = errorText ? JSON.parse(errorText) : {};
+      } catch (parseError) {
+        // Si le parsing échoue, utiliser le texte brut
+        try {
+          const errorText = await response.text();
+          errorData = { message: errorText || 'Unknown error' };
+        } catch {
+          errorData = { message: 'Unknown error' };
+        }
+      }
       
-      // Si erreur 400 (API key invalid) ou 403 (forbidden)
-      if (response.status === 400 || response.status === 403) {
+      const errorStatus = errorData.error?.status || errorData.status || response.status;
+      const errorMessage = errorData.error?.message || errorData.message || response.statusText;
+      const errorReason = errorData.error?.reason || errorData.reason;
+      
+      console.error(`[google-reviews] [${requestId}] ❌ Erreur Google Places API:`, {
+        status: response.status,
+        errorStatus,
+        errorMessage,
+        errorReason,
+        endpoint: 'places.googleapis.com/v1/places',
+        hasApiKey: !!GOOGLE_PLACES_API_KEY,
+        apiKeyLength: GOOGLE_PLACES_API_KEY?.length || 0
+      });
+      
+      // Erreur 400 : analyser la raison pour donner un message actionnable
+      if (response.status === 400) {
+        // Raisons possibles : API_KEY_INVALID, BILLING_NOT_ENABLED, PERMISSION_DENIED, etc.
+        if (errorReason === 'API_KEY_INVALID' || errorMessage?.includes('API key') || errorMessage?.includes('API_KEY')) {
+          return res.status(502).json({
+            success: false,
+            code: 'GOOGLE_API_KEY_INVALID',
+            error: 'GOOGLE_API_KEY_INVALID',
+            message: 'La clé API Google Places est invalide. Vérifiez GOOGLE_PLACES_API_KEY sur Vercel.',
+            data: { reviews: [], averageRating: 0, totalReviews: 0 }
+          });
+        }
+        
+        if (errorReason === 'BILLING_NOT_ENABLED' || errorMessage?.includes('billing') || errorMessage?.includes('BILLING')) {
+          return res.status(502).json({
+            success: false,
+            code: 'GOOGLE_PLACES_API_NOT_AUTHORIZED',
+            error: 'GOOGLE_PLACES_API_NOT_AUTHORIZED',
+            message: 'La facturation Google Cloud n\'est pas activée ou l\'API Places n\'est pas activée. Vérifiez Google Cloud Console.',
+            data: { reviews: [], averageRating: 0, totalReviews: 0 }
+          });
+        }
+        
+        if (errorReason === 'PERMISSION_DENIED' || errorMessage?.includes('permission') || errorMessage?.includes('PERMISSION')) {
+          return res.status(502).json({
+            success: false,
+            code: 'GOOGLE_PLACES_API_NOT_AUTHORIZED',
+            error: 'GOOGLE_PLACES_API_NOT_AUTHORIZED',
+            message: 'Permissions insuffisantes pour l\'API Places. Vérifiez les restrictions de la clé API dans Google Cloud Console.',
+            data: { reviews: [], averageRating: 0, totalReviews: 0 }
+          });
+        }
+        
+        // Erreur 400 générique
         return res.status(502).json({
           success: false,
+          code: 'GOOGLE_API_BAD_REQUEST',
+          error: 'GOOGLE_API_BAD_REQUEST',
+          message: `Erreur 400 de l'API Google Places: ${errorMessage || errorReason || 'Requête invalide'}`,
+          data: { reviews: [], averageRating: 0, totalReviews: 0 }
+        });
+      }
+      
+      // Erreur 403 : clé invalide ou permissions insuffisantes
+      if (response.status === 403) {
+        return res.status(502).json({
+          success: false,
+          code: 'GOOGLE_API_KEY_INVALID',
           error: 'GOOGLE_API_KEY_INVALID',
-          message: 'La clé API Google Places est invalide ou n\'a pas les permissions nécessaires',
+          message: 'La clé API Google Places est invalide ou n\'a pas les permissions nécessaires. Vérifiez GOOGLE_PLACES_API_KEY et les restrictions dans Google Cloud Console.',
           data: { reviews: [], averageRating: 0, totalReviews: 0 }
         });
       }
@@ -140,8 +209,9 @@ router.get('/', async (req, res) => {
       if (response.status === 404) {
         return res.status(404).json({
           success: false,
+          code: 'GOOGLE_PLACE_NOT_FOUND',
           error: 'GOOGLE_PLACE_NOT_FOUND',
-          message: 'Le lieu Google spécifié n\'a pas été trouvé',
+          message: 'Le lieu Google spécifié n\'a pas été trouvé. Vérifiez GOOGLE_PLACE_ID.',
           data: { reviews: [], averageRating: 0, totalReviews: 0 }
         });
       }
@@ -149,8 +219,9 @@ router.get('/', async (req, res) => {
       // Pour les autres erreurs
       return res.status(502).json({
         success: false,
+        code: 'GOOGLE_API_ERROR',
         error: 'GOOGLE_API_ERROR',
-        message: `Erreur de l'API Google Places: ${response.statusText}`,
+        message: `Erreur ${response.status} de l'API Google Places: ${errorMessage || response.statusText}`,
         data: { reviews: [], averageRating: 0, totalReviews: 0 }
       });
     }
