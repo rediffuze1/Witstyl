@@ -393,12 +393,26 @@ publicRouter.get("/salon/services", async (req, res) => {
     
     if (servicesError) {
       console.error('[PUBLIC] Erreur récupération services:', servicesError);
-      return res.json([]);
+      return res.status(500).json({
+        success: false,
+        error: 'SERVICES_FETCH_FAILED',
+        message: 'Erreur lors de la récupération des services',
+        data: { services: [] }
+      });
     }
     
     if (!services || services.length === 0) {
       console.log('[PUBLIC] Aucun service trouvé pour ce salon');
-      return res.json([]);
+      return res.json({
+        success: true,
+        data: {
+          services: [],
+          meta: {
+            reason: 'NO_SERVICES',
+            message: 'Aucun service configuré pour ce salon'
+          }
+        }
+      });
     }
     
     // Mapper les données au format attendu par le frontend
@@ -408,12 +422,16 @@ publicRouter.get("/salon/services", async (req, res) => {
       description: s.description || '',
       price: s.price || 0,
       duration: s.duration || 30,
-      tags: s.tags || [],
-      isActive: s.is_active !== false
+      tags: s.tags || []
     }));
     
     console.log('[PUBLIC] ✅ Services retournés:', result.length);
-    return res.json(result);
+    return res.json({
+      success: true,
+      data: {
+        services: result
+      }
+    });
   } catch (error: any) {
     console.error('[PUBLIC] Erreur inattendue lors de la récupération des services:', error);
     return res.status(500).json({ error: "Erreur serveur" });
