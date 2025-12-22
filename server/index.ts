@@ -2513,17 +2513,25 @@ app.post('/api/salon/login', express.json(), requireBackendReady, async (req, re
     });
     
     // Sauvegarder explicitement la session AVANT de répondre
+    const requestId = Math.random().toString(36).substring(7);
     try {
       await new Promise<void>((resolve, reject) => {
         req.session!.save((err) => {
           if (err) {
-            console.error("[salon/login] Erreur lors de la sauvegarde de la session:", err);
+            const errorCode = (err as any)?.code || 'UNKNOWN';
+            const errorMessage = err.message || 'Erreur inconnue';
+            console.error(`[salon/login] [${requestId}] Erreur lors de la sauvegarde de la session:`, {
+              code: errorCode,
+              message: errorMessage,
+              isSslError: errorCode === 'SELF_SIGNED_CERT_IN_CHAIN' || errorMessage.includes('self-signed certificate'),
+              sessionStoreStatus: storeStatus.status
+            });
             reject(err);
           } else {
-            console.log("[salon/login] ✅ Session sauvegardée pour user:", result.user.id);
-            console.log("[salon/login] Session ID:", req.sessionID);
+            console.log(`[salon/login] [${requestId}] ✅ Session sauvegardée pour user:`, result.user.id);
+            console.log(`[salon/login] [${requestId}] Session ID:`, req.sessionID);
             const secure = isRequestSecure(req);
-            console.log("[salon/login] Cookie sera envoyé avec:", {
+            console.log(`[salon/login] [${requestId}] Cookie sera envoyé avec:`, {
               secure,
               sameSite: req.session.cookie.sameSite || 'lax',
               httpOnly: true,

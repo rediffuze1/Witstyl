@@ -73,35 +73,30 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     // Ignorer si l'URL ne peut pas être parsée
   }
   
-  // Configuration SSL - Hotfix "ça marche sur Vercel quoi qu'il arrive"
-  // Force rejectUnauthorized: false quand VERCEL=1 (simple et robuste)
-  // Garantit que pour Supabase/pooler, config.ssl est TOUJOURS un objet explicite { rejectUnauthorized: false }
-  let sslConfig: { rejectUnauthorized: false } | boolean = false;
+  // Configuration SSL - Sécurisée par défaut avec support Supabase
+  // Par défaut: rejectUnauthorized: true (sécurisé)
+  // Override possible via PG_SSL_REJECT_UNAUTHORIZED=false si nécessaire
+  const pgSslRejectUnauthorized = process.env.PG_SSL_REJECT_UNAUTHORIZED;
+  const shouldRejectUnauthorized = pgSslRejectUnauthorized === undefined 
+    ? true // Par défaut: sécurisé
+    : pgSslRejectUnauthorized.toLowerCase() !== 'false'; // Respecter l'override si fourni
+  
+  let sslConfig: { rejectUnauthorized: boolean } | boolean = false;
   let sslMode = 'DISABLED';
   
-  if (isVercel) {
-    // Vercel + providers variés => on évite les erreurs de chaîne de cert
-    // IMPORTANT: Toujours un objet explicite, jamais true/any
-    sslConfig = { rejectUnauthorized: false };
-    sslMode = 'ENABLED (rejectUnauthorized: false) - Vercel';
-  } else if (isPooler || isSupabase) {
-    // Supabase pooler/direct : SSL obligatoire avec certificats auto-signés
-    // IMPORTANT: Toujours un objet explicite { rejectUnauthorized: false }, impossible à ignorer par pg
-    sslConfig = { rejectUnauthorized: false };
-    sslMode = 'ENABLED (rejectUnauthorized: false) - Supabase pooler';
-  } else if (isProduction) {
-    // SSL standard local prod hors vercel
+  // Détecter si SSL est requis depuis l'URL
+  const urlRequiresSsl = DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer');
+  
+  if (urlRequiresSsl || isPooler || isSupabase) {
+    // SSL requis : utiliser configuration explicite
+    sslConfig = { rejectUnauthorized: shouldRejectUnauthorized };
+    sslMode = shouldRejectUnauthorized 
+      ? 'ENABLED (rejectUnauthorized: true - secure)' 
+      : 'ENABLED (rejectUnauthorized: false - override)';
+  } else if (isProduction && !isVercel) {
+    // Production locale : SSL standard
     sslConfig = true;
     sslMode = 'ENABLED (standard verification)';
-  }
-  
-  // Garantir que pour Supabase/pooler, sslConfig est TOUJOURS un objet explicite
-  // (pas true, pas any, pas dépendant d'un autre flag)
-  if ((isPooler || isSupabase) && sslConfig !== false) {
-    if (typeof sslConfig !== 'object' || !('rejectUnauthorized' in sslConfig)) {
-      console.warn('[DB] ⚠️  sslConfig n\'est pas un objet explicite pour Supabase, correction...');
-      sslConfig = { rejectUnauthorized: false };
-    }
   }
   
   // Log SSL explicite pour diagnostic
