@@ -181,11 +181,23 @@ export default function Services() {
                 </h3>
 
                 <p
-                  className="text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed"
+                  className="text-xs sm:text-sm mb-2 sm:mb-3 leading-relaxed"
                   style={{ color: 'hsl(var(--text-muted))' }}
                 >
                   {service.description}
                 </p>
+
+                {/* Durée du service - afficher uniquement si valide */}
+                {service.duration && (
+                  <div className="mb-3 sm:mb-4">
+                    <span
+                      className="text-xs sm:text-sm font-medium"
+                      style={{ color: 'hsl(var(--text-muted))' }}
+                    >
+                      ⏱️ {service.duration} min
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mt-4 sm:mt-6">
                   <span
