@@ -136,14 +136,23 @@ export default function Book() {
       if (Array.isArray(data)) {
         console.log('[Book] ✅ Services sont un tableau:', data.length);
         // Mapper les données au format attendu
-        return data.map((s: any) => ({
-          id: s.id,
-          name: s.name || '',
-          description: s.description || '',
-          durationMinutes: s.duration || 30,
-          price: typeof s.price === 'number' ? `CHF ${s.price.toFixed(2)}` : (s.price || 'Sur demande'),
-          tags: s.tags || [],
-        }));
+        return data.map((s: any) => {
+          // S'assurer que durationMinutes est toujours un nombre valide
+          // Essayer duration, puis duration_minutes, puis fallback 30
+          const duration = s.duration 
+            ? Number(s.duration) 
+            : (s.duration_minutes ? Number(s.duration_minutes) : 30);
+          const validDuration = (!isNaN(duration) && duration > 0) ? duration : 30;
+          
+          return {
+            id: s.id,
+            name: s.name || '',
+            description: s.description || '',
+            durationMinutes: validDuration, // Toujours un nombre valide
+            price: typeof s.price === 'number' ? `CHF ${s.price.toFixed(2)}` : (s.price || 'Sur demande'),
+            tags: s.tags || [],
+          };
+        });
       }
       console.warn('[Book] Réponse services n\'est pas un tableau:', typeof data, data);
       return [];
