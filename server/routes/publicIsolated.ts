@@ -360,37 +360,20 @@ publicRouter.get("/salon/services", async (req, res) => {
     for (const trySalonId of salonIdsToTry) {
       console.log('[PUBLIC] Essai récupération services avec salon_id:', trySalonId);
       
-      // D'abord essayer sans filtre is_active pour voir tous les services
+      // Récupérer tous les services (sans référence à is_active qui n'existe peut-être pas)
+      // On sélectionne uniquement les colonnes qui existent définitivement
       let result = await supabase
         .from('services')
-        .select('id, name, description, price, duration, tags, is_active')
+        .select('id, name, description, price, duration, tags')
         .eq('salon_id', trySalonId);
       
-      console.log('[PUBLIC] Résultat query services (sans filtre is_active):', {
+      console.log('[PUBLIC] Résultat query services:', {
         salon_id: trySalonId,
         hasData: !!result.data,
         dataLength: result.data?.length || 0,
         error: result.error?.message || null,
-        allServices: result.data?.map((s: any) => ({ id: s.id, name: s.name, is_active: s.is_active })) || []
+        firstService: result.data?.[0] || null
       });
-      
-      // Si aucun service trouvé, essayer avec is_active = true
-      if (!result.data || result.data.length === 0) {
-        result = await supabase
-          .from('services')
-          .select('id, name, description, price, duration, tags, is_active')
-          .eq('salon_id', trySalonId)
-          .eq('is_active', true);
-        console.log('[PUBLIC] Résultat query services (avec filtre is_active=true):', {
-          salon_id: trySalonId,
-          hasData: !!result.data,
-          dataLength: result.data?.length || 0
-        });
-      } else {
-        // Filtrer côté code pour ne garder que les actifs
-        result.data = result.data.filter((s: any) => s.is_active !== false);
-        console.log('[PUBLIC] Services filtrés (is_active !== false):', result.data.length);
-      }
       
       if (result.error) {
         console.error('[PUBLIC] Erreur avec salon_id', trySalonId, ':', result.error);

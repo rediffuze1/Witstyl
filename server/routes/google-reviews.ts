@@ -41,17 +41,21 @@ interface GoogleReviewsResponse {
  * 2. Via base de données : colonne google_place_id dans la table salons
  */
 router.get('/', async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`[google-reviews] [${requestId}] GET /api/reviews/google`);
+  
   try {
     const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
     const GOOGLE_PLACE_ID = process.env.GOOGLE_PLACE_ID;
 
     // Vérifier si la clé API est configurée
     if (!GOOGLE_PLACES_API_KEY || GOOGLE_PLACES_API_KEY.length < 10) {
-      console.log('[google-reviews] ⚠️ GOOGLE_PLACES_API_KEY non configurée, retour liste vide');
-      return res.json({
-        reviews: [],
-        averageRating: 0,
-        totalReviews: 0,
+      console.log(`[google-reviews] [${requestId}] ⚠️ GOOGLE_PLACES_API_KEY non configurée`);
+      return res.status(500).json({
+        success: false,
+        error: 'GOOGLE_API_NOT_CONFIGURED',
+        message: 'La clé API Google Places n\'est pas configurée',
+        data: { reviews: [], averageRating: 0, totalReviews: 0 }
       });
     }
 

@@ -28,6 +28,13 @@ export function useSalonServices() {
       }
 
       const data = await response.json();
+      
+      // Gérer le nouveau format de réponse { success, data: { services } }
+      if (data.success && data.data && Array.isArray(data.data.services)) {
+        return data.data.services;
+      }
+      
+      // Fallback pour l'ancien format (tableau direct)
       return Array.isArray(data) ? data : [];
     },
     staleTime: 0, // Pas de cache - toujours récupérer les données fraîches depuis la DB

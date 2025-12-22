@@ -1519,7 +1519,8 @@ console.log('[SERVER] ✅ Routes disponibles: GET /api/salons/:salonId/hours, PU
 // ROUTE GOOGLE REVIEWS
 // ============================================
 // Route pour récupérer les avis Google depuis Google Places API
-import googleReviewsRouter from './routes/google-reviews';
+// IMPORTANT: En ESM, les imports relatifs doivent inclure l'extension .js
+import googleReviewsRouter from './routes/google-reviews.js';
 app.use('/api/reviews/google', googleReviewsRouter);
 
 // 👉 Routes publiques (après les routes spécifiques)

@@ -49,8 +49,13 @@ export function useGoogleReviews() {
 
       const data = await response.json();
       
+      // Gérer le nouveau format de réponse { success, data: { reviews, ... } }
+      const reviews = data.success && data.data ? data.data.reviews : (data.reviews || []);
+      const averageRating = data.success && data.data ? data.data.averageRating : (data.averageRating || 0);
+      const totalReviews = data.success && data.data ? data.data.totalReviews : (data.totalReviews || 0);
+      
       // S'assurer qu'on ne retourne que les 5 meilleurs (triés par note DESC puis date DESC)
-      const sortedReviews = (data.reviews || [])
+      const sortedReviews = reviews
         .sort((a: GoogleReview, b: GoogleReview) => {
           // D'abord par note décroissante
           if (b.rating !== a.rating) {
@@ -62,8 +67,9 @@ export function useGoogleReviews() {
         .slice(0, 5);
 
       return {
-        ...data,
         reviews: sortedReviews,
+        averageRating,
+        totalReviews,
       };
     },
     staleTime: 1000 * 60 * 30, // Cache 30 minutes
