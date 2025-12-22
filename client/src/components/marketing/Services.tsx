@@ -44,7 +44,7 @@ export default function Services() {
       }))
     : [];
 
-  if (isLoading && !servicesFromApi) {
+  if (isLoading) {
     return (
       <section
         id="services"
@@ -58,6 +58,12 @@ export default function Services() {
         </Container>
       </section>
     );
+  }
+
+  // Si aucun service n'est disponible après le chargement, ne rien afficher
+  if (!services || services.length === 0) {
+    console.log('[Services] Aucun service disponible - section masquée');
+    return null; // Ne pas afficher la section si aucun service
   }
 
   return (
