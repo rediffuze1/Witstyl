@@ -186,8 +186,8 @@ router.get('/', async (req, res) => {
                   success: true,
                   data: {
                     reviews,
-                    averageRating: legacyData.result.rating || 0,
-                    totalReviews: legacyData.result.user_ratings_total || reviews.length,
+                    rating: legacyData.result.rating || 0,
+                    userRatingsTotal: legacyData.result.user_ratings_total || reviews.length,
                   }
                 });
               } else {
