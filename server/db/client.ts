@@ -99,14 +99,25 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     sslMode = 'ENABLED (standard verification)';
   }
   
-  // Log SSL explicite pour diagnostic
+  // Log SSL explicite pour diagnostic (toujours en prod/Vercel)
   if (isVercel || isProduction) {
+    const sslEnabled = sslConfig !== false;
+    const rejectUnauthorizedValue = sslConfig === false 
+      ? 'N/A' 
+      : typeof sslConfig === 'object' 
+        ? (sslConfig.rejectUnauthorized ? 'true (secure)' : 'false (override)')
+        : 'true (standard)';
+    
     console.log('[DB] 🔐 Configuration SSL:', {
+      sslEnabled,
       sslMode,
-      rejectUnauthorized: sslConfig === false ? 'N/A' : (sslConfig as any).rejectUnauthorized === false ? 'false (no-verify)' : 'true (standard)',
+      rejectUnauthorized: rejectUnauthorizedValue,
       host: dbHost,
       isPooler,
       isSupabase,
+      pgbouncerDetected: DATABASE_URL.includes('pgbouncer=true'),
+      sslmodeInUrl: DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer'),
+      pgSslOverride: pgSslRejectUnauthorized || 'none'
     });
   }
   
