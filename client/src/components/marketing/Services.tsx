@@ -66,10 +66,36 @@ export default function Services() {
     );
   }
 
-  // Si aucun service n'est disponible après le chargement, ne rien afficher
-  if (!services || services.length === 0) {
-    console.log('[Services] Aucun service disponible - section masquée');
-    return null; // Ne pas afficher la section si aucun service
+  // Si aucun service n'est disponible après le chargement, afficher un message
+  if (!isLoading && (!services || services.length === 0)) {
+    console.log('[Services] ⚠️ Aucun service disponible');
+    return (
+      <section
+        id="services"
+        className="relative py-24 sm:py-28 lg:py-32"
+        style={{ backgroundColor: 'hsl(var(--bg-page))' }}
+      >
+        <Container className="relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.6 }}
+            className="text-center max-w-3xl mx-auto"
+          >
+            <h2
+              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold mb-3 sm:mb-4"
+              style={{ color: 'hsl(var(--text-main))' }}
+            >
+              Nos services
+            </h2>
+            <p className="text-sm sm:text-base md:text-lg" style={{ color: 'hsl(var(--text-muted))' }}>
+              Les services seront bientôt disponibles. Contactez-nous pour plus d'informations.
+            </p>
+          </motion.div>
+        </Container>
+      </section>
+    );
   }
 
   return (
