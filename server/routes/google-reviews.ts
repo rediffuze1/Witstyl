@@ -153,6 +153,75 @@ router.get('/', async (req, res) => {
       
       // Erreur 400 : analyser la raison pour donner un message actionnable
       if (response.status === 400) {
+        // Si "Place ID not valid" ou "INVALID_ARGUMENT", essayer fallback legacy
+        const isPlaceIdInvalid = errorReason === 'INVALID_ARGUMENT' || 
+          errorMessage?.includes('Place ID not valid') || 
+          errorMessage?.includes('Place ID') ||
+          errorMessage?.includes('Invalid place_id');
+        
+        if (isPlaceIdInvalid) {
+          console.log(`[google-reviews] [${requestId}] ⚠️ Place ID invalide avec API New, tentative fallback legacy...`);
+          
+          // Fallback vers API legacy
+          try {
+            const legacyUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${GOOGLE_PLACES_API_KEY}&fields=rating,reviews,user_ratings_total`;
+            const legacyResponse = await fetch(legacyUrl);
+            
+            if (legacyResponse.ok) {
+              const legacyData = await legacyResponse.json();
+              
+              if (legacyData.status === 'OK' && legacyData.result) {
+                console.log(`[google-reviews] [${requestId}] ✅ Fallback legacy réussi`);
+                
+                const reviews: GoogleReview[] = (legacyData.result.reviews || []).map((review: any, index: number) => ({
+                  id: review.author_name || `review-${index}-${Date.now()}`,
+                  authorName: review.author_name || 'Client anonyme',
+                  rating: review.rating || 5,
+                  text: review.text || '',
+                  time: review.time ? new Date(review.time * 1000).toISOString() : new Date().toISOString(),
+                  relativeTimeDescription: formatRelativeTime(review.time ? new Date(review.time * 1000).toISOString() : undefined),
+                }));
+                
+                return res.json({
+                  success: true,
+                  data: {
+                    reviews,
+                    averageRating: legacyData.result.rating || 0,
+                    totalReviews: legacyData.result.user_ratings_total || reviews.length,
+                  }
+                });
+              } else {
+                // Legacy API retourne une erreur
+                return res.status(502).json({
+                  success: false,
+                  code: 'GOOGLE_PLACE_ID_INVALID',
+                  error: 'GOOGLE_PLACE_ID_INVALID',
+                  message: `Place ID invalide (${legacyData.status}). Vérifiez GOOGLE_PLACE_ID.`,
+                  data: { reviews: [], averageRating: 0, totalReviews: 0 }
+                });
+              }
+            } else {
+              // Legacy API erreur HTTP
+              return res.status(502).json({
+                success: false,
+                code: 'GOOGLE_API_KEY_INVALID',
+                error: 'GOOGLE_API_KEY_INVALID',
+                message: 'La clé API Google Places est invalide. Vérifiez GOOGLE_PLACES_API_KEY sur Vercel.',
+                data: { reviews: [], averageRating: 0, totalReviews: 0 }
+              });
+            }
+          } catch (legacyError: any) {
+            console.error(`[google-reviews] [${requestId}] ❌ Erreur fallback legacy:`, legacyError);
+            return res.status(502).json({
+              success: false,
+              code: 'GOOGLE_PLACE_ID_INVALID',
+              error: 'GOOGLE_PLACE_ID_INVALID',
+              message: `Place ID invalide. Vérifiez GOOGLE_PLACE_ID.`,
+              data: { reviews: [], averageRating: 0, totalReviews: 0 }
+            });
+          }
+        }
+        
         // Raisons possibles : API_KEY_INVALID, BILLING_NOT_ENABLED, PERMISSION_DENIED, etc.
         if (errorReason === 'API_KEY_INVALID' || errorMessage?.includes('API key') || errorMessage?.includes('API_KEY')) {
           return res.status(502).json({

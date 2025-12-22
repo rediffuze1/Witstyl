@@ -90,14 +90,24 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   }
   
   // Configuration SSL - Sécurisée par défaut avec support certificat CA Supabase
-  // Support PG_SSL_CA (PEM multi-line) pour certificat CA personnalisé
+  // Support PGSSLROOTCERT (PEM avec \n échappés) pour certificat CA personnalisé
+  // INTERDIT: NODE_TLS_REJECT_UNAUTHORIZED=0 et rejectUnauthorized: false
   // Par défaut: rejectUnauthorized: true (sécurisé)
-  // Override possible via PG_SSL_REJECT_UNAUTHORIZED=false si nécessaire
-  const pgSslCa = process.env.PG_SSL_CA;
-  const pgSslRejectUnauthorized = process.env.PG_SSL_REJECT_UNAUTHORIZED;
-  const shouldRejectUnauthorized = pgSslRejectUnauthorized === undefined 
-    ? true // Par défaut: sécurisé
-    : pgSslRejectUnauthorized.toLowerCase() !== 'false'; // Respecter l'override si fourni
+  
+  // Interdire NODE_TLS_REJECT_UNAUTHORIZED=0
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    console.warn('[DB] ⚠️ SÉCURITÉ: NODE_TLS_REJECT_UNAUTHORIZED=0 détecté - IGNORÉ (sécurité)');
+    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED; // Utiliser la valeur par défaut (1)
+  }
+  
+  // Lire PGSSLROOTCERT (avec \n échappés) ou PG_SSL_CA (fallback)
+  const pgSslRootCert = process.env.PGSSLROOTCERT || process.env.PG_SSL_CA;
+  let pgSslCa: string | undefined = undefined;
+  
+  if (pgSslRootCert) {
+    // Remplacer les \n échappés par de vrais sauts de ligne
+    pgSslCa = pgSslRootCert.replace(/\\n/g, '\n');
+  }
   
   let sslConfig: { rejectUnauthorized: boolean; ca?: string } | boolean = false;
   let sslMode = 'DISABLED';
@@ -109,17 +119,17 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     // SSL requis : utiliser configuration explicite
     if (pgSslCa) {
       // Certificat CA fourni : SSL sécurisé avec CA personnalisé
+      // INTERDIT: rejectUnauthorized: false si CA fourni
       sslConfig = { 
         rejectUnauthorized: true, // Toujours true si CA fourni
-        ca: pgSslCa // PEM multi-line
+        ca: pgSslCa // PEM avec sauts de ligne réels
       };
       sslMode = 'ENABLED (rejectUnauthorized: true, CA provided)';
     } else {
-      // Pas de CA : utiliser rejectUnauthorized selon override
-      sslConfig = { rejectUnauthorized: shouldRejectUnauthorized };
-      sslMode = shouldRejectUnauthorized 
-        ? 'ENABLED (rejectUnauthorized: true - secure)' 
-        : 'ENABLED (rejectUnauthorized: false - override)';
+      // Pas de CA : SSL sécurisé par défaut
+      // INTERDIT: rejectUnauthorized: false en production
+      sslConfig = { rejectUnauthorized: true };
+      sslMode = 'ENABLED (rejectUnauthorized: true - secure)';
     }
   } else if (isProduction && !isVercel) {
     // Production locale : SSL standard
@@ -137,18 +147,16 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
         : 'true (standard)';
     
     console.log('[DB] 🔐 Configuration SSL:', {
-      sslEnabled,
-      sslMode,
-      rejectUnauthorized: rejectUnauthorizedValue,
+      ssl: sslEnabled,
+      hasCa: !!pgSslCa,
       host: dbHost,
       port: dbPort,
+      sslMode,
+      rejectUnauthorized: rejectUnauthorizedValue,
       isPooler,
       isSupabase,
       pgbouncerDetected: DATABASE_URL.includes('pgbouncer=true'),
-      sslmodeInUrl: DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer'),
-      caProvided: !!pgSslCa,
-      caLength: pgSslCa ? pgSslCa.length : 0,
-      pgSslOverride: pgSslRejectUnauthorized || 'none'
+      sslmodeInUrl: DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer')
     });
   }
   
@@ -161,11 +169,9 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   } : {};
 
   // Nettoyer l'URL pour éviter les conflits avec la config SSL côté code
-  // Pour Supabase pooler, on force rejectUnauthorized: false côté code, peu importe ce qui est dans l'URL
+  // Pour Supabase pooler, s'assurer que sslmode=require est présent dans l'URL (pour compatibilité)
   let cleanConnectionString = DATABASE_URL;
   
-  // Pour Supabase pooler, s'assurer que sslmode=require est présent dans l'URL (pour compatibilité)
-  // Mais la vraie config SSL est forcée côté code avec rejectUnauthorized: false
   if ((isPooler || isSupabase) && !DATABASE_URL.includes('sslmode=')) {
     const separator = cleanConnectionString.includes('?') ? '&' : '?';
     cleanConnectionString = `${cleanConnectionString}${separator}sslmode=require`;
@@ -173,9 +179,9 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   
   const config: ClientConfig = {
     connectionString: cleanConnectionString,
-    // IMPORTANT: Pour Supabase pooler, on FORCE rejectUnauthorized: false
-    // Cela override toute config SSL dans l'URL (sslmode=require ne force pas rejectUnauthorized: false)
-    ssl: sslConfig, // FORCÉ pour pooler Supabase (rejectUnauthorized: false)
+    // IMPORTANT: SSL configuré avec rejectUnauthorized: true (sécurisé)
+    // Si PGSSLROOTCERT fourni, utilise le certificat CA personnalisé
+    ssl: sslConfig, // rejectUnauthorized: true avec ou sans CA
     // Configuration optimisée pour serverless
     keepAlive: true, // Maintenir la connexion active (important pour pgbouncer)
     // Pour serverless, on limite à 1 connexion par fonction
