@@ -32,7 +32,8 @@ export default function Services() {
   const [, setLocation] = useLocation();
   const { data: servicesFromApi, isLoading } = useSalonServices();
 
-  // Utiliser les services depuis l'API, avec fallback sur la config
+  // Utiliser UNIQUEMENT les services depuis l'API - pas de fallback config
+  // Si l'API retourne des données, les utiliser. Sinon, afficher un message.
   const services = servicesFromApi && servicesFromApi.length > 0
     ? servicesFromApi.map((s) => ({
         id: s.id,
@@ -41,7 +42,7 @@ export default function Services() {
         price: s.price ? `CHF ${s.price.toFixed(2)}` : 'Sur demande',
         icon: '✂️', // Par défaut, peut être amélioré avec des tags
       }))
-    : salonConfig.services;
+    : [];
 
   if (isLoading && !servicesFromApi) {
     return (
