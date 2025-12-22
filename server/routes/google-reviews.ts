@@ -116,22 +116,34 @@ router.get('/', async (req, res) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[google-reviews] ❌ Erreur Google Places API:', response.status, errorText);
+      console.error(`[google-reviews] [${requestId}] ❌ Erreur Google Places API: ${response.status}`);
       
-      // Si erreur 404 (lieu non trouvé) ou 403 (clé invalide), retourner liste vide
-      if (response.status === 404 || response.status === 403) {
-        return res.json({
-          reviews: [],
-          averageRating: 0,
-          totalReviews: 0,
+      // Si erreur 400 (API key invalid) ou 403 (forbidden)
+      if (response.status === 400 || response.status === 403) {
+        return res.status(502).json({
+          success: false,
+          error: 'GOOGLE_API_KEY_INVALID',
+          message: 'La clé API Google Places est invalide ou n\'a pas les permissions nécessaires',
+          data: { reviews: [], averageRating: 0, totalReviews: 0 }
+        });
+      }
+      
+      // Si erreur 404 (lieu non trouvé)
+      if (response.status === 404) {
+        return res.status(404).json({
+          success: false,
+          error: 'GOOGLE_PLACE_NOT_FOUND',
+          message: 'Le lieu Google spécifié n\'a pas été trouvé',
+          data: { reviews: [], averageRating: 0, totalReviews: 0 }
         });
       }
 
-      // Pour les autres erreurs, retourner aussi une liste vide pour éviter les erreurs visibles
-      return res.json({
-        reviews: [],
-        averageRating: 0,
-        totalReviews: 0,
+      // Pour les autres erreurs
+      return res.status(502).json({
+        success: false,
+        error: 'GOOGLE_API_ERROR',
+        message: `Erreur de l'API Google Places: ${response.statusText}`,
+        data: { reviews: [], averageRating: 0, totalReviews: 0 }
       });
     }
 
@@ -150,20 +162,24 @@ router.get('/', async (req, res) => {
     const averageRating = data.rating || 0;
     const totalReviews = data.userRatingCount || reviews.length;
 
-    console.log('[google-reviews] ✅', reviews.length, 'avis récupérés, note moyenne:', averageRating);
+    console.log(`[google-reviews] [${requestId}] ✅ ${reviews.length} avis récupérés, note moyenne: ${averageRating}`);
 
     res.json({
-      reviews,
-      averageRating,
-      totalReviews,
+      success: true,
+      data: {
+        reviews,
+        averageRating,
+        totalReviews
+      }
     });
   } catch (error: any) {
-    console.error('[google-reviews] ❌ Erreur:', error);
-    // En cas d'erreur, retourner une liste vide pour éviter les erreurs visibles
-    res.json({
-      reviews: [],
-      averageRating: 0,
-      totalReviews: 0,
+    console.error(`[google-reviews] [${requestId}] ❌ Erreur inattendue:`, error.message);
+    // En cas d'erreur inattendue
+    res.status(500).json({
+      success: false,
+      error: 'GOOGLE_REVIEWS_FETCH_FAILED',
+      message: 'Erreur lors de la récupération des avis Google',
+      data: { reviews: [], averageRating: 0, totalReviews: 0 }
     });
   }
 });
