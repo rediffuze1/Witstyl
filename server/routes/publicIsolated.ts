@@ -360,19 +360,37 @@ publicRouter.get("/salon/services", async (req, res) => {
     for (const trySalonId of salonIdsToTry) {
       console.log('[PUBLIC] Essai récupération services avec salon_id:', trySalonId);
       
-      const result = await supabase
+      // D'abord essayer sans filtre is_active pour voir tous les services
+      let result = await supabase
         .from('services')
         .select('id, name, description, price, duration, tags, is_active')
-        .eq('salon_id', trySalonId)
-        .eq('is_active', true); // Uniquement les services actifs
+        .eq('salon_id', trySalonId);
       
-      console.log('[PUBLIC] Résultat query services:', {
+      console.log('[PUBLIC] Résultat query services (sans filtre is_active):', {
         salon_id: trySalonId,
         hasData: !!result.data,
         dataLength: result.data?.length || 0,
         error: result.error?.message || null,
-        firstService: result.data?.[0] || null
+        allServices: result.data?.map((s: any) => ({ id: s.id, name: s.name, is_active: s.is_active })) || []
       });
+      
+      // Si aucun service trouvé, essayer avec is_active = true
+      if (!result.data || result.data.length === 0) {
+        result = await supabase
+          .from('services')
+          .select('id, name, description, price, duration, tags, is_active')
+          .eq('salon_id', trySalonId)
+          .eq('is_active', true);
+        console.log('[PUBLIC] Résultat query services (avec filtre is_active=true):', {
+          salon_id: trySalonId,
+          hasData: !!result.data,
+          dataLength: result.data?.length || 0
+        });
+      } else {
+        // Filtrer côté code pour ne garder que les actifs
+        result.data = result.data.filter((s: any) => s.is_active !== false);
+        console.log('[PUBLIC] Services filtrés (is_active !== false):', result.data.length);
+      }
       
       if (result.error) {
         console.error('[PUBLIC] Erreur avec salon_id', trySalonId, ':', result.error);
