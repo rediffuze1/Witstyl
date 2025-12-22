@@ -366,6 +366,14 @@ publicRouter.get("/salon/services", async (req, res) => {
         .eq('salon_id', trySalonId)
         .eq('is_active', true); // Uniquement les services actifs
       
+      console.log('[PUBLIC] Résultat query services:', {
+        salon_id: trySalonId,
+        hasData: !!result.data,
+        dataLength: result.data?.length || 0,
+        error: result.error?.message || null,
+        firstService: result.data?.[0] || null
+      });
+      
       if (result.error) {
         console.error('[PUBLIC] Erreur avec salon_id', trySalonId, ':', result.error);
         servicesError = result.error;

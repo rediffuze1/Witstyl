@@ -45,6 +45,12 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function Reviews() {
   const { data, isLoading, error } = useGoogleReviews();
+  
+  // Debug logs
+  console.log('[Reviews] data:', data);
+  console.log('[Reviews] isLoading:', isLoading);
+  console.log('[Reviews] error:', error);
+  console.log('[Reviews] reviews count:', data?.reviews?.length || 0);
 
   return (
     <section

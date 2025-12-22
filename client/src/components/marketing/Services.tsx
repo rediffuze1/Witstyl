@@ -30,7 +30,13 @@ const itemVariants = {
 
 export default function Services() {
   const [, setLocation] = useLocation();
-  const { data: servicesFromApi, isLoading } = useSalonServices();
+  const { data: servicesFromApi, isLoading, error: servicesError } = useSalonServices();
+
+  // Debug logs
+  console.log('[Services] servicesFromApi:', servicesFromApi);
+  console.log('[Services] isLoading:', isLoading);
+  console.log('[Services] servicesError:', servicesError);
+  console.log('[Services] servicesFromApi length:', servicesFromApi?.length || 0);
 
   // Utiliser UNIQUEMENT les services depuis l'API - pas de fallback config
   // Si l'API retourne des données, les utiliser. Sinon, afficher un message.
