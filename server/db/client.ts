@@ -101,12 +101,13 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   }
   
   // Lire PGSSLROOTCERT (avec \n échappés) ou PG_SSL_CA (fallback)
-  const pgSslRootCert = process.env.PGSSLROOTCERT || process.env.PG_SSL_CA;
+  const rawCa = process.env.PGSSLROOTCERT || process.env.PG_SSL_CA;
   let pgSslCa: string | undefined = undefined;
   
-  if (pgSslRootCert) {
+  if (rawCa) {
     // Remplacer les \n échappés par de vrais sauts de ligne
-    pgSslCa = pgSslRootCert.replace(/\\n/g, '\n');
+    // Vercel peut stocker le PEM avec des \n échappés
+    pgSslCa = rawCa.includes('\\n') ? rawCa.replace(/\\n/g, '\n') : rawCa;
   }
   
   let sslConfig: { rejectUnauthorized: boolean; ca?: string } | boolean = false;
@@ -135,6 +136,18 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     // Production locale : SSL standard
     sslConfig = true;
     sslMode = 'ENABLED (standard verification)';
+  }
+  
+  // Log de diagnostic uniquement en dev (pas en prod pour éviter les logs verbeux)
+  if (!isVercel && !isProduction && process.env.NODE_ENV !== 'test') {
+    console.log('[DB] 🔍 Diagnostic SSL (dev):', {
+      hasRootCa: !!pgSslCa,
+      sslRejectUnauthorized: sslConfig === false ? false : (typeof sslConfig === 'object' ? sslConfig.rejectUnauthorized : true),
+      caLength: pgSslCa ? pgSslCa.length : 0,
+      sslMode,
+      hasRawCa: !!rawCa,
+      rawCaLength: rawCa ? rawCa.length : 0
+    });
   }
   
   // Log SSL explicite pour diagnostic (toujours en prod/Vercel)
