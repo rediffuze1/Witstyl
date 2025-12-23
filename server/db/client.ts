@@ -3,7 +3,7 @@
  * Compatible avec Vercel serverless et Supabase Supavisor
  */
 
-import { Client, ClientConfig } from 'pg';
+import { Client, ClientConfig, Pool, PoolConfig } from 'pg';
 
 /**
  * Vérifie que DATABASE_URL contient les paramètres requis pour le pooler
@@ -39,6 +39,26 @@ export function validateDatabaseUrl(url: string): { valid: boolean; warnings: st
     valid: warnings.length === 0,
     warnings,
   };
+}
+
+/**
+ * Lit le certificat CA depuis PGSSLROOTCERT (sans fallback)
+ * Convertit les \n échappés en vrais sauts de ligne
+ */
+function readPgRootCaFromEnv(): string | undefined {
+  const raw = process.env.PGSSLROOTCERT;
+  if (!raw) return undefined;
+  return raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw;
+}
+
+/**
+ * Log de diagnostic SSL uniquement en dev (pas en prod)
+ */
+function devLogSslDiagnostic(payload: { hasRootCa: boolean; sslRejectUnauthorized: boolean; caLength: number }) {
+  if (process.env.NODE_ENV === "production") return;
+  if (process.env.VERCEL) return; // optionnel: évite du bruit sur preview deployments
+  if (process.env.NODE_ENV === "test") return;
+  console.log("[DB] 🔍 SSL diagnostic (dev):", payload);
 }
 
 /**
@@ -100,15 +120,19 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     delete process.env.NODE_TLS_REJECT_UNAUTHORIZED; // Utiliser la valeur par défaut (1)
   }
   
-  // Lire PGSSLROOTCERT (avec \n échappés) ou PG_SSL_CA (fallback)
-  const rawCa = process.env.PGSSLROOTCERT || process.env.PG_SSL_CA;
-  let pgSslCa: string | undefined = undefined;
+  // Configuration SSL - Sécurisée par défaut avec support certificat CA Supabase
+  // Support PGSSLROOTCERT (PEM avec \n échappés) pour certificat CA personnalisé
+  // INTERDIT: NODE_TLS_REJECT_UNAUTHORIZED=0 et rejectUnauthorized: false
+  // Par défaut: rejectUnauthorized: true (sécurisé)
   
-  if (rawCa) {
-    // Remplacer les \n échappés par de vrais sauts de ligne
-    // Vercel peut stocker le PEM avec des \n échappés
-    pgSslCa = rawCa.includes('\\n') ? rawCa.replace(/\\n/g, '\n') : rawCa;
+  // Interdire NODE_TLS_REJECT_UNAUTHORIZED=0
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    console.warn('[DB] ⚠️ SÉCURITÉ: NODE_TLS_REJECT_UNAUTHORIZED=0 détecté - IGNORÉ (sécurité)');
+    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED; // Utiliser la valeur par défaut (1)
   }
+  
+  // Lire le certificat CA depuis PGSSLROOTCERT (sans fallback)
+  const pgSslCa = readPgRootCaFromEnv();
   
   let sslConfig: { rejectUnauthorized: boolean; ca?: string } | boolean = false;
   let sslMode = 'DISABLED';
@@ -138,17 +162,12 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     sslMode = 'ENABLED (standard verification)';
   }
   
-  // Log de diagnostic uniquement en dev (pas en prod pour éviter les logs verbeux)
-  if (!isVercel && !isProduction && process.env.NODE_ENV !== 'test') {
-    console.log('[DB] 🔍 Diagnostic SSL (dev):', {
-      hasRootCa: !!pgSslCa,
-      sslRejectUnauthorized: sslConfig === false ? false : (typeof sslConfig === 'object' ? sslConfig.rejectUnauthorized : true),
-      caLength: pgSslCa ? pgSslCa.length : 0,
-      sslMode,
-      hasRawCa: !!rawCa,
-      rawCaLength: rawCa ? rawCa.length : 0
-    });
-  }
+  // Log de diagnostic uniquement en dev
+  devLogSslDiagnostic({
+    hasRootCa: !!pgSslCa,
+    sslRejectUnauthorized: sslConfig === false ? false : (typeof sslConfig === 'object' ? sslConfig.rejectUnauthorized : true),
+    caLength: pgSslCa ? pgSslCa.length : 0,
+  });
   
   // Log SSL explicite pour diagnostic (toujours en prod/Vercel)
   if (isVercel || isProduction) {
@@ -260,19 +279,94 @@ export async function executeQueryWithTimeout<T>(
 /**
  * Crée un nouveau client PostgreSQL avec la configuration optimisée
  * IMPORTANT: Toujours appeler client.end() après utilisation dans un environnement serverless
+ * 
+ * Patch SSL: injecte directement le CA depuis PGSSLROOTCERT pour éviter SELF_SIGNED_CERT_IN_CHAIN
  */
 export function createPgClient(connectionString?: string): Client {
-  const config = createPgClientConfig(connectionString);
-
-  // DEBUG temporaire
-if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-  const u = new URL(config.connectionString as string);
-  console.log('[DB][DEBUG] sslmode in URL =', u.searchParams.get('sslmode'));
-  console.log('[DB][DEBUG] config.ssl =', config.ssl);
-  console.log('[DB][DEBUG] PGSSLMODE =', process.env.PGSSLMODE);
-  console.log('[DB][DEBUG] NODE_TLS_REJECT_UNAUTHORIZED =', process.env.NODE_TLS_REJECT_UNAUTHORIZED);
+  const DATABASE_URL = connectionString || process.env.DATABASE_URL;
+  
+  if (!DATABASE_URL) {
+    throw new Error('DATABASE_URL est requise pour créer un client PostgreSQL');
+  }
+  
+  // Lire le certificat CA depuis PGSSLROOTCERT
+  const ca = readPgRootCaFromEnv();
+  
+  // Construire la config SSL : si CA fourni, utiliser { rejectUnauthorized: true, ca }
+  // Sinon, utiliser la config complète depuis createPgClientConfig (pour compatibilité)
+  const ssl = ca
+    ? { rejectUnauthorized: true as const, ca }
+    : undefined; // Si pas de CA, laisser createPgClientConfig gérer (comportement local)
+  
+  // Log de diagnostic en dev
+  devLogSslDiagnostic({
+    hasRootCa: !!ca,
+    sslRejectUnauthorized: true,
+    caLength: ca ? ca.length : 0,
+  });
+  
+  // Si CA fourni, construire une config minimale avec SSL
+  // Sinon, utiliser la config complète (pour garder compatibilité avec validation, timeouts, etc.)
+  if (ca) {
+    // Patch direct : config minimale avec SSL CA
+    const config: ClientConfig = {
+      connectionString: DATABASE_URL,
+      ssl: { rejectUnauthorized: true, ca },
+      // Timeouts agressifs pour Vercel
+      ...(process.env.VERCEL || process.env.NODE_ENV === 'production' ? {
+        connectionTimeoutMillis: 3000,
+        query_timeout: 3000,
+        idleTimeoutMillis: 10000,
+      } : {}),
+      keepAlive: true,
+    };
+    
+    return new Client(config);
+  } else {
+    // Pas de CA : utiliser la config complète (comportement existant)
+    const config = createPgClientConfig(connectionString);
+    return new Client(config);
+  }
 }
 
-  return new Client(config);
+/**
+ * Crée un pool PostgreSQL avec la configuration optimisée
+ * Si Pool est utilisé ailleurs, applique le même patch SSL
+ */
+export function createPgPool(connectionString?: string): Pool {
+  const DATABASE_URL = connectionString || process.env.DATABASE_URL;
+  
+  if (!DATABASE_URL) {
+    throw new Error('DATABASE_URL est requise pour créer un pool PostgreSQL');
+  }
+  
+  // Lire le certificat CA depuis PGSSLROOTCERT
+  const ca = readPgRootCaFromEnv();
+  
+  // Construire la config SSL : si CA fourni, utiliser { rejectUnauthorized: true, ca }
+  const ssl = ca
+    ? { rejectUnauthorized: true as const, ca }
+    : undefined;
+  
+  // Log de diagnostic en dev
+  devLogSslDiagnostic({
+    hasRootCa: !!ca,
+    sslRejectUnauthorized: true,
+    caLength: ca ? ca.length : 0,
+  });
+  
+  const config: PoolConfig = {
+    connectionString: DATABASE_URL,
+    ...(ssl ? { ssl } : {}),
+    // Timeouts agressifs pour Vercel
+    ...(process.env.VERCEL || process.env.NODE_ENV === 'production' ? {
+      connectionTimeoutMillis: 3000,
+      query_timeout: 3000,
+      idleTimeoutMillis: 10000,
+    } : {}),
+    max: 1, // Serverless: 1 connexion max par fonction
+  };
+  
+  return new Pool(config);
 }
 
