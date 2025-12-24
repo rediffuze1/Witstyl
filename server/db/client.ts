@@ -4,6 +4,7 @@
  */
 
 import { Client, ClientConfig, Pool, PoolConfig } from 'pg';
+import tls from 'node:tls';
 
 /**
  * Vérifie que DATABASE_URL contient les paramètres requis pour le pooler
@@ -78,6 +79,24 @@ function readPgRootCaFromEnv(): string | undefined {
   }
 
   return s.includes("BEGIN CERTIFICATE") ? s : undefined;
+}
+
+/**
+ * Construit une config SSL stricte en mergeant le CA custom avec les root certificates Node
+ * IMPORTANT: `ca` dans Node remplace les racines par défaut.
+ * On ajoute donc le CA custom + les root certs Node pour être compatible
+ * avec les chaînes publiques ET Supabase/pooler.
+ */
+function buildStrictSsl(ca?: string): { rejectUnauthorized: true; ca?: string | string[] } {
+  if (!ca) return { rejectUnauthorized: true as const };
+
+  // IMPORTANT: `ca` dans Node remplace les racines par défaut.
+  // On ajoute donc ton CA + les root certs Node pour être compatible
+  // avec les chaînes publiques ET Supabase/pooler.
+  return {
+    rejectUnauthorized: true as const,
+    ca: [ca, ...tls.rootCertificates],
+  };
 }
 
 /**
@@ -164,7 +183,7 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   // Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
   const ca = readPgRootCaFromEnv();
   
-  let sslConfig: { rejectUnauthorized: boolean; ca?: string } | boolean = false;
+  let sslConfig: { rejectUnauthorized: boolean; ca?: string | string[] } | boolean = false;
   let sslMode = 'DISABLED';
   
   // Détecter si SSL est requis depuis l'URL
@@ -172,12 +191,11 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   
   if (urlRequiresSsl || isPooler || isSupabase) {
     // SSL requis : utiliser configuration explicite
-    // Si CA fourni, l'injecter directement (garantit que le CA est toujours utilisé)
-    sslConfig = ca
-      ? { rejectUnauthorized: true, ca }
-      : { rejectUnauthorized: true };
+    // IMPORTANT: Utiliser buildStrictSsl() pour merger le CA custom avec les root certificates Node
+    // Cela garantit la compatibilité avec les chaînes publiques ET Supabase/pooler
+    sslConfig = buildStrictSsl(ca);
     sslMode = ca
-      ? 'ENABLED (rejectUnauthorized: true, CA provided)'
+      ? 'ENABLED (rejectUnauthorized: true, CA provided + Node root CAs)'
       : 'ENABLED (rejectUnauthorized: true - secure)';
   } else if (isProduction && !isVercel) {
     // Production locale : SSL standard
@@ -307,6 +325,26 @@ export async function executeQueryWithTimeout<T>(
  */
 export function createPgClient(connectionString?: string): Client {
   const config = createPgClientConfig(connectionString);
+  
+  // Log SSL config summary en prod Vercel uniquement (pour diagnostic)
+  if (process.env.VERCEL && process.env.NODE_ENV === "production") {
+    const caOpt: any = (config as any).ssl?.ca;
+    const caCount = Array.isArray(caOpt) ? caOpt.length : caOpt ? 1 : 0;
+    const caLen = Array.isArray(caOpt)
+      ? caOpt.reduce((sum: number, c: any) => sum + String(c).length, 0)
+      : caOpt
+        ? String(caOpt).length
+        : 0;
+
+    console.log("[DB] SSL config summary:", {
+      hasSsl: !!(config as any).ssl,
+      hasCustomCa: !!readPgRootCaFromEnv(),
+      caCount,
+      caLen,
+      rejectUnauthorized: (config as any).ssl?.rejectUnauthorized === true,
+    });
+  }
+  
   return new Client(config);
 }
 
