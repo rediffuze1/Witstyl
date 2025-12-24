@@ -45,6 +45,9 @@ export function validateDatabaseUrl(url: string): { valid: boolean; warnings: st
 /**
  * Lit le certificat CA depuis PGSSLROOTCERT (sans fallback)
  * Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
+ * 
+ * IMPORTANT: Configure aussi NODE_EXTRA_CA_CERTS pour que Node.js merge automatiquement
+ * le CA custom avec les root certificates par défaut.
  */
 function readPgRootCaFromEnv(): string | undefined {
   const raw = process.env.PGSSLROOTCERT;
@@ -78,36 +81,57 @@ function readPgRootCaFromEnv(): string | undefined {
     }
   }
 
-  return s.includes("BEGIN CERTIFICATE") ? s : undefined;
+  if (!s.includes("BEGIN CERTIFICATE")) return undefined;
+
+  // ASTUCE: Configurer NODE_EXTRA_CA_CERTS pour que Node.js merge automatiquement
+  // le CA custom avec les root certificates par défaut
+  // Cela évite le problème où fournir `ca` remplace les root certificates
+  if (!process.env.NODE_EXTRA_CA_CERTS) {
+    process.env.NODE_EXTRA_CA_CERTS = s;
+  } else if (!process.env.NODE_EXTRA_CA_CERTS.includes(s.substring(0, 50))) {
+    // Ajouter le CA custom à NODE_EXTRA_CA_CERTS s'il n'est pas déjà présent
+    process.env.NODE_EXTRA_CA_CERTS = `${process.env.NODE_EXTRA_CA_CERTS}\n${s}`;
+  }
+
+  return s;
 }
 
 /**
- * Construit une config SSL stricte en mergeant le CA custom avec les root certificates Node
- * IMPORTANT: `ca` dans Node remplace les racines par défaut.
- * On ajoute donc le CA custom + les root certs Node pour être compatible
- * avec les chaînes publiques ET Supabase/pooler.
+ * Construit une config SSL stricte
+ * 
+ * IMPORTANT: Le CA custom est déjà configuré via NODE_EXTRA_CA_CERTS dans readPgRootCaFromEnv()
+ * Cela permet à Node.js de merger automatiquement le CA custom avec les root certificates par défaut.
+ * 
+ * Si on fournit `ca` directement, Node.js remplace les root certificates.
+ * En utilisant NODE_EXTRA_CA_CERTS, on ajoute le CA custom SANS remplacer les root certificates.
  */
 function buildStrictSsl(ca?: string): { rejectUnauthorized: true; ca?: string | string[] } {
-  if (!ca) return { rejectUnauthorized: true as const };
+  // Si NODE_EXTRA_CA_CERTS est configuré, on peut utiliser uniquement rejectUnauthorized
+  // Node.js utilisera automatiquement les root certificates + NODE_EXTRA_CA_CERTS
+  if (ca && process.env.NODE_EXTRA_CA_CERTS) {
+    // Le CA est déjà dans NODE_EXTRA_CA_CERTS, on n'a pas besoin de le passer dans ca
+    // Cela permet à Node.js d'utiliser les root certificates par défaut + le CA custom
+    return { rejectUnauthorized: true as const };
+  }
 
-  // Vérifier que rootCertificates est disponible (Node 19.9.0+)
-  if (typeof tls.rootCertificates !== 'undefined' && Array.isArray(tls.rootCertificates) && tls.rootCertificates.length > 0) {
-    // Merge le CA custom avec les root certificates Node
-    // Cela garantit la compatibilité avec les chaînes publiques ET Supabase/pooler
+  // Fallback: si NODE_EXTRA_CA_CERTS n'est pas disponible, utiliser ca directement
+  if (ca) {
+    // Vérifier que rootCertificates est disponible (Node 19.9.0+)
+    if (typeof tls.rootCertificates !== 'undefined' && Array.isArray(tls.rootCertificates) && tls.rootCertificates.length > 0) {
+      return {
+        rejectUnauthorized: true as const,
+        ca: [ca, ...tls.rootCertificates],
+      };
+    }
+    
+    // Dernier fallback: utiliser uniquement le CA custom
     return {
       rejectUnauthorized: true as const,
-      ca: [ca, ...tls.rootCertificates],
+      ca: ca,
     };
   }
 
-  // Fallback pour Node < 19.9.0 ou si rootCertificates n'est pas disponible
-  // Utiliser uniquement le CA custom
-  // NOTE: En production Vercel, cela devrait fonctionner car Supabase utilise son propre CA
-  console.warn('[DB] ⚠️ tls.rootCertificates non disponible, utilisation du CA custom uniquement');
-  return {
-    rejectUnauthorized: true as const,
-    ca: ca,
-  };
+  return { rejectUnauthorized: true as const };
 }
 
 /**
