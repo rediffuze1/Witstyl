@@ -45,9 +45,6 @@ export function validateDatabaseUrl(url: string): { valid: boolean; warnings: st
 /**
  * Lit le certificat CA depuis PGSSLROOTCERT (sans fallback)
  * Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
- * 
- * IMPORTANT: Configure aussi NODE_EXTRA_CA_CERTS pour que Node.js merge automatiquement
- * le CA custom avec les root certificates par défaut.
  */
 function readPgRootCaFromEnv(): string | undefined {
   const raw = process.env.PGSSLROOTCERT;
@@ -81,57 +78,31 @@ function readPgRootCaFromEnv(): string | undefined {
     }
   }
 
-  if (!s.includes("BEGIN CERTIFICATE")) return undefined;
-
-  // ASTUCE: Configurer NODE_EXTRA_CA_CERTS pour que Node.js merge automatiquement
-  // le CA custom avec les root certificates par défaut
-  // Cela évite le problème où fournir `ca` remplace les root certificates
-  if (!process.env.NODE_EXTRA_CA_CERTS) {
-    process.env.NODE_EXTRA_CA_CERTS = s;
-  } else if (!process.env.NODE_EXTRA_CA_CERTS.includes(s.substring(0, 50))) {
-    // Ajouter le CA custom à NODE_EXTRA_CA_CERTS s'il n'est pas déjà présent
-    process.env.NODE_EXTRA_CA_CERTS = `${process.env.NODE_EXTRA_CA_CERTS}\n${s}`;
-  }
-
-  return s;
+  return s.includes("BEGIN CERTIFICATE") ? s : undefined;
 }
 
 /**
- * Construit une config SSL stricte
+ * Construit les options SSL pour PostgreSQL
  * 
- * IMPORTANT: Le CA custom est déjà configuré via NODE_EXTRA_CA_CERTS dans readPgRootCaFromEnv()
- * Cela permet à Node.js de merger automatiquement le CA custom avec les root certificates par défaut.
- * 
- * Si on fournit `ca` directement, Node.js remplace les root certificates.
- * En utilisant NODE_EXTRA_CA_CERTS, on ajoute le CA custom SANS remplacer les root certificates.
+ * IMPORTANT: on ne veut jamais casser les roots par défaut.
+ * On ajoute le CA custom en PLUS des roots Node.
+ * Force SNI (servername) pour éviter que le serveur présente un mauvais cert "default".
  */
-function buildStrictSsl(ca?: string): { rejectUnauthorized: true; ca?: string | string[] } {
-  // Si NODE_EXTRA_CA_CERTS est configuré, on peut utiliser uniquement rejectUnauthorized
-  // Node.js utilisera automatiquement les root certificates + NODE_EXTRA_CA_CERTS
-  if (ca && process.env.NODE_EXTRA_CA_CERTS) {
-    // Le CA est déjà dans NODE_EXTRA_CA_CERTS, on n'a pas besoin de le passer dans ca
-    // Cela permet à Node.js d'utiliser les root certificates par défaut + le CA custom
-    return { rejectUnauthorized: true as const };
-  }
+function buildPgSslOptions(opts: { host: string; ca?: string }) {
+  const { host, ca } = opts;
 
-  // Fallback: si NODE_EXTRA_CA_CERTS n'est pas disponible, utiliser ca directement
-  if (ca) {
-    // Vérifier que rootCertificates est disponible (Node 19.9.0+)
-    if (typeof tls.rootCertificates !== 'undefined' && Array.isArray(tls.rootCertificates) && tls.rootCertificates.length > 0) {
-      return {
-        rejectUnauthorized: true as const,
-        ca: [ca, ...tls.rootCertificates],
-      };
-    }
-    
-    // Dernier fallback: utiliser uniquement le CA custom
-    return {
-      rejectUnauthorized: true as const,
-      ca: ca,
-    };
-  }
+  // IMPORTANT: on ne veut jamais casser les roots par défaut.
+  // On ajoute le CA custom en PLUS des roots Node.
+  // Convertir readonly array en mutable array pour compatibilité TypeScript
+  const rootCerts = Array.isArray(tls.rootCertificates) ? [...tls.rootCertificates] : [];
+  const mergedCa = ca ? [ca, ...rootCerts] : rootCerts;
 
-  return { rejectUnauthorized: true as const };
+  return {
+    rejectUnauthorized: true as const,
+    ca: mergedCa,
+    // SNI explicite => évite les certificats "par défaut" côté serveur
+    servername: host,
+  };
 }
 
 /**
@@ -218,20 +189,20 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   // Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
   const ca = readPgRootCaFromEnv();
   
-  let sslConfig: { rejectUnauthorized: boolean; ca?: string | string[] } | boolean = false;
+  let sslConfig: { rejectUnauthorized: boolean; ca?: string | string[]; servername?: string } | boolean = false;
   let sslMode = 'DISABLED';
   
   // Détecter si SSL est requis depuis l'URL
   const urlRequiresSsl = DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer');
   
   if (urlRequiresSsl || isPooler || isSupabase) {
-    // SSL requis : utiliser configuration explicite
-    // IMPORTANT: Utiliser buildStrictSsl() pour merger le CA custom avec les root certificates Node
-    // Cela garantit la compatibilité avec les chaînes publiques ET Supabase/pooler
-    sslConfig = buildStrictSsl(ca);
+    // SSL requis : utiliser configuration explicite avec SNI
+    // Utiliser buildPgSslOptions() pour merger le CA custom avec les root certificates Node
+    // et forcer SNI pour éviter les certificats "par défaut"
+    sslConfig = buildPgSslOptions({ host: dbHost, ca });
     sslMode = ca
-      ? 'ENABLED (rejectUnauthorized: true, CA provided + Node root CAs)'
-      : 'ENABLED (rejectUnauthorized: true - secure)';
+      ? 'ENABLED (rejectUnauthorized: true, CA provided + Node root CAs, SNI)'
+      : 'ENABLED (rejectUnauthorized: true - secure, SNI)';
   } else if (isProduction && !isVercel) {
     // Production locale : SSL standard
     sslConfig = true;
@@ -285,11 +256,20 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     cleanConnectionString = `${cleanConnectionString}${separator}sslmode=require`;
   }
   
+  // Construire la config SSL avec SNI explicite
+  // Utiliser buildPgSslOptions() qui merge le CA custom avec les root certificates Node
+  const url = new URL(cleanConnectionString);
+  const host = url.hostname;
+  const finalSslConfig = (urlRequiresSsl || isPooler || isSupabase) 
+    ? buildPgSslOptions({ host, ca })
+    : sslConfig;
+  
   const config: ClientConfig = {
     connectionString: cleanConnectionString,
     // IMPORTANT: SSL configuré avec rejectUnauthorized: true (sécurisé)
-    // Si PGSSLROOTCERT fourni, utilise le certificat CA personnalisé
-    ssl: sslConfig, // rejectUnauthorized: true avec ou sans CA
+    // Si PGSSLROOTCERT fourni, utilise le certificat CA personnalisé + root certificates Node
+    // SNI explicite pour éviter les certificats "par défaut"
+    ssl: finalSslConfig,
     // Configuration optimisée pour serverless
     keepAlive: true, // Maintenir la connexion active (important pour pgbouncer)
     // Pour serverless, on limite à 1 connexion par fonction
