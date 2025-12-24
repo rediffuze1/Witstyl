@@ -90,12 +90,23 @@ function readPgRootCaFromEnv(): string | undefined {
 function buildStrictSsl(ca?: string): { rejectUnauthorized: true; ca?: string | string[] } {
   if (!ca) return { rejectUnauthorized: true as const };
 
-  // IMPORTANT: `ca` dans Node remplace les racines par défaut.
-  // On ajoute donc ton CA + les root certs Node pour être compatible
-  // avec les chaînes publiques ET Supabase/pooler.
+  // Vérifier que rootCertificates est disponible (Node 19.9.0+)
+  if (typeof tls.rootCertificates !== 'undefined' && Array.isArray(tls.rootCertificates) && tls.rootCertificates.length > 0) {
+    // Merge le CA custom avec les root certificates Node
+    // Cela garantit la compatibilité avec les chaînes publiques ET Supabase/pooler
+    return {
+      rejectUnauthorized: true as const,
+      ca: [ca, ...tls.rootCertificates],
+    };
+  }
+
+  // Fallback pour Node < 19.9.0 ou si rootCertificates n'est pas disponible
+  // Utiliser uniquement le CA custom
+  // NOTE: En production Vercel, cela devrait fonctionner car Supabase utilise son propre CA
+  console.warn('[DB] ⚠️ tls.rootCertificates non disponible, utilisation du CA custom uniquement');
   return {
     rejectUnauthorized: true as const,
-    ca: [ca, ...tls.rootCertificates],
+    ca: ca,
   };
 }
 
