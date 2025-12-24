@@ -96,29 +96,17 @@ function readPgRootCaFromEnv(): string | undefined {
 function buildPgSslOptions(opts: { host: string; ca?: string }) {
   const { host, ca } = opts;
 
-  // IMPORTANT: on ne veut jamais casser les roots par défaut.
-  // On ajoute le CA custom en PLUS des roots Node.
-  // Convertir readonly array en mutable array pour compatibilité TypeScript
-  const rootCerts = Array.isArray(tls.rootCertificates) ? [...tls.rootCertificates] : [];
-  const mergedCa = ca ? [ca, ...rootCerts] : rootCerts;
+  const mergedCa = ca
+    ? [ca, ...tls.rootCertificates]
+    : [...tls.rootCertificates];
 
   return {
     rejectUnauthorized: true as const,
     ca: mergedCa,
-    // SNI explicite => évite les certificats "par défaut" côté serveur
-    servername: host,
+    servername: host, // SNI explicite
   };
 }
 
-/**
- * Log de diagnostic SSL uniquement en dev (pas en prod)
- */
-function devLogSslDiagnostic(payload: { hasRootCa: boolean; sslRejectUnauthorized: boolean; caLength: number }) {
-  if (process.env.NODE_ENV === "production") return;
-  if (process.env.VERCEL) return; // optionnel: évite du bruit sur preview deployments
-  if (process.env.NODE_ENV === "test") return;
-  console.log("[DB] 🔍 SSL diagnostic (dev):", payload);
-}
 
 /**
  * Crée une configuration PostgreSQL optimisée pour serverless (Vercel + Supabase Pooler)
@@ -168,22 +156,6 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     throw new Error('DB_CONFIG_INVALID: DATABASE_URL n\'est pas une URL valide');
   }
   
-  // Configuration SSL - Sécurisée par défaut avec support certificat CA Supabase
-  // Support PGSSLROOTCERT (PEM avec \n échappés) pour certificat CA personnalisé
-  // INTERDIT: NODE_TLS_REJECT_UNAUTHORIZED=0 et rejectUnauthorized: false
-  // Par défaut: rejectUnauthorized: true (sécurisé)
-  
-  // Interdire NODE_TLS_REJECT_UNAUTHORIZED=0
-  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
-    console.warn('[DB] ⚠️ SÉCURITÉ: NODE_TLS_REJECT_UNAUTHORIZED=0 détecté - IGNORÉ (sécurité)');
-    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED; // Utiliser la valeur par défaut (1)
-  }
-  
-  // Configuration SSL - Sécurisée par défaut avec support certificat CA Supabase
-  // Support PGSSLROOTCERT (PEM avec \n échappés) pour certificat CA personnalisé
-  // INTERDIT: NODE_TLS_REJECT_UNAUTHORIZED=0 et rejectUnauthorized: false
-  // Par défaut: rejectUnauthorized: true (sécurisé)
-  
   // Interdire NODE_TLS_REJECT_UNAUTHORIZED=0
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
     console.warn('[DB] ⚠️ SÉCURITÉ: NODE_TLS_REJECT_UNAUTHORIZED=0 détecté - IGNORÉ (sécurité)');
@@ -191,57 +163,31 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   }
   
   // Lire le certificat CA depuis PGSSLROOTCERT (sans fallback)
-  // Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
   const ca = readPgRootCaFromEnv();
   
-  let sslConfig: { rejectUnauthorized: boolean; ca?: string | string[]; servername?: string } | boolean = false;
-  let sslMode = 'DISABLED';
+  // Nettoyer l'URL pour éviter les conflits avec la config SSL côté code
+  let cleanConnectionStringOrDatabaseUrl = DATABASE_URL;
+  
+  if ((isPooler || isSupabase) && !DATABASE_URL.includes('sslmode=')) {
+    const separator = cleanConnectionStringOrDatabaseUrl.includes('?') ? '&' : '?';
+    cleanConnectionStringOrDatabaseUrl = `${cleanConnectionStringOrDatabaseUrl}${separator}sslmode=require`;
+  }
+  
+  // Construire la config SSL avec SNI explicite
+  const url = new URL(cleanConnectionStringOrDatabaseUrl);
+  const host = url.hostname;
   
   // Détecter si SSL est requis depuis l'URL
-  const urlRequiresSsl = DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer');
+  const urlRequiresSsl = cleanConnectionStringOrDatabaseUrl.includes('sslmode=require') || cleanConnectionStringOrDatabaseUrl.includes('sslmode=prefer');
+  
+  let sslConfig: { rejectUnauthorized: boolean; ca?: string | string[]; servername?: string } | boolean = false;
   
   if (urlRequiresSsl || isPooler || isSupabase) {
-    // SSL requis : utiliser configuration explicite avec SNI
-    // Utiliser buildPgSslOptions() pour merger le CA custom avec les root certificates Node
-    // et forcer SNI pour éviter les certificats "par défaut"
-    sslConfig = buildPgSslOptions({ host: dbHost, ca });
-    sslMode = ca
-      ? 'ENABLED (rejectUnauthorized: true, CA provided + Node root CAs, SNI)'
-      : 'ENABLED (rejectUnauthorized: true - secure, SNI)';
+    // SSL requis : utiliser buildPgSslOptions avec SNI
+    sslConfig = buildPgSslOptions({ host, ca });
   } else if (isProduction && !isVercel) {
     // Production locale : SSL standard
     sslConfig = true;
-    sslMode = 'ENABLED (standard verification)';
-  }
-  
-  // Log de diagnostic uniquement en dev
-  devLogSslDiagnostic({
-    hasRootCa: !!ca,
-    sslRejectUnauthorized: sslConfig === false ? false : (typeof sslConfig === 'object' ? sslConfig.rejectUnauthorized : true),
-    caLength: ca ? ca.length : 0,
-  });
-  
-  // Log SSL explicite pour diagnostic (toujours en prod/Vercel)
-  if (isVercel || isProduction) {
-    const sslEnabled = sslConfig !== false;
-    const rejectUnauthorizedValue = sslConfig === false 
-      ? 'N/A' 
-      : typeof sslConfig === 'object' 
-        ? (sslConfig.rejectUnauthorized ? 'true (secure)' : 'false (override)')
-        : 'true (standard)';
-    
-    console.log('[DB] 🔐 Configuration SSL:', {
-      ssl: sslEnabled,
-      hasCa: !!ca,
-      host: dbHost,
-      port: dbPort,
-      sslMode,
-      rejectUnauthorized: rejectUnauthorizedValue,
-      isPooler,
-      isSupabase,
-      pgbouncerDetected: DATABASE_URL.includes('pgbouncer=true'),
-      sslmodeInUrl: DATABASE_URL.includes('sslmode=require') || DATABASE_URL.includes('sslmode=prefer')
-    });
   }
   
   // Timeouts agressifs pour éviter les FUNCTION_INVOCATION_TIMEOUT sur Vercel
@@ -251,52 +197,17 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     query_timeout: 3000, // 3s max pour chaque requête (agressif)
     idleTimeoutMillis: 10000, // 10s max d'inactivité
   } : {};
-
-  // Nettoyer l'URL pour éviter les conflits avec la config SSL côté code
-  // Pour Supabase pooler, s'assurer que sslmode=require est présent dans l'URL (pour compatibilité)
-  let cleanConnectionString = DATABASE_URL;
-  
-  if ((isPooler || isSupabase) && !DATABASE_URL.includes('sslmode=')) {
-    const separator = cleanConnectionString.includes('?') ? '&' : '?';
-    cleanConnectionString = `${cleanConnectionString}${separator}sslmode=require`;
-  }
-  
-  // Construire la config SSL avec SNI explicite
-  // Utiliser buildPgSslOptions() qui merge le CA custom avec les root certificates Node
-  const url = new URL(cleanConnectionString);
-  const host = url.hostname;
-  const finalSslConfig = (urlRequiresSsl || isPooler || isSupabase) 
-    ? buildPgSslOptions({ host, ca })
-    : sslConfig;
   
   const config: ClientConfig = {
-    connectionString: cleanConnectionString,
+    connectionString: cleanConnectionStringOrDatabaseUrl,
     // IMPORTANT: SSL configuré avec rejectUnauthorized: true (sécurisé)
     // Si PGSSLROOTCERT fourni, utilise le certificat CA personnalisé + root certificates Node
     // SNI explicite pour éviter les certificats "par défaut"
-    ssl: finalSslConfig,
+    ssl: sslConfig,
     // Configuration optimisée pour serverless
     keepAlive: true, // Maintenir la connexion active (important pour pgbouncer)
-    // Pour serverless, on limite à 1 connexion par fonction
-    // Le pooler gère le pooling côté serveur
-    // Note: max est une propriété de Pool, pas de Client
-    // Pour Client, on ne peut pas limiter les connexions (c'est un client unique)
     ...timeouts,
   };
-  
-  // Log de configuration pour diagnostic
-  if (isVercel || isProduction) {
-    console.log('[DB] ✅ Configuration PG client:', {
-      host: dbHost,
-      sslMode,
-      rejectUnauthorized: sslConfig === false ? 'N/A' : (sslConfig as any).rejectUnauthorized === false ? 'false (no-verify)' : 'true (standard)',
-      connectionTimeout: timeouts.connectionTimeoutMillis + 'ms',
-      queryTimeout: timeouts.query_timeout + 'ms',
-      keepAlive: config.keepAlive,
-      isPooler: isPooler,
-      isSupabase: isSupabase,
-    });
-  }
   
   return config;
 }
@@ -346,26 +257,28 @@ export async function executeQueryWithTimeout<T>(
 export function createPgClient(connectionString?: string): Client {
   const config = createPgClientConfig(connectionString);
   
-  // Log SSL config summary en prod Vercel uniquement (pour diagnostic)
-  if (process.env.VERCEL && process.env.NODE_ENV === "production") {
-    const caOpt: any = (config as any).ssl?.ca;
-    const caCount = Array.isArray(caOpt) ? caOpt.length : caOpt ? 1 : 0;
-    const caLen = Array.isArray(caOpt)
-      ? caOpt.reduce((sum: number, c: any) => sum + String(c).length, 0)
-      : caOpt
-        ? String(caOpt).length
-        : 0;
-
-    console.log("[DB] SSL config summary:", {
-      hasSsl: !!(config as any).ssl,
-      hasCustomCa: !!readPgRootCaFromEnv(),
-      caCount,
-      caLen,
-      rejectUnauthorized: (config as any).ssl?.rejectUnauthorized === true,
-    });
-  }
+  const client = new Client(config);
   
-  return new Client(config);
+  // Intercepter les erreurs SSL pour logging safe
+  client.on('error', (error: any) => {
+    if (error?.code === 'SELF_SIGNED_CERT_IN_CHAIN' || error?.message?.includes('certificate') || error?.message?.includes('SSL')) {
+      try {
+        const url = new URL(config.connectionString as string);
+        const host = url.hostname;
+        const ca = readPgRootCaFromEnv();
+        console.error("[DB] TLS target:", {
+          host,
+          port: url.port || "(default)",
+          hasCa: !!ca,
+          caLen: ca?.length ?? 0,
+        });
+      } catch {
+        // Ignore URL parsing errors
+      }
+    }
+  });
+  
+  return client;
 }
 
 /**
