@@ -281,6 +281,7 @@ export async function executeQueryWithTimeout<T>(
  * IMPORTANT: Toujours appeler client.end() après utilisation dans un environnement serverless
  * 
  * Patch SSL: injecte directement le CA depuis PGSSLROOTCERT pour éviter SELF_SIGNED_CERT_IN_CHAIN
+ * IMPORTANT: Toujours utiliser createPgClientConfig() pour conserver la logique de nettoyage du DSN
  */
 export function createPgClient(connectionString?: string): Client {
   const DATABASE_URL = connectionString || process.env.DATABASE_URL;
@@ -292,46 +293,29 @@ export function createPgClient(connectionString?: string): Client {
   // Lire le certificat CA depuis PGSSLROOTCERT
   const ca = readPgRootCaFromEnv();
   
-  // Construire la config SSL : si CA fourni, utiliser { rejectUnauthorized: true, ca }
-  // Sinon, utiliser la config complète depuis createPgClientConfig (pour compatibilité)
-  const ssl = ca
-    ? { rejectUnauthorized: true as const, ca }
-    : undefined; // Si pas de CA, laisser createPgClientConfig gérer (comportement local)
+  // Toujours partir de la config existante (ne rien casser: pooler/pgbouncer/clean DSN/etc.)
+  const config: ClientConfig = createPgClientConfig(connectionString);
+  
+  // Si CA fourni, on override uniquement la partie SSL
+  // Cela garantit que le CA est bien injecté même si createPgClientConfig() ne l'a pas détecté
+  if (ca) {
+    config.ssl = { rejectUnauthorized: true, ca };
+  }
   
   // Log de diagnostic en dev
   devLogSslDiagnostic({
     hasRootCa: !!ca,
-    sslRejectUnauthorized: true,
+    sslRejectUnauthorized: config.ssl === false ? false : true,
     caLength: ca ? ca.length : 0,
   });
   
-  // Si CA fourni, construire une config minimale avec SSL
-  // Sinon, utiliser la config complète (pour garder compatibilité avec validation, timeouts, etc.)
-  if (ca) {
-    // Patch direct : config minimale avec SSL CA
-    const config: ClientConfig = {
-      connectionString: DATABASE_URL,
-      ssl: { rejectUnauthorized: true, ca },
-      // Timeouts agressifs pour Vercel
-      ...(process.env.VERCEL || process.env.NODE_ENV === 'production' ? {
-        connectionTimeoutMillis: 3000,
-        query_timeout: 3000,
-        idleTimeoutMillis: 10000,
-      } : {}),
-      keepAlive: true,
-    };
-    
-    return new Client(config);
-  } else {
-    // Pas de CA : utiliser la config complète (comportement existant)
-    const config = createPgClientConfig(connectionString);
-    return new Client(config);
-  }
+  return new Client(config);
 }
 
 /**
  * Crée un pool PostgreSQL avec la configuration optimisée
  * Si Pool est utilisé ailleurs, applique le même patch SSL
+ * IMPORTANT: Utilise createPgClientConfig() comme base pour conserver la logique de nettoyage du DSN
  */
 export function createPgPool(connectionString?: string): Pool {
   const DATABASE_URL = connectionString || process.env.DATABASE_URL;
@@ -343,29 +327,30 @@ export function createPgPool(connectionString?: string): Pool {
   // Lire le certificat CA depuis PGSSLROOTCERT
   const ca = readPgRootCaFromEnv();
   
-  // Construire la config SSL : si CA fourni, utiliser { rejectUnauthorized: true, ca }
-  const ssl = ca
-    ? { rejectUnauthorized: true as const, ca }
-    : undefined;
+  // Utiliser createPgClientConfig() comme base pour conserver la logique de nettoyage du DSN
+  const baseClientConfig = createPgClientConfig(connectionString);
+  
+  // Construire la config Pool à partir de la config Client
+  const config: PoolConfig = {
+    connectionString: baseClientConfig.connectionString as string,
+    ...(baseClientConfig.ssl ? { ssl: baseClientConfig.ssl as any } : {}),
+    ...(process.env.VERCEL || process.env.NODE_ENV === 'production'
+      ? { connectionTimeoutMillis: 3000, query_timeout: 3000, idleTimeoutMillis: 10000 }
+      : {}),
+    max: 1, // Serverless: 1 connexion max par fonction
+  };
+  
+  // Si CA fourni, on override uniquement la partie SSL
+  if (ca) {
+    config.ssl = { rejectUnauthorized: true, ca };
+  }
   
   // Log de diagnostic en dev
   devLogSslDiagnostic({
     hasRootCa: !!ca,
-    sslRejectUnauthorized: true,
+    sslRejectUnauthorized: config.ssl === false ? false : true,
     caLength: ca ? ca.length : 0,
   });
-  
-  const config: PoolConfig = {
-    connectionString: DATABASE_URL,
-    ...(ssl ? { ssl } : {}),
-    // Timeouts agressifs pour Vercel
-    ...(process.env.VERCEL || process.env.NODE_ENV === 'production' ? {
-      connectionTimeoutMillis: 3000,
-      query_timeout: 3000,
-      idleTimeoutMillis: 10000,
-    } : {}),
-    max: 1, // Serverless: 1 connexion max par fonction
-  };
   
   return new Pool(config);
 }
