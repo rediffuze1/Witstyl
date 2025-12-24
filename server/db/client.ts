@@ -45,6 +45,11 @@ export function validateDatabaseUrl(url: string): { valid: boolean; warnings: st
 /**
  * Lit le certificat CA depuis PGSSLROOTCERT (sans fallback)
  * Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
+ * 
+ * IMPORTANT: PGSSLROOTCERT peut contenir plusieurs certificats PEM concaténés
+ * (collés l'un à la suite de l'autre). C'est OK avec pg.
+ * Exemple: si Supabase fournit un CA "db direct" + un CA "pooler" + un bundle,
+ * vous pouvez tous les concaténer dans PGSSLROOTCERT (garder \\n échappés).
  */
 function readPgRootCaFromEnv(): string | undefined {
   const raw = process.env.PGSSLROOTCERT;

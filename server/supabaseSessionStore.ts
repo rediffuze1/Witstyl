@@ -101,6 +101,25 @@ class SupabaseSessionStore extends session.Store {
                         err?.message?.includes('certificate') ||
                         err?.isSslError;
       
+      // Log TLS target uniquement en prod ET uniquement si erreur SSL
+      if (isSslError && (process.env.VERCEL || process.env.NODE_ENV === 'production')) {
+        try {
+          const DATABASE_URL = process.env.DATABASE_URL;
+          if (DATABASE_URL) {
+            const url = new URL(DATABASE_URL);
+            const ca = process.env.PGSSLROOTCERT;
+            console.error('[DB] TLS target:', {
+              host: url.hostname,
+              port: url.port || '(default)',
+              hasCa: !!ca,
+              caLen: ca?.length ?? 0,
+            });
+          }
+        } catch (e) {
+          // Ignore si URL invalide
+        }
+      }
+      
       // Log SSL debug uniquement si erreur SSL (temporaire pour diagnostic)
       if (isSslError) {
         console.error('[SupabaseSessionStore] SSL debug:', {
@@ -149,6 +168,25 @@ class SupabaseSessionStore extends session.Store {
                         err?.code === 'CERTIFICATE_VERIFY_FAILED' ||
                         err?.message?.includes('certificate') ||
                         err?.isSslError;
+      
+      // Log TLS target uniquement en prod ET uniquement si erreur SSL
+      if (isSslError && (process.env.VERCEL || process.env.NODE_ENV === 'production')) {
+        try {
+          const DATABASE_URL = process.env.DATABASE_URL;
+          if (DATABASE_URL) {
+            const url = new URL(DATABASE_URL);
+            const ca = process.env.PGSSLROOTCERT;
+            console.error('[DB] TLS target:', {
+              host: url.hostname,
+              port: url.port || '(default)',
+              hasCa: !!ca,
+              caLen: ca?.length ?? 0,
+            });
+          }
+        } catch (e) {
+          // Ignore si URL invalide
+        }
+      }
       
       // Log SSL debug uniquement si erreur SSL (temporaire pour diagnostic)
       if (isSslError) {
