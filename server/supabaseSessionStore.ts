@@ -71,7 +71,7 @@ class SupabaseSessionStore extends session.Store {
     let client: Client | null = null;
     try {
       client = await this.getClient();
-      const result = await executeQueryWithTimeout(
+      const result = await executeQueryWithTimeout<{ rows: Array<{ sess: any; expire: string }> }>(
         client,
         'SELECT sess, expire FROM express_sessions WHERE sid = $1',
         [sid],
@@ -95,6 +95,22 @@ class SupabaseSessionStore extends session.Store {
       callback(null, row.sess);
     } catch (err: any) {
       const isTimeout = err.message?.includes('timeout');
+      const isSslError = err?.code === 'SELF_SIGNED_CERT_IN_CHAIN' || 
+                        err?.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+                        err?.code === 'CERTIFICATE_VERIFY_FAILED' ||
+                        err?.message?.includes('certificate') ||
+                        err?.isSslError;
+      
+      // Log SSL debug uniquement si erreur SSL (temporaire pour diagnostic)
+      if (isSslError) {
+        console.error('[SupabaseSessionStore] SSL debug:', {
+          hasRootCa: !!process.env.PGSSLROOTCERT,
+          rootCaLen: process.env.PGSSLROOTCERT?.length ?? 0,
+          code: err?.code,
+          message: err?.message,
+        });
+      }
+      
       if (isTimeout) {
         console.warn('[SupabaseSessionStore] Timeout lors de la récupération de la session (DB lente ou indisponible)');
       } else {
@@ -128,6 +144,22 @@ class SupabaseSessionStore extends session.Store {
       callback?.();
     } catch (err: any) {
       const isTimeout = err.message?.includes('timeout');
+      const isSslError = err?.code === 'SELF_SIGNED_CERT_IN_CHAIN' || 
+                        err?.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+                        err?.code === 'CERTIFICATE_VERIFY_FAILED' ||
+                        err?.message?.includes('certificate') ||
+                        err?.isSslError;
+      
+      // Log SSL debug uniquement si erreur SSL (temporaire pour diagnostic)
+      if (isSslError) {
+        console.error('[SupabaseSessionStore] SSL debug:', {
+          hasRootCa: !!process.env.PGSSLROOTCERT,
+          rootCaLen: process.env.PGSSLROOTCERT?.length ?? 0,
+          code: err?.code,
+          message: err?.message,
+        });
+      }
+      
       if (isTimeout) {
         console.warn('[SupabaseSessionStore] Timeout lors de la sauvegarde de session (DB lente ou indisponible)');
       } else {

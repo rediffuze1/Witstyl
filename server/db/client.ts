@@ -43,12 +43,41 @@ export function validateDatabaseUrl(url: string): { valid: boolean; warnings: st
 
 /**
  * Lit le certificat CA depuis PGSSLROOTCERT (sans fallback)
- * Convertit les \n échappés en vrais sauts de ligne
+ * Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
  */
 function readPgRootCaFromEnv(): string | undefined {
   const raw = process.env.PGSSLROOTCERT;
   if (!raw) return undefined;
-  return raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw;
+
+  let s = raw.trim();
+
+  // Vercel/CI peuvent parfois entourer la valeur de guillemets
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+
+  // Normaliser les newlines (cas: "\\n", "\\r\\n", "\r\n")
+  s = s
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n/g, "\n");
+
+  // Si c'est du base64 (parfois on stocke le cert comme ça), on décode
+  if (!s.includes("BEGIN CERTIFICATE") && /^[A-Za-z0-9+/=]+$/.test(s)) {
+    try {
+      const decoded = Buffer.from(s, "base64").toString("utf8").trim();
+      if (decoded.includes("BEGIN CERTIFICATE")) {
+        s = decoded;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return s.includes("BEGIN CERTIFICATE") ? s : undefined;
 }
 
 /**
@@ -132,7 +161,8 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   }
   
   // Lire le certificat CA depuis PGSSLROOTCERT (sans fallback)
-  const pgSslCa = readPgRootCaFromEnv();
+  // Version ultra-robuste : gère guillemets, \r\n, \n, base64, etc.
+  const ca = readPgRootCaFromEnv();
   
   let sslConfig: { rejectUnauthorized: boolean; ca?: string } | boolean = false;
   let sslMode = 'DISABLED';
@@ -142,20 +172,13 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   
   if (urlRequiresSsl || isPooler || isSupabase) {
     // SSL requis : utiliser configuration explicite
-    if (pgSslCa) {
-      // Certificat CA fourni : SSL sécurisé avec CA personnalisé
-      // INTERDIT: rejectUnauthorized: false si CA fourni
-      sslConfig = { 
-        rejectUnauthorized: true, // Toujours true si CA fourni
-        ca: pgSslCa // PEM avec sauts de ligne réels
-      };
-      sslMode = 'ENABLED (rejectUnauthorized: true, CA provided)';
-    } else {
-      // Pas de CA : SSL sécurisé par défaut
-      // INTERDIT: rejectUnauthorized: false en production
-      sslConfig = { rejectUnauthorized: true };
-      sslMode = 'ENABLED (rejectUnauthorized: true - secure)';
-    }
+    // Si CA fourni, l'injecter directement (garantit que le CA est toujours utilisé)
+    sslConfig = ca
+      ? { rejectUnauthorized: true, ca }
+      : { rejectUnauthorized: true };
+    sslMode = ca
+      ? 'ENABLED (rejectUnauthorized: true, CA provided)'
+      : 'ENABLED (rejectUnauthorized: true - secure)';
   } else if (isProduction && !isVercel) {
     // Production locale : SSL standard
     sslConfig = true;
@@ -164,9 +187,9 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
   
   // Log de diagnostic uniquement en dev
   devLogSslDiagnostic({
-    hasRootCa: !!pgSslCa,
+    hasRootCa: !!ca,
     sslRejectUnauthorized: sslConfig === false ? false : (typeof sslConfig === 'object' ? sslConfig.rejectUnauthorized : true),
-    caLength: pgSslCa ? pgSslCa.length : 0,
+    caLength: ca ? ca.length : 0,
   });
   
   // Log SSL explicite pour diagnostic (toujours en prod/Vercel)
@@ -180,7 +203,7 @@ export function createPgClientConfig(connectionString?: string): ClientConfig {
     
     console.log('[DB] 🔐 Configuration SSL:', {
       ssl: sslEnabled,
-      hasCa: !!pgSslCa,
+      hasCa: !!ca,
       host: dbHost,
       port: dbPort,
       sslMode,
@@ -280,54 +303,18 @@ export async function executeQueryWithTimeout<T>(
  * Crée un nouveau client PostgreSQL avec la configuration optimisée
  * IMPORTANT: Toujours appeler client.end() après utilisation dans un environnement serverless
  * 
- * Patch SSL: injecte directement le CA depuis PGSSLROOTCERT pour éviter SELF_SIGNED_CERT_IN_CHAIN
- * IMPORTANT: Toujours utiliser createPgClientConfig() pour conserver la logique de nettoyage du DSN
+ * Le CA est déjà injecté dans createPgClientConfig() - pas besoin de branchement ici
  */
 export function createPgClient(connectionString?: string): Client {
-  const DATABASE_URL = connectionString || process.env.DATABASE_URL;
-  
-  if (!DATABASE_URL) {
-    throw new Error('DATABASE_URL est requise pour créer un client PostgreSQL');
-  }
-  
-  // Lire le certificat CA depuis PGSSLROOTCERT
-  const ca = readPgRootCaFromEnv();
-  
-  // Toujours partir de la config existante (ne rien casser: pooler/pgbouncer/clean DSN/etc.)
-  const config: ClientConfig = createPgClientConfig(connectionString);
-  
-  // Si CA fourni, on override uniquement la partie SSL
-  // Cela garantit que le CA est bien injecté même si createPgClientConfig() ne l'a pas détecté
-  if (ca) {
-    config.ssl = { rejectUnauthorized: true, ca };
-  }
-  
-  // Log de diagnostic en dev
-  devLogSslDiagnostic({
-    hasRootCa: !!ca,
-    sslRejectUnauthorized: config.ssl === false ? false : true,
-    caLength: ca ? ca.length : 0,
-  });
-  
+  const config = createPgClientConfig(connectionString);
   return new Client(config);
 }
 
 /**
  * Crée un pool PostgreSQL avec la configuration optimisée
- * Si Pool est utilisé ailleurs, applique le même patch SSL
- * IMPORTANT: Utilise createPgClientConfig() comme base pour conserver la logique de nettoyage du DSN
+ * Le CA est déjà injecté dans createPgClientConfig() - pas besoin de branchement ici
  */
 export function createPgPool(connectionString?: string): Pool {
-  const DATABASE_URL = connectionString || process.env.DATABASE_URL;
-  
-  if (!DATABASE_URL) {
-    throw new Error('DATABASE_URL est requise pour créer un pool PostgreSQL');
-  }
-  
-  // Lire le certificat CA depuis PGSSLROOTCERT
-  const ca = readPgRootCaFromEnv();
-  
-  // Utiliser createPgClientConfig() comme base pour conserver la logique de nettoyage du DSN
   const baseClientConfig = createPgClientConfig(connectionString);
   
   // Construire la config Pool à partir de la config Client
@@ -339,18 +326,6 @@ export function createPgPool(connectionString?: string): Pool {
       : {}),
     max: 1, // Serverless: 1 connexion max par fonction
   };
-  
-  // Si CA fourni, on override uniquement la partie SSL
-  if (ca) {
-    config.ssl = { rejectUnauthorized: true, ca };
-  }
-  
-  // Log de diagnostic en dev
-  devLogSslDiagnostic({
-    hasRootCa: !!ca,
-    sslRejectUnauthorized: config.ssl === false ? false : true,
-    caLength: ca ? ca.length : 0,
-  });
   
   return new Pool(config);
 }
