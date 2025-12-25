@@ -3,6 +3,11 @@
 // Il ne doit JAMAIS être importé par Vercel ou en production
 
 import 'dotenv/config';
+
+// Bootstrap TLS CA AVANT toute connexion PostgreSQL
+import { ensureExtraCaCertsFromEnv } from './db/caBootstrap.js';
+ensureExtraCaCertsFromEnv();
+
 import express from "express";
 import { createServer, type Server } from "http";
 import { setupVite, log } from "./vite.dev.js";

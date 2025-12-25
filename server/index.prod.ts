@@ -3,6 +3,10 @@
 // Ce fichier garantit qu'aucune dépendance à Vite n'est chargée
 // Il réexporte uniquement l'app Express sans aucune référence à Vite
 
+// Bootstrap TLS CA AVANT toute connexion PostgreSQL
+import { ensureExtraCaCertsFromEnv } from './db/caBootstrap.js';
+ensureExtraCaCertsFromEnv();
+
 // ⚠️ SÉCURITÉ: Ne jamais désactiver TLS en production
 // NODE_TLS_REJECT_UNAUTHORIZED doit rester à sa valeur par défaut (1) en production
 // Seulement autorisé en développement local si nécessaire

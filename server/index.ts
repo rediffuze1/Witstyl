@@ -1,4 +1,9 @@
 import 'dotenv/config';
+
+// Bootstrap TLS CA AVANT toute connexion PostgreSQL
+import { ensureExtraCaCertsFromEnv } from './db/caBootstrap.js';
+ensureExtraCaCertsFromEnv();
+
 import { randomUUID } from 'crypto';
 // IMPORTANT: En ESM, les imports relatifs TypeScript doivent inclure l'extension .js
 import { printEnvStatus } from './env-check.js';

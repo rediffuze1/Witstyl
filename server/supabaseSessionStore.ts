@@ -36,18 +36,6 @@ class SupabaseSessionStore extends session.Store {
     this.getClient = async () => {
       const client = createPgClient(DATABASE_URL);
       
-      // Log runtime de la config SSL juste avant connect()
-      // Important pour diagnostiquer les erreurs SELF_SIGNED_CERT_IN_CHAIN
-      const config = (client as any).connectionParameters || {};
-      const sslConfig = config.ssl;
-      const host = config.host || 'unknown';
-      console.log('[SupabaseSessionStore] Connexion PG:', {
-        host,
-        'typeof config.ssl': typeof sslConfig,
-        'config.ssl.rejectUnauthorized': sslConfig?.rejectUnauthorized,
-        'NODE_TLS_REJECT_UNAUTHORIZED': process.env.NODE_TLS_REJECT_UNAUTHORIZED,
-      });
-      
       // Timeout strict pour la connexion
       const connectPromise = client.connect();
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -95,40 +83,6 @@ class SupabaseSessionStore extends session.Store {
       callback(null, row.sess);
     } catch (err: any) {
       const isTimeout = err.message?.includes('timeout');
-      const isSslError = err?.code === 'SELF_SIGNED_CERT_IN_CHAIN' || 
-                        err?.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
-                        err?.code === 'CERTIFICATE_VERIFY_FAILED' ||
-                        err?.message?.includes('certificate') ||
-                        err?.isSslError;
-      
-      // Log TLS target uniquement en prod ET uniquement si erreur SSL
-      if (isSslError && (process.env.VERCEL || process.env.NODE_ENV === 'production')) {
-        try {
-          const DATABASE_URL = process.env.DATABASE_URL;
-          if (DATABASE_URL) {
-            const url = new URL(DATABASE_URL);
-            const ca = process.env.PGSSLROOTCERT;
-            console.error('[DB] TLS target:', {
-              host: url.hostname,
-              port: url.port || '(default)',
-              hasCa: !!ca,
-              caLen: ca?.length ?? 0,
-            });
-          }
-        } catch (e) {
-          // Ignore si URL invalide
-        }
-      }
-      
-      // Log SSL debug uniquement si erreur SSL (temporaire pour diagnostic)
-      if (isSslError) {
-        console.error('[SupabaseSessionStore] SSL debug:', {
-          hasRootCa: !!process.env.PGSSLROOTCERT,
-          rootCaLen: process.env.PGSSLROOTCERT?.length ?? 0,
-          code: err?.code,
-          message: err?.message,
-        });
-      }
       
       if (isTimeout) {
         console.warn('[SupabaseSessionStore] Timeout lors de la récupération de la session (DB lente ou indisponible)');
@@ -163,40 +117,6 @@ class SupabaseSessionStore extends session.Store {
       callback?.();
     } catch (err: any) {
       const isTimeout = err.message?.includes('timeout');
-      const isSslError = err?.code === 'SELF_SIGNED_CERT_IN_CHAIN' || 
-                        err?.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
-                        err?.code === 'CERTIFICATE_VERIFY_FAILED' ||
-                        err?.message?.includes('certificate') ||
-                        err?.isSslError;
-      
-      // Log TLS target uniquement en prod ET uniquement si erreur SSL
-      if (isSslError && (process.env.VERCEL || process.env.NODE_ENV === 'production')) {
-        try {
-          const DATABASE_URL = process.env.DATABASE_URL;
-          if (DATABASE_URL) {
-            const url = new URL(DATABASE_URL);
-            const ca = process.env.PGSSLROOTCERT;
-            console.error('[DB] TLS target:', {
-              host: url.hostname,
-              port: url.port || '(default)',
-              hasCa: !!ca,
-              caLen: ca?.length ?? 0,
-            });
-          }
-        } catch (e) {
-          // Ignore si URL invalide
-        }
-      }
-      
-      // Log SSL debug uniquement si erreur SSL (temporaire pour diagnostic)
-      if (isSslError) {
-        console.error('[SupabaseSessionStore] SSL debug:', {
-          hasRootCa: !!process.env.PGSSLROOTCERT,
-          rootCaLen: process.env.PGSSLROOTCERT?.length ?? 0,
-          code: err?.code,
-          message: err?.message,
-        });
-      }
       
       if (isTimeout) {
         console.warn('[SupabaseSessionStore] Timeout lors de la sauvegarde de session (DB lente ou indisponible)');
